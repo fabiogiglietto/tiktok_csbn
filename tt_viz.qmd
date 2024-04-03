@@ -1,0 +1,41 @@
+---
+title: "TikTok Coordinated Sharing Network"
+author: "Fabio Giglietto"
+format: html
+---
+
+```{r setup}
+library(igraph)
+library(visNetwork)
+```
+
+```{r data_preparation}
+coord_graph <- readRDS("coord_graph.rds")
+
+# Add URL attribute to nodes
+V(coord_graph)$url <- paste0("https://tiktok.com/@", V(coord_graph)$name)
+
+# Convert igraph object to visNetwork
+data <- toVisNetworkData(coord_graph)
+
+```
+
+```{r viz}
+# Plot the graph using visNetwork
+network <- visNetwork(data$nodes, data$edges, width = "100%", height = "600px") %>%
+  visLayout(randomSeed = 123) # Setting a seed for reproducible layout
+
+# Add event to open URL on node click and log URL for debugging
+network <- network %>%
+  visEvents(click = "function(params) {
+                                      if (params.nodes.length > 0) {
+                                        var nodeId = params.nodes[0];
+                                        var nodeData = this.body.data.nodes.get(nodeId);
+                                        var url = nodeData.url;
+                                        console.log('Opening URL:', url);  // For debugging
+                                        window.open(url, '_blank');
+                                      }
+                                    }")
+# Print the network
+network
+```
