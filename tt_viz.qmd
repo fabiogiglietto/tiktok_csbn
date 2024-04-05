@@ -90,7 +90,7 @@ for (desc in video_desc) {
     all_videos_list[[desc]] <- temp_videos
     
     # Optional: Pause between API calls to avoid rate limits
-    Sys.sleep(time = 1) # Adjust time as needed based on the API's rate limit policy
+    Sys.sleep(time = 2) # Adjust time as needed based on the API's rate limit policy
   }, error = function(e) {
     message(sprintf("Error fetching videos for description '%s': %s", desc, e$message))
   })
@@ -196,6 +196,7 @@ tryCatch({
   stop("Failed to write the updated list of TikTok coordinated accounts to CSV: ", e$message)
 })
 ```
+
 # Output
 
 Today, we have analyzed `r nrow(recent_videos)` videos from a set of `r length(coord_users)` monitored accounts and discovered `r nrow(new_account_ids)` new coordinated accounts.
@@ -247,14 +248,9 @@ network
 
 # About
 
-<div style="display: flex; align-items: center;">
-  <div style="margin-right: 20px;">
-    <img src="https://ml1czqgskmun.i.optimole.com/w:auto/h:auto/q:mauto/f:best/https://www.disinfo.eu/wp-content/uploads/elementor/thumbs/vera-logo_black-pz7er90kthmarde380cigj2nwx09ubmujp4y24avw2.jpg" alt="Vera.ai Logo" style="width: 100px; height: auto;">
-  </div>
-  <div style="font-weight: normal;">
-    vera.ai is a research and development project focusing on disinformation analysis and AI-supported verification tools and services. Project funded by EU Horizon Europe, the UK’s innovation agency, and the Swiss State Secretariat for Education, Research and Innovation.
-  </div>
-</div>
+|                                                                                                                                                                      |                                                                                                                                                                                                                                                                                                           |
+|-------------------|-----------------------------------------------------|
+| [![vera ai logo](https://www.disinfo.eu/wp-content/uploads/elementor/thumbs/vera-logo_black-pz7er90kthmarde380cigj2nwx09ubmujp4y24avw2.jpg)](https://www.veraai.eu/) | [vera.ai](https://www.veraai.eu/home) is a research and development project focusing on disinformation analysis and AI supported verification tools and services. Project funded by EU Horizon Europe, the UK's innovation agency, and the Swiss State Secretariat for Education, Research and Innovation |
 
 # References
 
