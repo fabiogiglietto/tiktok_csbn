@@ -2,25 +2,230 @@
 title: "TikTok Coordinated Sharing Network"
 author: "Fabio Giglietto"
 format: html
+date: "`r Sys.Date()`"
 ---
 
-```{r setup}
+# Introduction
+
+This document serves as a proof of concept, developed within the framework of the [Vera.ai Horizon EU project](https://www.veraai.eu/). It presents a comprehensive methodology for tracking and analyzing coordinated sharing activities on TikTok, employing the [`traktok`](https://github.com/JBGruber/traktok) package for data collection via the TikTok Research API and [`CooRTweet`](https://github.com/nicolarighetti/CooRTweet) for the analysis of coordinated behavior patterns.
+
+**Initial Discovery:** The analysis initiates by focusing on content tagged with the #moskow hashtag. This first step successfully identifies a preliminary group of accounts involved in coordinated sharing activities in the aftermath of the attack in Moscow. This discovery lays the groundwork for an extensive examination of coordinated dynamics across social media platforms.
+
+**Daily Monitoring and Analysis:** Subsequent to the initial identification, the methodology transitions into a phase of daily monitoring. In this phase, the script consistently retrieves videos posted by the previously identified accounts, with the goal of detecting both ongoing and emerging instances of coordinated behavior. As new accounts manifesting coordinated behavior are discovered, they are incorporated into the daily monitoring routine.
+
+This approach ensures continuous updates on the number of newly discovered coordinated accounts, highlighting the fluid nature of social media coordination. Enhanced by interactive visualizations, the analysis sheds light on the shifting landscape of account activities and the intricate network of interactions among them on the TikTok platform.
+
+By delineating these processes, the proof of concept underscores the potential for advanced analytical tools to reveal and understand the complex phenomena of coordinated social media behavior within the context of significant societal events.
+
+```{r setup, include=FALSE, message=FALSE}
+setwd("/home/mine/VERAAI_WP4/")
+
+# Library loading and initial setup
+library(tidyverse)
+library(traktok)
+library(CooRTweet)
+library(purrr)
 library(igraph)
 library(visNetwork)
+library(ggplot2)
+
+knitr::opts_chunk$set(echo = FALSE)
+
+# Ensure environment variables are set
+if (is.na(Sys.getenv("TIKTOK_CLIENT_KEY")) | is.na(Sys.getenv("TIKTOK_CLIENT_SECRET"))) {
+  stop("Environment variables for TikTok API not set. Please set TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET.")
+}
+
+tryCatch({
+  auth_research(client_key = Sys.getenv("TIKTOK_CLIENT_KEY"), client_secret = Sys.getenv("TIKTOK_CLIENT_SECRET"))
+}, error = function(e) {
+  stop("Authentication with TikTok API failed. Error message: ", e$message)
+})
+
+
+# Try reading the CSV file and handle possible errors
+tryCatch({
+  account_ids <- readr::read_csv("./lists/tiktok_coordinated_accounts_ids.csv")
+}, error = function(e) {
+  stop("Failed to read TikTok coordinated accounts ID CSV. Error: ", e$message)
+})
+
+coord_users <- unique(account_ids$x)
+enddate <- Sys.Date()
+startdate <- enddate -30
 ```
 
-```{r data_preparation}
-coord_graph <- readRDS("coord_graph.rds")
+```{r fetch_data, message=FALSE}
 
+recent_videos <- query() |>
+  query_and(field_name = "username",
+            operation = "IN",
+            field_values = coord_users) |>
+  tt_search_api(start_date = startdate,
+                end_date = enddate,
+                max_pages = 100L,
+                verbose = TRUE,
+                fields = "all")
+
+video_desc <- unique(recent_videos$video_description) # get all video descriptions
+
+# Initialize an empty list to store the results from each API call
+all_videos_list <- list()
+
+# Use a loop to iterate over each video description
+for (desc in video_desc) {
+  tryCatch({
+    # Perform the search for the current video description
+    temp_videos <- query() |>
+      query_and(field_name = "keyword",
+                operation = "EQ",
+                field_values = desc) |>
+      tt_search_api(start_date = startdate,
+                    end_date = enddate,
+                    max_pages = 100L,
+                    verbose = TRUE,
+                    fields = "all")
+    
+    # Append the results to the list
+    all_videos_list[[desc]] <- temp_videos
+    
+    # Optional: Pause between API calls to avoid rate limits
+    Sys.sleep(time = 1) # Adjust time as needed based on the API's rate limit policy
+  }, error = function(e) {
+    message(sprintf("Error fetching videos for description '%s': %s", desc, e$message))
+  })
+}
+
+# Normalize each data frame in the list to ensure consistent column types
+all_videos_list <- lapply(all_videos_list, function(df) {
+  if("video_id" %in% names(df)) {
+    df$video_id <- as.character(df$video_id)
+  } else {
+    # If the video_id column is missing, add it as character to avoid type mismatch
+    df$video_id <- character(nrow(df))
+  }
+  
+  # Ensure all other necessary columns are present and have consistent types
+  # Repeat the above process for any other columns that may cause issues
+  
+  return(df)
+})
+
+# Combine all results into a single data frame
+# Assuming each item in all_videos_list is a data frame with the same structure
+all_videos <- all_videos_list %>%
+  lapply(function(df) {
+    if("region_code" %in% names(df)) {
+      df$region_code <- toupper(df$region_code) # Convert 'region_code' to uppercase
+    }
+    return(df)
+  }) %>%
+  bind_rows() %>%
+  distinct()
+
+rm(temp_videos)
+
+```
+
+```{r coordinated_detection, message=FALSE}
+prep_data <- CooRTweet::prep_data(x = all_videos,
+                                  object_id = "video_description",
+                                  account_id = "author_name",
+                                  content_id = "video_id",
+                                  timestamp_share = "create_time")
+
+result <- CooRTweet::detect_groups(x = prep_data,
+                                   time_window = 300, # set the time interval
+                                   min_participation = 2, # set the minimum number of repetition
+                                   remove_loops = T)
+
+coord_graph <- CooRTweet::generate_coordinated_network(result,
+                                            edge_weight = 0.9, # default 0.9
+                                            objects = TRUE)
+
+# Before calculating summary statistics, ensure the 'coord_graph' and 'result' are valid
+if(exists("coord_graph") && !is.null(coord_graph) && exists("result") && !is.null(result)) {
+  # Check if 'coord_graph' has the expected structure
+  if(!("igraph" %in% class(coord_graph))) {
+    stop("coord_graph is not of type igraph. Please check the generate_coordinated_network output.")
+  }
+  
+  # Proceed with summary calculations
+  tryCatch({
+    summary_groups <- CooRTweet::group_stats(coord_graph = coord_graph, weight_threshold = "full")
+    summary_accounts <- CooRTweet::account_stats(coord_graph = coord_graph, result = result, weight_threshold = "full")
+  }, error = function(e) {
+    stop("Failed to calculate summary statistics for groups or accounts: ", e$message)
+  })
+  
+  new_account_ids <- summary_accounts[!(summary_accounts$account_id %in% account_ids$x), ]
+  updated_list <- c(account_ids$x, new_account_ids$account_id)
+  
+} else {
+  stop("coord_graph or result is missing or invalid. Cannot calculate summary statistics.")
+}
+```
+
+```{r save_output, message=FALSE}
+
+# Define the log file path
+log_file_path <- "/home/mine/VERAAI_WP4/output/new_accounts_log.csv"
+
+# Check if the log file exists; if not, create it with a header
+if (!file.exists(log_file_path)) {
+  write.csv(data.frame(Timestamp = character(), New_Accounts_Count = numeric()), 
+            log_file_path, row.names = FALSE)
+}
+
+# Prepare the new entry with the current timestamp and the count of new accounts
+new_entry <- data.frame(Timestamp = Sys.Date(), New_Accounts_Count = nrow(new_account_ids))
+
+# Append the new entry to the log file using write.table
+write.table(new_entry, file = log_file_path, sep = ",", col.names = FALSE, 
+            row.names = FALSE, append = TRUE, quote = FALSE)
+
+# Make sure the 'write.csv' operation for updating the account list is also wrapped in tryCatch
+tryCatch({
+  # Assuming 'updated_list' is properly generated from 'summary_accounts'
+  if(exists("updated_list") && length(updated_list) > 0) {
+    write.csv(x = updated_list, file = "/home/mine/VERAAI_WP4/lists/tiktok_coordinated_accounts_ids.csv", row.names = FALSE)
+  } else {
+    stop("updated_list is missing or empty. No new data to write.")
+  }
+}, error = function(e) {
+  stop("Failed to write the updated list of TikTok coordinated accounts to CSV: ", e$message)
+})
+```
+# Output
+
+Today, we have analyzed `r nrow(recent_videos)` videos from a set of `r length(coord_users)` monitored accounts and discovered `r nrow(new_account_ids)` new coordinated accounts.
+
+```{r new-accounts-plot, fig.cap="Trend of newly discovered TikTok accounts."}
+log_data <- read_csv(log_file_path)
+
+# Ensure the Timestamp is treated as a Date
+log_data$Timestamp <- as.Date(log_data$Timestamp)
+
+# Generate the bar chart
+ggplot(log_data, aes(x = Timestamp, y = New_Accounts_Count, group=1)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(title = "Newly Discovered TikTok Accounts Over Time",
+       x = "Date",
+       y = "Number of New Accounts") +
+  theme_minimal() + # Use a minimal theme
+  scale_y_continuous(limits = c(0, NA)) # Ensure y-axis starts at 0
+
+```
+
+Explore the interactive chart. Node click to visit the TikTok account.
+
+```{r viz, message=FALSE}
 # Add URL attribute to nodes
 V(coord_graph)$url <- paste0("https://tiktok.com/@", V(coord_graph)$name)
 
 # Convert igraph object to visNetwork
 data <- toVisNetworkData(coord_graph)
 
-```
-
-```{r viz}
 # Plot the graph using visNetwork
 network <- visNetwork(data$nodes, data$edges, width = "100%", height = "600px") %>%
   visLayout(randomSeed = 123) # Setting a seed for reproducible layout
@@ -39,3 +244,18 @@ network <- network %>%
 # Print the network
 network
 ```
+
+# About
+
+<div style="display: flex; align-items: center;">
+  <div style="margin-right: 20px;">
+    <img src="https://ml1czqgskmun.i.optimole.com/w:auto/h:auto/q:mauto/f:best/https://www.disinfo.eu/wp-content/uploads/elementor/thumbs/vera-logo_black-pz7er90kthmarde380cigj2nwx09ubmujp4y24avw2.jpg" alt="Vera.ai Logo" style="width: 100px; height: auto;">
+  </div>
+  <div style="font-weight: normal;">
+    vera.ai is a research and development project focusing on disinformation analysis and AI-supported verification tools and services. Project funded by EU Horizon Europe, the UK’s innovation agency, and the Swiss State Secretariat for Education, Research and Innovation.
+  </div>
+</div>
+
+# References
+
+Giglietto, F., Marino, G., Mincigrucci, R., & Stanziano, A. (2023). A Workflow to Detect, Monitor, and Update Lists of Coordinated Social Media Accounts Across Time: The Case of the 2022 Italian Election. Social Media + Society, 9(3). https://doi.org/10.1177/20563051231196866
