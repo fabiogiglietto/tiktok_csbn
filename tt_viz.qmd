@@ -11,7 +11,7 @@ This document serves as a proof of concept, developed within the framework of th
 
 **Initial Discovery:** The analysis initiates by focusing on content tagged with the #moskow hashtag. This first step successfully identifies a preliminary group of accounts involved in coordinated sharing activities in the aftermath of the attack in Moscow. This discovery lays the groundwork for an extensive examination of coordinated dynamics across social media platforms.
 
-**Daily Monitoring and Analysis:** Subsequent to the initial identification, the methodology transitions into a phase of daily monitoring. In this phase, the script consistently retrieves videos posted by the previously identified accounts, with the goal of detecting both ongoing and emerging instances of coordinated behavior. As new accounts manifesting coordinated behavior (time_window = 300, min_participation = 2, edge_weight = 0.5) are discovered, they are incorporated into the daily monitoring routine.
+**Daily Monitoring and Analysis:** Subsequent to the initial identification, the methodology transitions into a phase of daily monitoring. In this phase, the script consistently retrieves videos posted by the previously identified accounts, with the goal of detecting both ongoing and emerging instances of coordinated behavior. As new accounts manifesting coordinated behavior (time_window = 300, min_participation = 2, edge_weight = 0.75) are discovered, they are incorporated into the daily monitoring routine.
 
 This approach ensures continuous updates on the number of newly discovered coordinated accounts, highlighting the fluid nature of social media coordination. Enhanced by interactive visualizations, the analysis sheds light on the shifting landscape of account activities and the intricate network of interactions among them on the TikTok platform.
 
@@ -25,6 +25,7 @@ library(tidyverse)
 library(traktok)
 library(CooRTweet)
 library(purrr)
+library(scales)
 library(igraph)
 library(visNetwork)
 library(ggplot2)
@@ -52,10 +53,10 @@ tryCatch({
 
 coord_users <- unique(account_ids$x)
 enddate <- Sys.Date()
-startdate <- enddate -30
+startdate <- enddate -15
 ```
 
-```{r fetch_data, message=FALSE}
+```{r fetch_recent_videos, message=FALSE}
 
 recent_videos <- query() |>
   query_and(field_name = "username",
@@ -67,8 +68,20 @@ recent_videos <- query() |>
                 verbose = TRUE,
                 fields = "all")
 
-video_desc <- unique(recent_videos$video_description) # get all video descriptions
+# Identify video descriptions that appear at least twice in all_videos
+descriptions_with_min_two_occurrences <- recent_videos %>%
+  group_by(video_description) %>%
+  filter(n() >= 2) %>%
+  ungroup() %>%
+  select(video_description) %>%
+  distinct() %>%
+  pull()
 
+# Get unique video descriptions from recent_videos that are in the above list
+video_desc <- unique(recent_videos$video_description[recent_videos$video_description %in% descriptions_with_min_two_occurrences])
+```
+
+```{r fetch_all_videos, message=FALSE}
 # Initialize an empty list to store the results from each API call
 all_videos_list <- list()
 
@@ -198,11 +211,11 @@ tryCatch({
 })
 ```
 
-# Output
+# Today Output
 
-Today, we have analyzed `r nrow(recent_videos)` videos from a set of `r length(coord_users)` monitored accounts. Those accounts posted `r nrow(all_videos)` between `r startdate` and `r enddate`. The coordinated detection analysis on these video identified `r nrow(summary_accounts)` accounts in `r igraph::components(coord_graph)$no` components and discovered `r nrow(new_account_ids)` new coordinated accounts.
+We have analyzed `r scales::comma(nrow(recent_videos))` videos from a set of `r scales::comma(length(coord_users))` monitored accounts. Those accounts posted `r scales::comma(nrow(all_videos))` videos between `r format(as.Date(startdate), "%B %d, %Y")` and `r format(as.Date(enddate), "%B %d, %Y")`. Our coordinated detection analysis of these videos identified `r scales::comma(nrow(summary_accounts))` accounts across `r scales::comma(igraph::components(coord_graph)$no)` components and discovered `r scales::comma(nrow(new_account_ids))` new accounts exhibiting coordinated behavior.
 
-```{r new-accounts-plot, fig.cap="Trend of newly discovered TikTok accounts."}
+```{r new-accounts-plot, fig.cap="Trend of newly discovered TikTok accounts.", message=FALSE}
 log_data <- read_csv(log_file_path)
 
 # Ensure the Timestamp is treated as a Date
