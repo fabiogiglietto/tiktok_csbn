@@ -11,7 +11,7 @@ This document serves as a proof of concept, developed within the framework of th
 
 **Initial Discovery:** The analysis initiates by focusing on content tagged with the #moskow hashtag. This first step successfully identifies a preliminary group of accounts involved in coordinated sharing activities in the aftermath of the attack in Moscow. This discovery lays the groundwork for an extensive examination of coordinated dynamics across social media platforms.
 
-**Daily Monitoring and Analysis:** Subsequent to the initial identification, the methodology transitions into a phase of daily monitoring. In this phase, the script consistently retrieves videos posted by the previously identified accounts, with the goal of detecting both ongoing and emerging instances of coordinated behavior. As new accounts manifesting coordinated behavior are discovered, they are incorporated into the daily monitoring routine.
+**Daily Monitoring and Analysis:** Subsequent to the initial identification, the methodology transitions into a phase of daily monitoring. In this phase, the script consistently retrieves videos posted by the previously identified accounts, with the goal of detecting both ongoing and emerging instances of coordinated behavior. As new accounts manifesting coordinated behavior (time_window = 300, min_participation = 2, edge_weight = 0.5) are discovered, they are incorporated into the daily monitoring routine.
 
 This approach ensures continuous updates on the number of newly discovered coordinated accounts, highlighting the fluid nature of social media coordination. Enhanced by interactive visualizations, the analysis sheds light on the shifting landscape of account activities and the intricate network of interactions among them on the TikTok platform.
 
@@ -90,7 +90,7 @@ for (desc in video_desc) {
     all_videos_list[[desc]] <- temp_videos
     
     # Optional: Pause between API calls to avoid rate limits
-    Sys.sleep(time = 2) # Adjust time as needed based on the API's rate limit policy
+    Sys.sleep(time = 1.5) # Adjust time as needed based on the API's rate limit policy
   }, error = function(e) {
     message(sprintf("Error fetching videos for description '%s': %s", desc, e$message))
   })
@@ -139,9 +139,10 @@ result <- CooRTweet::detect_groups(x = prep_data,
                                    min_participation = 2, # set the minimum number of repetition
                                    remove_loops = T)
 
-coord_graph <- CooRTweet::generate_coordinated_network(result,
-                                            edge_weight = 0.9, # default 0.9
-                                            objects = TRUE)
+coord_graph <- CooRTweet::generate_coordinated_network(x = result, 
+                                            edge_weight = 0.75, # default 0.5
+                                            objects = TRUE,
+                                            subgraph = 1)
 
 # Before calculating summary statistics, ensure the 'coord_graph' and 'result' are valid
 if(exists("coord_graph") && !is.null(coord_graph) && exists("result") && !is.null(result)) {
@@ -199,7 +200,7 @@ tryCatch({
 
 # Output
 
-Today, we have analyzed `r nrow(recent_videos)` videos from a set of `r length(coord_users)` monitored accounts and discovered `r nrow(new_account_ids)` new coordinated accounts.
+Today, we have analyzed `r nrow(recent_videos)` videos from a set of `r length(coord_users)` monitored accounts. Those accounts posted `r nrow(all_videos)` between `r startdate` and `r enddate`. The coordinated detection analysis on these video identified `r nrow(summary_accounts)` accounts in `r igraph::components(coord_graph)$no` components and discovered `r nrow(new_account_ids)` new coordinated accounts.
 
 ```{r new-accounts-plot, fig.cap="Trend of newly discovered TikTok accounts."}
 log_data <- read_csv(log_file_path)
@@ -242,6 +243,9 @@ network <- network %>%
                                         window.open(url, '_blank');
                                       }
                                     }")
+```
+
+```{r interactive-plot, fig.cap="Interactive visualization of coordinated account detected today. Click on a node click to visit the respective TikTok account."}
 # Print the network
 network
 ```
