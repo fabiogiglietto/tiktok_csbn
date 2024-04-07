@@ -53,7 +53,7 @@ tryCatch({
 
 coord_users <- unique(account_ids$x)
 enddate <- Sys.Date()
-startdate <- enddate -15
+startdate <- enddate-15
 ```
 
 ```{r fetch_recent_videos, message=FALSE}
@@ -68,17 +68,17 @@ recent_videos <- query() |>
                 verbose = TRUE,
                 fields = "all")
 
-# Identify video descriptions that appear at least twice in all_videos
-descriptions_with_min_two_occurrences <- recent_videos %>%
-  group_by(video_description) %>%
+# Identify videos that have both identical descriptions and the same music_id, appearing at least twice
+videos_with_same_desc_and_music <- recent_videos %>%
+  group_by(video_description, music_id) %>%
   filter(n() >= 2) %>%
-  ungroup() %>%
-  select(video_description) %>%
-  distinct() %>%
-  pull()
+  ungroup()
 
-# Get unique video descriptions from recent_videos that are in the above list
-video_desc <- unique(recent_videos$video_description[recent_videos$video_description %in% descriptions_with_min_two_occurrences])
+# If you want to extract just the unique combinations of video_description and music_id
+# that meet the criteria (appearing at least twice), then you can further refine the result:
+unique_videos_desc_and_music <- videos_with_same_desc_and_music %>%
+  select(video_description, music_id) %>%
+  distinct()
 ```
 
 ```{r fetch_all_videos, message=FALSE}
@@ -86,21 +86,30 @@ video_desc <- unique(recent_videos$video_description[recent_videos$video_descrip
 all_videos_list <- list()
 
 # Use a loop to iterate over each video description
-for (desc in video_desc) {
+for(i in 1:nrow(unique_videos_desc_and_music)) {
   tryCatch({
+    
+    # Extract the current video description and music_id
+    desc <- unique_videos_desc_and_music$video_description[i]
+    music_id <- unique_videos_desc_and_music$music_id[i]
+    
     # Perform the search for the current video description
     temp_videos <- query() |>
       query_and(field_name = "keyword",
                 operation = "EQ",
                 field_values = desc) |>
-      tt_search_api(start_date = startdate,
+      query_and(field_name = "music_id",
+            operation = "EQ",
+            field_values = music_id) |>
+      tt_search_api(start_date = startdate, 
                     end_date = enddate,
                     max_pages = 100L,
                     verbose = TRUE,
                     fields = "all")
     
-    # Append the results to the list
-    all_videos_list[[desc]] <- temp_videos
+    # Append the results to the list with a unique key combining description and music ID
+    key <- paste(desc, music_id, sep = " ")
+    all_videos_list[[key]] <- temp_videos
     
     # Optional: Pause between API calls to avoid rate limits
     Sys.sleep(time = 1.5) # Adjust time as needed based on the API's rate limit policy
@@ -109,38 +118,39 @@ for (desc in video_desc) {
   })
 }
 
-# Normalize each data frame in the list to ensure consistent column types
+# Normalize data frames in the list
 all_videos_list <- lapply(all_videos_list, function(df) {
   if("video_id" %in% names(df)) {
     df$video_id <- as.character(df$video_id)
   } else {
-    # If the video_id column is missing, add it as character to avoid type mismatch
     df$video_id <- character(nrow(df))
   }
-  
-  # Ensure all other necessary columns are present and have consistent types
-  # Repeat the above process for any other columns that may cause issues
-  
+  # Process for other columns as needed
   return(df)
 })
 
 # Combine all results into a single data frame
 # Assuming each item in all_videos_list is a data frame with the same structure
-all_videos <- all_videos_list %>%
-  lapply(function(df) {
-    if("region_code" %in% names(df)) {
-      df$region_code <- toupper(df$region_code) # Convert 'region_code' to uppercase
+
+all_videos <- bind_rows(all_videos_list) 
+
+all_videos <- all_videos %>%
+  {
+    if("region_code" %in% names(.)) {
+      mutate(., region_code = toupper(region_code))
+    } else {
+      .
     }
-    return(df)
-  }) %>%
-  bind_rows() %>%
+  } %>%
   distinct()
 
+# Cleanup
 rm(temp_videos)
 
 ```
 
 ```{r coordinated_detection, message=FALSE}
+
 prep_data <- CooRTweet::prep_data(x = all_videos,
                                   object_id = "video_description",
                                   account_id = "author_name",
