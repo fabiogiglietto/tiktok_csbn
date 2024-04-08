@@ -69,15 +69,15 @@ recent_videos <- query() |>
                 fields = "all")
 
 # Identify videos that have both identical descriptions and the same music_id, appearing at least twice
-videos_with_same_desc_and_music <- recent_videos %>%
-  group_by(video_description, music_id) %>%
+videos_with_same_desc <- recent_videos %>%
+  group_by(video_description) %>%
   filter(n() >= 2) %>%
   ungroup()
 
 # If you want to extract just the unique combinations of video_description and music_id
 # that meet the criteria (appearing at least twice), then you can further refine the result:
-unique_videos_desc_and_music <- videos_with_same_desc_and_music %>%
-  select(video_description, music_id) %>%
+unique_videos_desc <- videos_with_same_desc %>%
+  select(video_description) %>%
   distinct()
 ```
 
@@ -86,30 +86,25 @@ unique_videos_desc_and_music <- videos_with_same_desc_and_music %>%
 all_videos_list <- list()
 
 # Use a loop to iterate over each video description
-for(i in 1:nrow(unique_videos_desc_and_music)) {
+for(i in 1:nrow(unique_videos_desc)) {
   tryCatch({
     
-    # Extract the current video description and music_id
-    desc <- unique_videos_desc_and_music$video_description[i]
-    music_id <- unique_videos_desc_and_music$music_id[i]
+    # Extract the current video description
+    desc <- unique_videos_desc$video_description[i]
     
     # Perform the search for the current video description
     temp_videos <- query() |>
       query_and(field_name = "keyword",
                 operation = "EQ",
                 field_values = desc) |>
-      query_and(field_name = "music_id",
-            operation = "EQ",
-            field_values = music_id) |>
       tt_search_api(start_date = startdate, 
                     end_date = enddate,
                     max_pages = 100L,
                     verbose = TRUE,
                     fields = "all")
     
-    # Append the results to the list with a unique key combining description and music ID
-    key <- paste(desc, music_id, sep = " ")
-    all_videos_list[[key]] <- temp_videos
+    # Append the results to the list
+    all_videos_list[[i]] <- temp_videos
     
     # Optional: Pause between API calls to avoid rate limits
     Sys.sleep(time = 1.5) # Adjust time as needed based on the API's rate limit policy
@@ -163,7 +158,7 @@ result <- CooRTweet::detect_groups(x = prep_data,
                                    remove_loops = T)
 
 coord_graph <- CooRTweet::generate_coordinated_network(x = result, 
-                                            edge_weight = 0.75, # default 0.5
+                                            edge_weight = 0.5, # default 0.5
                                             objects = TRUE,
                                             subgraph = 1)
 
@@ -188,6 +183,7 @@ if(exists("coord_graph") && !is.null(coord_graph) && exists("result") && !is.nul
 } else {
   stop("coord_graph or result is missing or invalid. Cannot calculate summary statistics.")
 }
+
 ```
 
 ```{r save_output, message=FALSE}
