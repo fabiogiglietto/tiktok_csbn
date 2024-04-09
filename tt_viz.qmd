@@ -264,7 +264,7 @@ network <- network %>%
                                     }")
 ```
 
-```{r interactive-plot, fig.cap="Interactive visualization of coordinated account detected today. Click on a node click to visit the respective TikTok account."}
+```{r interactive-plot, fig.cap="Interactive visualization of coordinated account detected today. Click on a node to visit the respective TikTok account."}
 # Print the network
 network
 ```
