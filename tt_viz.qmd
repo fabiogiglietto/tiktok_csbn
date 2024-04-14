@@ -68,7 +68,7 @@ recent_videos <- query() |>
                 verbose = TRUE,
                 fields = "all")
 
-# Identify videos that have both identical descriptions and the same music_id, appearing at least twice
+# Identify videos that have identical descriptions
 videos_with_same_desc <- recent_videos %>%
   group_by(video_description) %>%
   filter(n() >= 2) %>%
@@ -219,7 +219,7 @@ tryCatch({
 
 # Today Output
 
-We have analyzed `r scales::comma(nrow(recent_videos))` videos from a set of `r scales::comma(length(coord_users))` monitored accounts. Those accounts posted `r scales::comma(nrow(all_videos))` videos between `r format(as.Date(startdate), "%B %d, %Y")` and `r format(as.Date(enddate), "%B %d, %Y")`. Our coordinated detection analysis of these videos identified `r scales::comma(nrow(summary_accounts))` accounts across `r scales::comma(igraph::components(coord_graph)$no)` components and discovered `r scales::comma(nrow(new_account_ids))` new accounts exhibiting coordinated behavior.
+We retrieved `r scales::comma(nrow(recent_videos))` videos from `r scales::comma(length(coord_users))` monitored accounts, during the period from `r format(as.Date(startdate), "%B %d, %Y")` to `r format(as.Date(enddate), "%B %d, %Y")`. Using a unique list of video descriptions from these accounts, we accessed a total of `r scales::comma(nrow(all_videos))` videos posted on TikTok within the same timeframe. Our analysis for coordinated detection in these videos identified `r scales::comma(nrow(summary_accounts))` accounts spread across `r scales::comma(igraph::components(coord_graph)$no)` components, and it also uncovered `r scales::comma(nrow(new_account_ids))` new accounts exhibiting coordinated behavior.
 
 ```{r new-accounts-plot, fig.cap="Trend of newly discovered TikTok accounts.", message=FALSE}
 log_data <- read_csv(log_file_path)
@@ -272,7 +272,7 @@ network
 # About
 
 |                                                                                                                                                                      |                                                                                                                                                                                                                                                                                                           |
-|-------------------|-----------------------------------------------------|
+|--------------------|----------------------------------------------------|
 | [![vera ai logo](https://www.disinfo.eu/wp-content/uploads/elementor/thumbs/vera-logo_black-pz7er90kthmarde380cigj2nwx09ubmujp4y24avw2.jpg)](https://www.veraai.eu/) | [vera.ai](https://www.veraai.eu/home) is a research and development project focusing on disinformation analysis and AI supported verification tools and services. Project funded by EU Horizon Europe, the UK's innovation agency, and the Swiss State Secretariat for Education, Research and Innovation |
 
 # References
