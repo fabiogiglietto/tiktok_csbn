@@ -139,6 +139,9 @@ all_videos <- all_videos %>%
   } %>%
   distinct()
 
+# Save the results in the git folder
+write_csv(x = all_videos, file = "/home/mine/VERAAI_WP4/output/latest_snapshot.csv")
+
 # Cleanup
 rm(temp_videos)
 
