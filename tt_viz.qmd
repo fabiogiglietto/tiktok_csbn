@@ -137,7 +137,10 @@ all_videos <- all_videos %>%
       .
     }
   } %>%
-  distinct()
+  dplyr::distinct() %>%
+  dplyr::mutate(video_url = ifelse(!is.na(author_name) & !is.na(video_id),
+                                   paste0("https://www.tiktok.com/@", author_name, "/video/", video_id),
+                                   NA))
 
 # Save the results in the git folder
 write_csv(x = all_videos, file = "/home/mine/VERAAI_WP4/output/latest_snapshot.csv")
