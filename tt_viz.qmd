@@ -3,6 +3,8 @@ title: "TikTok Coordinated Sharing Network"
 author: "Fabio Giglietto"
 format: html
 date: "`r Sys.Date()`"
+params:
+  load_from_snapshot: FALSE
 ---
 
 # Introduction
@@ -10,6 +12,8 @@ date: "`r Sys.Date()`"
 This document serves as a proof of concept, developed within the framework of the [Vera.ai Horizon EU project](https://www.veraai.eu/). It presents a comprehensive methodology for tracking and analyzing coordinated sharing activities on TikTok, employing the [`traktok`](https://github.com/JBGruber/traktok) package for data collection via the TikTok Research API and [`CooRTweet`](https://github.com/nicolarighetti/CooRTweet) for the analysis of coordinated behavior patterns.
 
 **Initial Discovery:** The analysis initiates by focusing on content tagged with the #moskow hashtag. This first step successfully identifies a preliminary group of accounts involved in coordinated sharing activities in the aftermath of the attack in Moscow. This discovery lays the groundwork for an extensive examination of coordinated dynamics across social media platforms.
+
+On April 19, 2024, we received a list of 513 problematic accounts from a trusted partner within the Vera AI consortium. Accounts that were mentioned at least twice on this list have been added to our pool of monitored accounts.
 
 **Daily Monitoring and Analysis:** Subsequent to the initial identification, the methodology transitions into a phase of daily monitoring. In this phase, the script consistently retrieves videos posted by the previously identified accounts, with the goal of detecting both ongoing and emerging instances of coordinated behavior. As new accounts manifesting coordinated behavior (time_window = 300, min_participation = 2, edge_weight = 0.5) are discovered, they are incorporated into the daily monitoring routine.
 
@@ -26,37 +30,47 @@ library(traktok)
 library(CooRTweet)
 library(purrr)
 library(scales)
+library(stringr)
 library(igraph)
 library(visNetwork)
 library(ggplot2)
 
 knitr::opts_chunk$set(echo = FALSE)
 
-# Ensure environment variables are set
-if (is.na(Sys.getenv("TIKTOK_CLIENT_KEY")) | is.na(Sys.getenv("TIKTOK_CLIENT_SECRET"))) {
-  stop("Environment variables for TikTok API not set. Please set TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET.")
+if (!params$load_from_snapshot) {
+  # Ensure environment variables are set
+  if (is.na(Sys.getenv("TIKTOK_CLIENT_KEY")) | is.na(Sys.getenv("TIKTOK_CLIENT_SECRET"))) {
+    stop("Environment variables for TikTok API not set. Please set TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET.")
+  }
+  
+  tryCatch({
+    auth_research(client_key = Sys.getenv("TIKTOK_CLIENT_KEY"), client_secret = Sys.getenv("TIKTOK_CLIENT_SECRET"))
+  }, error = function(e) {
+    stop("Authentication with TikTok API failed. Error message: ", e$message)
+  })
+  
+} else {
+    # Load data from the latest snapshot
+  all_videos <- readr::read_csv("/home/mine/VERAAI_WP4/output/latest_snapshot.csv",
+                                col_types = cols(video_id = col_character(), 
+                                                 effect_ids = col_character(), music_id = col_character(), 
+                                                 hashtag_names = col_character()))
+  recent_videos <- NA
 }
-
-tryCatch({
-  auth_research(client_key = Sys.getenv("TIKTOK_CLIENT_KEY"), client_secret = Sys.getenv("TIKTOK_CLIENT_SECRET"))
-}, error = function(e) {
-  stop("Authentication with TikTok API failed. Error message: ", e$message)
-})
-
 
 # Try reading the CSV file and handle possible errors
 tryCatch({
   account_ids <- readr::read_csv("./lists/tiktok_coordinated_accounts_ids.csv")
-}, error = function(e) {
-  stop("Failed to read TikTok coordinated accounts ID CSV. Error: ", e$message)
-})
+  }, error = function(e) {
+    stop("Failed to read TikTok coordinated accounts ID CSV. Error: ", e$message)
+    })
 
 coord_users <- unique(account_ids$x)
 enddate <- Sys.Date()
 startdate <- enddate-15
 ```
 
-```{r fetch_recent_videos, message=FALSE}
+```{r fetch_recent_videos, message=FALSE, eval=!params$load_from_snapshot}
 
 recent_videos <- query() |>
   query_and(field_name = "username",
@@ -70,6 +84,7 @@ recent_videos <- query() |>
 
 # Identify videos that have identical descriptions
 videos_with_same_desc <- recent_videos %>%
+  mutate(video_description = str_to_lower(video_description)) %>% 
   group_by(video_description) %>%
   filter(n() >= 2) %>%
   ungroup()
@@ -78,10 +93,12 @@ videos_with_same_desc <- recent_videos %>%
 # that meet the criteria (appearing at least twice), then you can further refine the result:
 unique_videos_desc <- videos_with_same_desc %>%
   select(video_description) %>%
+  filter(video_description != "" & nchar(video_description) >= 36) %>%
   distinct()
+
 ```
 
-```{r fetch_all_videos, message=FALSE}
+```{r fetch_all_videos, message=FALSE, eval=!params$load_from_snapshot}
 # Initialize an empty list to store the results from each API call
 all_videos_list <- list()
 
