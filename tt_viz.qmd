@@ -86,7 +86,7 @@ recent_videos <- query() |>
 videos_with_same_desc <- recent_videos %>%
   mutate(video_description = str_to_lower(video_description)) %>% 
   group_by(video_description) %>%
-  filter(n() >= 2) %>%
+  filter(n() >= 3) %>%
   ungroup()
 
 # If you want to extract just the unique combinations of video_description and music_id
