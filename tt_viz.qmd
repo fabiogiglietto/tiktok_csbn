@@ -124,7 +124,7 @@ for(i in 1:nrow(unique_videos_desc)) {
     all_videos_list[[i]] <- temp_videos
     
     # Optional: Pause between API calls to avoid rate limits
-    Sys.sleep(time = 1.5) # Adjust time as needed based on the API's rate limit policy
+    Sys.sleep(time = 2) # Adjust time as needed based on the API's rate limit policy
   }, error = function(e) {
     message(sprintf("Error fetching videos for description '%s': %s", desc, e$message))
   })
