@@ -72,29 +72,38 @@ startdate <- enddate-15
 
 ```{r fetch_recent_videos, message=FALSE, eval=!params$load_from_snapshot}
 
-recent_videos <- query() |>
-  query_and(field_name = "username",
-            operation = "IN",
-            field_values = coord_users) |>
-  tt_search_api(start_date = startdate,
-                end_date = enddate,
-                max_pages = 100L,
-                verbose = TRUE,
-                fields = "all")
+recent_videos <- tryCatch({
+  query() |>
+    query_and(field_name = "username",
+              operation = "IN",
+              field_values = coord_users) |>
+    tt_search_api(start_date = startdate,
+                  end_date = enddate,
+                  max_pages = 100L,
+                  verbose = TRUE,
+                  fields = "all")
+}, error = function(e) {
+  # Returning a simple list with an error message to check later
+  list(error = TRUE, message = "The API rate limit was exceeded. Please try again later.")
+})
 
-# Identify videos that have identical descriptions
-videos_with_same_desc <- recent_videos %>%
+# Check if recent_videos contains error information
+if (is.list(recent_videos) && !is.null(recent_videos$error) && recent_videos$error) {
+  knitr::kable(data.frame(Date = Sys.Date(), Message = recent_videos$message))
+} else {
+  # Identify videos that have identical descriptions
+  videos_with_same_desc <- recent_videos %>%
   mutate(video_description = str_to_lower(video_description)) %>% 
   group_by(video_description) %>%
   filter(n() >= 3) %>%
   ungroup()
-
-# If you want to extract just the unique combinations of video_description and music_id
-# that meet the criteria (appearing at least twice), then you can further refine the result:
-unique_videos_desc <- videos_with_same_desc %>%
+  
+  # Get unique video descriptions with a minimum length of 50 chars
+  unique_videos_desc <- videos_with_same_desc %>%
   select(video_description) %>%
-  filter(video_description != "" & nchar(video_description) >= 36) %>%
+  filter(video_description != "" & nchar(video_description) >= 80) %>%
   distinct()
+}
 
 ```
 
@@ -154,6 +163,7 @@ all_videos <- all_videos %>%
       .
     }
   } %>%
+  dplyr::filter(video_description != "" & nchar(video_description) >= 80) %>%
   dplyr::distinct() %>%
   dplyr::mutate(video_url = ifelse(!is.na(author_name) & !is.na(video_id),
                                    paste0("https://www.tiktok.com/@", author_name, "/video/", video_id),
@@ -242,7 +252,24 @@ tryCatch({
 
 # Today Output
 
-We retrieved `r scales::comma(nrow(recent_videos))` videos from `r scales::comma(length(coord_users))` monitored accounts, during the period from `r format(as.Date(startdate), "%B %d, %Y")` to `r format(as.Date(enddate), "%B %d, %Y")`. Using a unique list of video descriptions from these accounts, we accessed a total of `r scales::comma(nrow(all_videos))` videos posted on TikTok within the same timeframe. Our analysis for coordinated detection in these videos identified `r scales::comma(nrow(summary_accounts))` accounts spread across `r scales::comma(igraph::components(coord_graph)$no)` components, and it also uncovered `r scales::comma(nrow(new_account_ids))` new accounts exhibiting coordinated behavior.
+```{r results_summary}
+# Check if the API call was successful
+if (is.list(recent_videos) && !is.null(recent_videos$error) && recent_videos$error) {
+  cat("Due to an API rate limit issue, the most recent video data could not be retrieved. Please see the error log for more details.")
+} else {
+  # Construct the message assuming data retrieval was successful
+  message <- sprintf("We retrieved %s videos from %s monitored accounts, during the period from %s to %s. Using a unique list of video descriptions from these accounts, we accessed a total of %s videos posted on TikTok within the same timeframe. Our analysis for coordinated detection in these videos identified %s accounts spread across %s components, and it also uncovered %s new accounts exhibiting coordinated behavior.",
+                     scales::comma(nrow(recent_videos)), 
+                     scales::comma(length(coord_users)), 
+                     format(as.Date(startdate), "%B %d, %Y"), 
+                     format(as.Date(enddate), "%B %d, %Y"),
+                     scales::comma(nrow(all_videos)),
+                     scales::comma(nrow(summary_accounts)),
+                     scales::comma(igraph::components(coord_graph)$no),
+                     scales::comma(nrow(new_account_ids)))
+  cat(message)
+}
+```
 
 ```{r new-accounts-plot, fig.cap="Trend of newly discovered TikTok accounts.", message=FALSE}
 log_data <- read_csv(log_file_path)
