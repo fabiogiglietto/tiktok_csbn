@@ -247,7 +247,7 @@ tryCatch({
 
 # Today Output
 
-```{r results_summary}
+```{r results_summary, results='asis'}
 # Check if the API call was successful
 if (is.list(recent_videos) && any(recent_videos$error)) {
   cat("Due to an API rate limit issue, the most recent video data could not be retrieved. Please see the error log for more details.")
