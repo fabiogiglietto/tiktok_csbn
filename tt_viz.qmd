@@ -72,33 +72,54 @@ startdate <- enddate-15
 
 ```{r fetch_recent_videos, message=FALSE, eval=!params$load_from_snapshot}
 
-recent_videos <- tryCatch({
-  data <- query() |>
-    query_and(field_name = "username", operation = "IN", field_values = coord_users) |>
-    tt_search_api(start_date = startdate, end_date = enddate, max_pages = 100L, verbose = TRUE, fields = "all")
-  # Ensure 'error' is always initialized
-  data$error <- FALSE
-  data
-}, error = function(e) {
-  # Returning a simple list with an error message to check later
-  list(error = TRUE, message = "The API rate limit was exceeded. Please try again later.")
-})
+# Function to perform the API query with retry logic and error counting
+get_recent_videos <- function(max_retries = 3) {
+  attempts <- 0
+  repeat {
+    attempts <- attempts + 1
+    tryCatch({
+      data <- query() |>
+        query_and(field_name = "username", operation = "IN", field_values = coord_users) |>
+        tt_search_api(start_date = startdate, end_date = enddate, max_pages = 200L, verbose = TRUE, fields = "all")
+      
+      if (is.null(data) || nrow(data) == 0) {
+        stop("No data returned from API.")
+      }
+      
+      data$error <- FALSE
+      return(data)
+    }, error = function(e) {
+      if (grepl("rate limit", e$message, ignore.case = TRUE) && attempts <= max_retries) {
+        Sys.sleep(60)  # Sleep for a minute before retrying
+        next
+      } else {
+        return(list(error = TRUE, message = ifelse(grepl("rate limit", e$message, ignore.case = TRUE),
+                                                   "The API rate limit was exceeded. Please try again later.",
+                                                   paste("An unexpected error occurred:", e$message))))
+      }
+    })
+  }
+}
 
-# Check if recent_videos contains error information
-if (is.list(recent_videos) && "error" %in% names(recent_videos) && any(recent_videos$error)) {
-  knitr::kable(data.frame(Date = Sys.Date(), Message = recent_videos$message))
-} else if (is.data.frame(recent_videos) && !any(recent_videos$error)) {
-  # Process data frame only if no error attribute set to TRUE
+# Fetch recent videos
+recent_videos <- get_recent_videos()
+
+# Error handling and data processing
+if (is.list(recent_videos) && isTRUE(recent_videos$error)) {
+  # Display the error message using knitr::kable for better formatting in outputs
+  knitr::kable(data.frame(Date = Sys.Date(), Message = recent_videos$message), caption = "Error Details")
+} else if (is.data.frame(recent_videos) && all(recent_videos$error == FALSE)) {
+  # Process the data only if there was no error and the data frame is valid
   videos_with_same_desc <- recent_videos %>%
-    dplyr::mutate(video_description = tolower(video_description)) %>%
-    dplyr::group_by(video_description) %>%
-    dplyr::filter(dplyr::n() >= 3) %>%
-    dplyr::ungroup()
+    mutate(video_description = tolower(video_description)) %>%
+    group_by(video_description) %>%
+    filter(n() >= 3) %>%
+    ungroup()
   
   unique_videos_desc <- videos_with_same_desc %>%
-    dplyr::select(video_description) %>%
-    dplyr::filter(video_description != "" & nchar(video_description) >= 80) %>%
-    dplyr::distinct()
+    select(video_description) %>%
+    filter(video_description != "" & nchar(video_description) >= 80) %>%
+    distinct()
 }
 
 ```
