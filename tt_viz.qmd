@@ -91,14 +91,18 @@ get_recent_videos <- function(max_retries = 3) {
     }, error = function(e) {
       if (grepl("rate limit", e$message, ignore.case = TRUE) && attempts <= max_retries) {
         Sys.sleep(60)  # Sleep for a minute before retrying
-        next
       } else {
         return(list(error = TRUE, message = ifelse(grepl("rate limit", e$message, ignore.case = TRUE),
                                                    "The API rate limit was exceeded. Please try again later.",
                                                    paste("An unexpected error occurred:", e$message))))
       }
     })
+    # Control to continue the loop or exit
+    if (exists("data") && !is.null(data)) {
+      break  # Exit the loop if data is successfully retrieved
+    }
   }
+  return(data)
 }
 
 # Fetch recent videos
