@@ -46,50 +46,34 @@ log_info("Starting TikTok coordinated activity detection script")
 # At the beginning of your script, add:
 global_error_list <- list()
 
-# Function to request an access token
-request_access_token <- function(client_key = NULL, client_secret = NULL) {
-  # Endpoint URL
-  url <- "https://open.tiktokapis.com/v2/oauth/token/"
-  
-  # Check if client_key and client_secret are NULL, and if so, use default values
-  if (is.null(client_key)) {
-    client_key <- Sys.getenv("TIKTOK_CLIENT_KEY")
-    if (is.null(client_key)) {
-      log_error("TIKTOK_CLIENT_KEY is not set")
-      stop("TIKTOK_CLIENT_KEY is not set. Please provide a valid client key or set the environment variable.")
-    }
-  }
-  
-  if (is.null(client_secret)) {
-    client_secret <- Sys.getenv("TIKTOK_CLIENT_SECRET")
-    if (is.null(client_secret)) {
-      log_error("TIKTOK_CLIENT_SECRET is not set")
-      stop("TIKTOK_CLIENT_SECRET is not set. Please provide a valid client secret or set the environment variable.")
-    }
-  }
-  
-  # Headers
-  headers <- c('Content-Type' = 'application/x-www-form-urlencoded')
-  
-  # Body parameters
-  body <- list(
-    client_key = client_key,
-    client_secret = client_secret,
-    grant_type = "client_credentials"
+# Secure credential retrieval
+get_tiktok_credentials <- function() {
+  list(
+    client_key = Sys.getenv("TIKTOK_CLIENT_KEY"),
+    client_secret = Sys.getenv("TIKTOK_CLIENT_SECRET")
   )
-  
-  # Make the POST request
+}
+
+# Function to request an access token
+request_access_token <- function(credentials) {
   tryCatch({
+    url <- "https://open.tiktokapis.com/v2/oauth/token/"
+    headers <- c('Content-Type' = 'application/x-www-form-urlencoded')
+    body <- list(
+      client_key = credentials$client_key,
+      client_secret = credentials$client_secret,
+      grant_type = "client_credentials"
+    )
+    
     response <- httr::POST(url, add_headers(.headers = headers), body = body, encode = "form")
     
-    # Check the response
-    if (response$status_code == 200) {
+    if (httr::status_code(response) == 200) {
       content <- httr::content(response, "parsed")
       log_info("Successfully obtained access token")
       return(content$access_token)
     } else {
-      log_error(paste("Failed to retrieve access token. Status code:", response$status_code))
-      stop(paste("Failed to retrieve access token. Status code:", response$status_code))
+      log_error(paste("Failed to retrieve access token. Status code:", httr::status_code(response)))
+      stop(paste("Failed to retrieve access token. Status code:", httr::status_code(response)))
     }
   }, error = function(e) {
     log_error(paste("Error in request_access_token:", e$message))
@@ -97,52 +81,67 @@ request_access_token <- function(client_key = NULL, client_secret = NULL) {
   })
 }
 
-# Set your client access token and other parameters
-client_key <- Sys.getenv("TIKTOK_CLIENT_KEY")
-client_secret <- Sys.getenv("TIKTOK_CLIENT_SECRET")
-
-if (!params$load_from_snapshot) {
-  # Ensure environment variables are set
-  if (is.na(Sys.getenv("TIKTOK_CLIENT_KEY")) | is.na(Sys.getenv("TIKTOK_CLIENT_SECRET"))) {
-    log_error("Environment variables for TikTok API not set")
-    stop("Environment variables for TikTok API not set. Please set TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET.")
+# Main execution
+main <- function() {
+  credentials <- get_tiktok_credentials()
+  
+  if (!params$load_from_snapshot) {
+    # Ensure environment variables are set
+    if (is.na(Sys.getenv("TIKTOK_CLIENT_KEY")) | is.na(Sys.getenv("TIKTOK_CLIENT_SECRET"))) {
+      log_error("Environment variables for TikTok API not set")
+      stop("Environment variables for TikTok API not set. Please set TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET.")
+    }
+    
+    tryCatch({
+      access_token <- request_access_token(credentials)
+    }, error = function(e) {
+      log_error(paste("Authentication with TikTok API failed:", e$message))
+      stop("Authentication with TikTok API failed. Error message: ", e$message)
+    })
+    
+  } else {
+    # Load data from the latest snapshot
+    all_videos <- readr::read_csv("/home/mine/VERAAI_WP4/output/latest_snapshot.csv",
+                                  col_types = cols(video_id = col_character(), 
+                                                   effect_ids = col_character(), music_id = col_character(), 
+                                                   hashtag_names = col_character()))
+    recent_videos <- NA
   }
   
+  # Try reading the CSV file and handle possible errors
   tryCatch({
-    access_token <- request_access_token(client_key, client_secret)
-  }, error = function(e) {
-    log_error(paste("Authentication with TikTok API failed:", e$message))
-    stop("Authentication with TikTok API failed. Error message: ", e$message)
-  })
-  
-} else {
-    # Load data from the latest snapshot
-  all_videos <- readr::read_csv("/home/mine/VERAAI_WP4/output/latest_snapshot.csv",
-                                col_types = cols(video_id = col_character(), 
-                                                 effect_ids = col_character(), music_id = col_character(), 
-                                                 hashtag_names = col_character()))
-  recent_videos <- NA
-}
-
-# Try reading the CSV file and handle possible errors
-tryCatch({
-  account_ids <- readr::read_csv("./lists/tiktok_coordinated_accounts_ids.csv")
+    account_ids <- readr::read_csv("./lists/tiktok_coordinated_accounts_ids.csv")
   }, error = function(e) {
     log_error(paste("Failed to read TikTok coordinated accounts ID CSV:", e$message))
     stop("Failed to read TikTok coordinated accounts ID CSV. Error: ", e$message)
-    })
+  })
+  
+  coord_users <- unique(account_ids$x)
+  enddate <- Sys.Date()
+  startdate <- enddate - 15
+  
+  # Return the values we want to be globally available
+  list(
+    coord_users = coord_users,
+    enddate = enddate,
+    startdate = startdate,
+    access_token = if(exists("access_token")) access_token else NULL,
+    all_videos = if(exists("all_videos")) all_videos else NULL,
+    recent_videos = if(exists("recent_videos")) recent_videos else NULL
+  )
+}
 
-coord_users <- unique(account_ids$x)
-enddate <- Sys.Date()
-startdate <- enddate-15
+# Run main and assign results to global environment
+result <- main()
+list2env(result, .GlobalEnv)
 
 ```
 
 ```{r fetch_recent_videos, message=FALSE, eval=!params$load_from_snapshot}
-
 get_recent_videos <- function(user_chunk, startdate, enddate, access_token, max_retries = 3, chunk_index) {
     attempts <- 0
     all_results <- list()
+    pagination_attempts <- 0
     
     # Convert dates to required format (YYYYMMDD)
     start_date <- format(as.Date(startdate), "%Y%m%d")
@@ -190,12 +189,15 @@ get_recent_videos <- function(user_chunk, startdate, enddate, access_token, max_
                 content <- httr::content(response, "parsed")
                 
                 if (length(content$data$videos) == 0) {
-                    if (length(all_results) == 0) {
-                        log_warn(paste("No data returned from API for chunk", chunk_index))
-                        return(data.frame())
-                    } else {
-                        break  # Exit the loop if no more videos
-                    }
+                    log_warn(paste("No videos found for chunk", chunk_index, "on attempt", attempts))
+                    global_error_list <<- c(global_error_list, list(list(
+                        type = "api_response",
+                        context = "video_retrieval",
+                        chunk_index = chunk_index,
+                        attempt = attempts,
+                        message = "No videos found in API response"
+                    )))
+                    return(data.frame())
                 }
                 
                 # Process the response into a data frame
@@ -216,33 +218,53 @@ get_recent_videos <- function(user_chunk, startdate, enddate, access_token, max_
                 
                 all_results[[length(all_results) + 1]] <- result
                 
-                log_info(paste("Retrieved", nrow(result), "videos for chunk", chunk_index))
+                log_info(paste("Retrieved", nrow(result), "videos for chunk", chunk_index, "on attempt", attempts))
                 
                 # Check if there are more pages
                 if (!is.null(content$data$has_more) && content$data$has_more) {
+                    pagination_attempts <- pagination_attempts + 1
                     query_body$cursor <- content$data$cursor
                     query_body$search_id <- content$data$search_id
+                    log_info(paste("Pagination: Moving to page", pagination_attempts + 1, "for chunk", chunk_index))
                 } else {
                     break  # Exit the loop if no more pages
                 }
-            } else if (httr::status_code(response) %in% c(400, 500)) {
-                log_warn(paste("API request failed with status code:", httr::status_code(response), "for chunk", chunk_index))
-                if (attempts >= max_retries) {
-                    return(data.frame())
-                }
             } else {
-                log_error(paste("Unexpected API response:", httr::status_code(response), "for chunk", chunk_index))
-                stop(paste("API request failed with status code:", httr::status_code(response)))
-            }
-        }, error = function(e) {
-            log_warn(paste("An unexpected error occurred:", e$message))
-            if (attempts >= max_retries) {
+                error_content <- httr::content(response, "parsed")
+                error_message <- paste("API request failed with status code:", httr::status_code(response), 
+                                       "Error message:", ifelse(is.null(error_content$error), "Unknown error", error_content$error))
+                log_warn(paste(error_message, "for chunk", chunk_index, "on attempt", attempts))
+                global_error_list <<- c(global_error_list, list(list(
+                    type = "api_error",
+                    context = ifelse(pagination_attempts > 0, "pagination", "initial_request"),
+                    chunk_index = chunk_index,
+                    attempt = attempts,
+                    pagination_attempt = pagination_attempts,
+                    status_code = httr::status_code(response),
+                    error_message = error_message
+                )))
                 return(data.frame())
             }
+        }, error = function(e) {
+            log_warn(paste("An unexpected error occurred for chunk", chunk_index, "on attempt", attempts, ":", e$message))
+            global_error_list <<- c(global_error_list, list(list(
+                type = "unexpected_error",
+                context = ifelse(pagination_attempts > 0, "pagination", "initial_request"),
+                chunk_index = chunk_index,
+                attempt = attempts,
+                pagination_attempt = pagination_attempts,
+                error_message = e$message
+            )))
+            return(data.frame())
         })
         
         if (attempts >= max_retries) {
             log_warn(paste("Max retries exceeded for chunk", chunk_index, "after", max_retries, "attempts"))
+            global_error_list <<- c(global_error_list, list(list(
+                type = "max_retries_exceeded",
+                chunk_index = chunk_index,
+                max_retries = max_retries
+            )))
             break
         }
     }
@@ -255,7 +277,7 @@ get_recent_videos <- function(user_chunk, startdate, enddate, access_token, max_
     }
 }
 
-# Process to fetch and combine recent videos from chunks
+# Main processing loop
 chunks <- split(coord_users, ceiling(seq_along(coord_users) / 100))
 chunk_indices <- seq_along(chunks)
 failure_count <- 0
@@ -265,62 +287,103 @@ tryCatch({
     pb <- progress_bar$new(format = "[:bar] :percent :etas", total = length(chunks), clear = FALSE)
     
     recent_videos_list <- map2(chunks, chunk_indices, function(chunk, index) {
-    tryCatch({
-        videos <- get_recent_videos(chunk, startdate, enddate, access_token = access_token, max_retries = 10, chunk_index = index)
-        if (nrow(videos) == 0) {
+        tryCatch({
+            if (length(chunk) == 0) {
+                log_warn(paste("Empty chunk encountered at index", index))
+                global_error_list <<- c(global_error_list, list(list(
+                    type = "empty_chunk",
+                    chunk_index = index
+                )))
+                return(data.frame())
+            }
+            
+            videos <- get_recent_videos(chunk, startdate, enddate, access_token = access_token, max_retries = 10, chunk_index = index)
+            
+            if (nrow(videos) == 0) {
+                failure_count <<- failure_count + 1
+                log_warn(paste("Failed to retrieve videos for chunk", index))
+                global_error_list <<- c(global_error_list, list(list(
+                    type = "chunk_retrieval_failure",
+                    chunk_index = index,
+                    message = "No videos retrieved"
+                )))
+            }
+            return(videos)
+        }, error = function(e) {
             failure_count <<- failure_count + 1
-            log_warn(paste("Failed to retrieve videos for chunk", index))
-            global_error_list <<- c(global_error_list, list(list(type = "chunk_retrieval", index = index, message = "No videos retrieved")))
-        }
-        return(videos)
-    }, error = function(e) {
-        failure_count <<- failure_count + 1
-        log_warn(paste("Error in processing chunk", index, ":", e$message))
-        global_error_list <<- c(global_error_list, list(list(type = "chunk_processing", index = index, message = e$message)))
-        return(data.frame())
+            log_warn(paste("Error in processing chunk", index, ":", e$message))
+            log_warn(paste("Chunk content:", paste(chunk, collapse = ", ")))
+            global_error_list <<- c(global_error_list, list(list(
+                type = "chunk_processing_error",
+                chunk_index = index,
+                message = e$message,
+                chunk_content = paste(chunk, collapse = ", ")
+            )))
+            return(data.frame())
+        })
     })
-})
-
-recent_videos_list <- compact(recent_videos_list)  # Remove empty data frames
-recent_videos <- bind_rows(recent_videos_list)
+    
+    recent_videos_list <- compact(recent_videos_list)  # Remove empty data frames
+    
     if (length(recent_videos_list) == 0) {
-        log_warn("All API queries failed. Proceeding with empty recent_videos_list.")
+        log_warn("All API queries failed or returned no data. Proceeding with empty recent_videos_list.")
         recent_videos <- data.frame()
+        global_error_list <<- c(global_error_list, list(list(
+            type = "all_queries_failed",
+            message = "All API queries failed or returned no data"
+        )))
     } else {
         recent_videos <- bind_rows(recent_videos_list)
     }
-
+    
 }, error = function(e) {
     log_error(paste("Error in fetching recent videos:", e$message))
-    global_error_list <<- c(global_error_list, list(list(type = "recent_videos_overall", message = e$message)))
+    log_error(paste("Stack trace:", paste(sys.calls(), collapse = "\n")))
+    global_error_list <<- c(global_error_list, list(list(
+        type = "overall_process_error",
+        message = e$message,
+        stack_trace = paste(sys.calls(), collapse = "\n")
+    )))
     recent_videos <- data.frame()
 })
 
 log_info(paste("Number of API failures:", failure_count, "out of", total_chunks, "chunks"))
 api_failure_summary <- list(failures = failure_count, total_chunks = total_chunks)
 
-if (nrow(recent_videos) > 0) {
-    videos_with_same_desc <- recent_videos %>%
-        mutate(video_description = tolower(video_description)) %>%
-        group_by(video_description) %>%
-        filter(n() >= 3) %>%
-        ungroup()
-
-    unique_videos_desc <- videos_with_same_desc %>%
-        select(video_description) %>%
-        filter(video_description != "" & nchar(video_description) >= 80) %>%
-        distinct()
-} else {
-    log_warn("No videos with matching criteria found")
-    unique_videos_desc <- data.frame(video_description = character(0))
-}
-
 # Add a summary of errors to global_error_list
-global_error_list <<- c(global_error_list, list(list(type = "api_failure_summary", failures = failure_count, total_chunks = total_chunks)))
-
+global_error_list <<- c(global_error_list, list(list(
+    type = "api_failure_summary",
+    failures = failure_count,
+    total_chunks = total_chunks
+)))
 ```
 
 ```{r fetch_all_videos, message=FALSE, eval=!params$load_from_snapshot}
+
+# Check if recent_videos exists and has the expected structure
+if (!exists("recent_videos") || !is.data.frame(recent_videos) || nrow(recent_videos) == 0) {
+  log_warn("recent_videos is not defined, not a data frame, or empty. Creating an empty unique_videos_desc.")
+  unique_videos_desc <- data.frame(video_description = character(0))
+} else {
+  # Check if video_description column exists
+  if (!"video_description" %in% names(recent_videos)) {
+    log_error("video_description column not found in recent_videos.")
+    global_error_list <<- c(global_error_list, list(list(type = "data_structure", message = "video_description column not found in recent_videos")))
+    unique_videos_desc <- data.frame(video_description = character(0))
+  } else {
+    # Create unique_videos_desc
+    unique_videos_desc <- recent_videos %>%
+      mutate(video_description = tolower(video_description)) %>%
+      group_by(video_description) %>%
+      filter(n() >= 2) %>%
+      ungroup() %>%
+      select(video_description) %>%
+      filter(video_description != "" & nchar(video_description) >= 80) %>%
+      distinct()
+    
+    log_info(paste("Created unique_videos_desc with", nrow(unique_videos_desc), "unique descriptions"))
+  }
+}
 
 # Custom function to fetch videos by description
 get_videos_by_description <- function(desc, startdate, enddate, access_token, max_retries = 3) {
@@ -500,9 +563,7 @@ all_videos_result <- tryCatch({
 
 # Save the results
 write.csv(all_videos_result$videos, file = "latest_snapshot.csv", row.names = FALSE)
-
 ```
-
 
 ```{r coordinated_detection, message=FALSE}
 
@@ -537,8 +598,8 @@ tryCatch({
       summary_accounts <- CooRTweet::account_stats(coord_graph = coord_graph, result = result, weight_threshold = "full")
       log_info("Successfully calculated summary statistics")
       
-      new_account_ids <- summary_accounts[!(summary_accounts$account_id %in% account_ids$x), ]
-      updated_list <- c(account_ids$x, new_account_ids$account_id)
+      new_account_ids <- summary_accounts[!(summary_accounts$account_id %in% coord_users), ]
+      updated_list <- c(coord_users, new_account_ids$account_id)
     } else {
       log_warn("coord_graph or result is NULL. Skipping summary statistics.")
       new_account_ids <- data.frame()
@@ -547,13 +608,13 @@ tryCatch({
   } else {
     log_warn("No videos available for coordinated detection analysis")
     new_account_ids <- data.frame()
-    updated_list <- account_ids$x
+    updated_list <- coord_users
   }
 }, error = function(e) {
   log_error(paste("Error in coordinated detection:", e$message))
   global_error_list <<- c(global_error_list, list(list(type = "coordinated_detection", message = e$message)))
   new_account_ids <- data.frame()
-  updated_list <- account_ids$x
+  updated_list <- coord_users
 })
 
 ```
