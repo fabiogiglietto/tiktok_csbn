@@ -35,6 +35,7 @@ library(igraph)
 library(visNetwork)
 library(ggplot2)
 library(jsonlite)
+library(lubridate)
 library(progress)
 library(logger)
 
@@ -138,14 +139,22 @@ list2env(result, .GlobalEnv)
 ```
 
 ```{r fetch_recent_videos, message=FALSE, eval=!params$load_from_snapshot}
-get_recent_videos <- function(user_chunk, startdate, enddate, access_token, max_retries = 3, chunk_index) {
+
+# Helper function to generate 12-hour time chunks
+generate_time_chunks <- function(start_date, end_date) {
+  start_time <- as.POSIXct(start_date)
+  end_time <- as.POSIXct(end_date)
+  seq(start_time, end_time, by = "12 hours")
+}
+
+get_recent_videos <- function(usernames, start_time, end_time, access_token, max_retries = 3) {
     attempts <- 0
     all_results <- list()
     pagination_attempts <- 0
     
-    # Convert dates to required format (YYYYMMDD)
-    start_date <- format(as.Date(startdate), "%Y%m%d")
-    end_date <- format(as.Date(enddate), "%Y%m%d")
+    # Convert times to required format (YYYYMMDD)
+    formatted_start <- format(start_time, "%Y%m%d")
+    formatted_end <- format(end_time, "%Y%m%d")
     
     url <- "https://open.tiktokapis.com/v2/research/video/query/?fields=id,create_time,region_code,share_count,view_count,like_count,comment_count,video_description,username"
     
@@ -155,18 +164,18 @@ get_recent_videos <- function(user_chunk, startdate, enddate, access_token, max_
                 list(
                     operation = "IN",
                     field_name = "username",
-                    field_values = as.list(user_chunk)
+                    field_values = as.list(usernames)
                 )
             )
         ),
-        start_date = start_date,
-        end_date = end_date,
+        start_date = formatted_start,
+        end_date = formatted_end,
         max_count = 100  # Adjust as needed
     )
     
     repeat {
         attempts <- attempts + 1
-        log_info(paste("Starting attempt", attempts, "for chunk", chunk_index))
+        log_info(paste("Starting attempt", attempts, "for time chunk", formatted_start, "to", formatted_end))
         
         tryCatch({
             Sys.sleep(5)  # Sleep for 5 seconds between attempts
@@ -189,11 +198,12 @@ get_recent_videos <- function(user_chunk, startdate, enddate, access_token, max_
                 content <- httr::content(response, "parsed")
                 
                 if (length(content$data$videos) == 0) {
-                    log_warn(paste("No videos found for chunk", chunk_index, "on attempt", attempts))
+                    log_warn(paste("No videos found for time chunk", formatted_start, "to", formatted_end, "on attempt", attempts))
                     global_error_list <<- c(global_error_list, list(list(
                         type = "api_response",
                         context = "video_retrieval",
-                        chunk_index = chunk_index,
+                        start_time = formatted_start,
+                        end_time = formatted_end,
                         attempt = attempts,
                         message = "No videos found in API response"
                     )))
@@ -218,14 +228,14 @@ get_recent_videos <- function(user_chunk, startdate, enddate, access_token, max_
                 
                 all_results[[length(all_results) + 1]] <- result
                 
-                log_info(paste("Retrieved", nrow(result), "videos for chunk", chunk_index, "on attempt", attempts))
+                log_info(paste("Retrieved", nrow(result), "videos for time chunk", formatted_start, "to", formatted_end, "on attempt", attempts))
                 
                 # Check if there are more pages
                 if (!is.null(content$data$has_more) && content$data$has_more) {
                     pagination_attempts <- pagination_attempts + 1
                     query_body$cursor <- content$data$cursor
                     query_body$search_id <- content$data$search_id
-                    log_info(paste("Pagination: Moving to page", pagination_attempts + 1, "for chunk", chunk_index))
+                    log_info(paste("Pagination: Moving to page", pagination_attempts + 1, "for time chunk", formatted_start, "to", formatted_end))
                 } else {
                     break  # Exit the loop if no more pages
                 }
@@ -233,36 +243,49 @@ get_recent_videos <- function(user_chunk, startdate, enddate, access_token, max_
                 error_content <- httr::content(response, "parsed")
                 error_message <- paste("API request failed with status code:", httr::status_code(response), 
                                        "Error message:", ifelse(is.null(error_content$error), "Unknown error", error_content$error))
-                log_warn(paste(error_message, "for chunk", chunk_index, "on attempt", attempts))
+                log_warn(paste(error_message, "for time chunk", formatted_start, "to", formatted_end, "on attempt", attempts))
                 global_error_list <<- c(global_error_list, list(list(
                     type = "api_error",
                     context = ifelse(pagination_attempts > 0, "pagination", "initial_request"),
-                    chunk_index = chunk_index,
+                    start_time = formatted_start,
+                    end_time = formatted_end,
                     attempt = attempts,
                     pagination_attempt = pagination_attempts,
                     status_code = httr::status_code(response),
                     error_message = error_message
                 )))
-                return(data.frame())
+                # Return any results we've gathered so far, even if incomplete
+                if (length(all_results) > 0) {
+                    return(do.call(rbind, all_results))
+                } else {
+                    return(data.frame())
+                }
             }
         }, error = function(e) {
-            log_warn(paste("An unexpected error occurred for chunk", chunk_index, "on attempt", attempts, ":", e$message))
+            log_warn(paste("An unexpected error occurred for time chunk", formatted_start, "to", formatted_end, "on attempt", attempts, ":", e$message))
             global_error_list <<- c(global_error_list, list(list(
                 type = "unexpected_error",
                 context = ifelse(pagination_attempts > 0, "pagination", "initial_request"),
-                chunk_index = chunk_index,
+                start_time = formatted_start,
+                end_time = formatted_end,
                 attempt = attempts,
                 pagination_attempt = pagination_attempts,
                 error_message = e$message
             )))
-            return(data.frame())
+            # Return any results we've gathered so far, even if incomplete
+            if (length(all_results) > 0) {
+                return(do.call(rbind, all_results))
+            } else {
+                return(data.frame())
+            }
         })
         
         if (attempts >= max_retries) {
-            log_warn(paste("Max retries exceeded for chunk", chunk_index, "after", max_retries, "attempts"))
+            log_warn(paste("Max retries exceeded for time chunk", formatted_start, "to", formatted_end, "after", max_retries, "attempts"))
             global_error_list <<- c(global_error_list, list(list(
                 type = "max_retries_exceeded",
-                chunk_index = chunk_index,
+                start_time = formatted_start,
+                end_time = formatted_end,
                 max_retries = max_retries
             )))
             break
@@ -278,47 +301,54 @@ get_recent_videos <- function(user_chunk, startdate, enddate, access_token, max_
 }
 
 # Main processing loop
-chunks <- split(coord_users, ceiling(seq_along(coord_users) / 100))
-chunk_indices <- seq_along(chunks)
+time_chunks <- generate_time_chunks(startdate, enddate)
 failure_count <- 0
-total_chunks <- length(chunks)
+incomplete_count <- 0
+total_chunks <- length(time_chunks) - 1
 
 tryCatch({
-    pb <- progress_bar$new(format = "[:bar] :percent :etas", total = length(chunks), clear = FALSE)
+    pb <- progress_bar$new(format = "[:bar] :percent :etas", total = total_chunks, clear = FALSE)
     
-    recent_videos_list <- map2(chunks, chunk_indices, function(chunk, index) {
+    recent_videos_list <- map2(head(time_chunks, -1), tail(time_chunks, -1), function(start_time, end_time) {
         tryCatch({
-            if (length(chunk) == 0) {
-                log_warn(paste("Empty chunk encountered at index", index))
-                global_error_list <<- c(global_error_list, list(list(
-                    type = "empty_chunk",
-                    chunk_index = index
-                )))
-                return(data.frame())
-            }
-            
-            videos <- get_recent_videos(chunk, startdate, enddate, access_token = access_token, max_retries = 10, chunk_index = index)
+            videos <- get_recent_videos(coord_users, start_time, end_time, access_token = access_token, max_retries = 10)
             
             if (nrow(videos) == 0) {
                 failure_count <<- failure_count + 1
-                log_warn(paste("Failed to retrieve videos for chunk", index))
+                log_warn(paste("Failed to retrieve videos for time chunk", start_time, "to", end_time))
                 global_error_list <<- c(global_error_list, list(list(
                     type = "chunk_retrieval_failure",
-                    chunk_index = index,
+                    start_time = start_time,
+                    end_time = end_time,
                     message = "No videos retrieved"
                 )))
+            } else {
+                # Check if the results might be incomplete
+                time_diff <- as.numeric(difftime(end_time, start_time, units = "hours"))
+                if (time_diff > 12 || nrow(videos) == 100) {  # Assuming max_count is 100
+                    incomplete_count <<- incomplete_count + 1
+                    log_warn(paste("Potentially incomplete results for time chunk", start_time, "to", end_time))
+                    global_error_list <<- c(global_error_list, list(list(
+                        type = "incomplete_results",
+                        start_time = start_time,
+                        end_time = end_time,
+                        video_count = nrow(videos),
+                        message = "Results may be incomplete"
+                    )))
+                }
             }
+            pb$tick()
             return(videos)
         }, error = function(e) {
             failure_count <<- failure_count + 1
-            log_warn(paste("Error in processing chunk", index, ":", e$message))
-            log_warn(paste("Chunk content:", paste(chunk, collapse = ", ")))
+            log_warn(paste("Error in processing time chunk", start_time, "to", end_time, ":", e$message))
             global_error_list <<- c(global_error_list, list(list(
                 type = "chunk_processing_error",
-                chunk_index = index,
-                message = e$message,
-                chunk_content = paste(chunk, collapse = ", ")
+                start_time = start_time,
+                end_time = end_time,
+                message = e$message
             )))
+            pb$tick()
             return(data.frame())
         })
     })
@@ -347,15 +377,19 @@ tryCatch({
     recent_videos <- data.frame()
 })
 
-log_info(paste("Number of API failures:", failure_count, "out of", total_chunks, "chunks"))
-api_failure_summary <- list(failures = failure_count, total_chunks = total_chunks)
+log_info(paste("Number of API failures:", failure_count, "out of", total_chunks, "time chunks"))
+log_info(paste("Number of potentially incomplete results:", incomplete_count, "out of", total_chunks, "time chunks"))
+api_failure_summary <- list(failures = failure_count, incomplete = incomplete_count, total_chunks = total_chunks)
 
 # Add a summary of errors to global_error_list
 global_error_list <<- c(global_error_list, list(list(
     type = "api_failure_summary",
     failures = failure_count,
+    incomplete = incomplete_count,
     total_chunks = total_chunks
 )))
+
+
 ```
 
 ```{r fetch_all_videos, message=FALSE, eval=!params$load_from_snapshot}
