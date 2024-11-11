@@ -7,6 +7,7 @@ params:
   load_from_snapshot: FALSE
 ---
 
+
 # Introduction
 
 This document serves as a proof of concept, developed within the framework of the [Vera.ai Horizon EU project](https://www.veraai.eu/). It presents a comprehensive methodology for tracking and analyzing coordinated sharing activities on TikTok, employing custom code for data collection via the TikTok Research API and [`CooRTweet`](https://github.com/nicolarighetti/CooRTweet) for the analysis of coordinated behavior patterns.
@@ -20,6 +21,7 @@ On April 19, 2024, we received a list of 513 problematic accounts from a trusted
 This approach ensures continuous updates on the number of newly discovered coordinated accounts, highlighting the fluid nature of social media coordination. Enhanced by interactive visualizations, the analysis sheds light on the shifting landscape of account activities and the intricate network of interactions among them on the TikTok platform.
 
 By delineating these processes, the proof of concept underscores the potential for advanced analytical tools to reveal and understand the complex phenomena of coordinated social media behavior within the context of significant societal events.
+
 
 ```{r setup, include=FALSE, message=FALSE}
 setwd("/home/mine/VERAAI_WP4/")
@@ -629,7 +631,9 @@ tryCatch({
 
 ```
 
+
 # Today Output
+
 
 ```{r results_summary, results='asis'}
 
@@ -698,7 +702,9 @@ ggplot(log_data, aes(x = Timestamp, y = New_Accounts_Count, group=1)) +
 
 ```
 
+
 Explore the interactive chart. Node click to visit the TikTok account.
+
 
 ```{r viz, message=FALSE}
 
@@ -731,6 +737,7 @@ network <- network %>%
 network
 ```
 
+
 # About
 
 |                                                                                                                                                                      |                                                                                                                                                                                                                                                                                                           |
@@ -740,3 +747,4 @@ network
 # References
 
 Giglietto, F., Marino, G., Mincigrucci, R., & Stanziano, A. (2023). A Workflow to Detect, Monitor, and Update Lists of Coordinated Social Media Accounts Across Time: The Case of the 2022 Italian Election. Social Media + Society, 9(3). https://doi.org/10.1177/20563051231196866
+
