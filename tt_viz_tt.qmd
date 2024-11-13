@@ -136,7 +136,7 @@ setup()
 
 ```
 
-```{r fetch_recent_videos, message=FALSE, eval=!params$load_from_snapshot}
+```{r fetch_recent_videos, include=FALSE, message=FALSE, eval=!params$load_from_snapshot}
 
 # Function to get videos using traktok package
 get_recent_videos <- function(usernames, start_date, end_date, chunk_size = 50) {
@@ -296,7 +296,7 @@ if (exists("coord_users")) {
 
 ```
 
-```{r fetch_all_videos, message=FALSE, eval=!params$load_from_snapshot, cache=TRUE}
+```{r fetch_all_videos, include=FALSE, message=FALSE, eval=!params$load_from_snapshot, cache=TRUE}
 
 # Function to get videos for a specific description
 get_videos_by_description <- function(desc, start_date, end_date) {
@@ -446,7 +446,7 @@ if (exists("recent_videos") && is.data.frame(recent_videos) && nrow(recent_video
 
 ```
 
-```{r coordinated_detection, message=FALSE}
+```{r coordinated_detection, include=FALSE, message=FALSE}
 
 # Function to detect coordination patterns
 detect_coordination <- function(all_videos) {
@@ -584,7 +584,7 @@ if (exists("all_videos") && is.data.frame(all_videos) && nrow(all_videos) > 0) {
 
 ```
 
-```{r save_output, message=FALSE}
+```{r save_output, include=FALSE, message=FALSE}
 
 # Create necessary directories
 tryCatch({
@@ -700,7 +700,7 @@ if (length(global_error_list) > 0) {
 
 # Today Output
 
-```{r results_summary, results='asis'}
+```{r results_summary, include=FALSE, results='asis'}
 
 # Function to generate detailed summary
 generate_summary <- function(
@@ -838,7 +838,7 @@ if (exists("coord_users") && exists("startdate") && exists("enddate")) {
 
 ```
 
-```{r new-accounts-plot, fig.cap="Trend of newly discovered TikTok accounts.", message=FALSE}
+```{r new-accounts-plot, include=FALSE, fig.cap="Trend of newly discovered TikTok accounts.", message=FALSE}
 
 # Read and clean the log data
 log_data <- read_csv(
@@ -866,7 +866,7 @@ ggplot(log_data, aes(x = Timestamp, y = New_Accounts_Count)) +
 
 Explore the interactive chart. Node click to visit the TikTok account.
 
-```{r viz, message=FALSE}
+```{r viz, include=FALSE, message=FALSE}
 
 # Function to generate interactive network visualization
 generate_network_visualization <- function(coordination_results) {
@@ -1034,7 +1034,7 @@ if (exists("coordination_results") && !is.null(coordination_results$coord_graph)
 
 ```
 
-```{r interactive-plot, fig.cap="Interactive visualization of coordinated account detected today. Click on a node to visit the respective TikTok account."}
+```{r interactive-plot, include=FALSE, fig.cap="Interactive visualization of coordinated account detected today. Click on a node to visit the respective TikTok account."}
 
 # Check if network visualization is available
 if (exists("network_results") && !is.null(network_results$network)) {
@@ -1056,6 +1056,8 @@ if (exists("network_results") && !is.null(network_results$network)) {
 
 Giglietto, F., Marino, G., Mincigrucci, R., & Stanziano, A. (2023). A Workflow to Detect, Monitor, and Update Lists of Coordinated Social Media Accounts Across Time: The Case of the 2022 Italian Election. Social Media + Society, 9(3). https://doi.org/10.1177/20563051231196866
 
-```{r session_info, echo=FALSE}
+# Session Info
+
+```{r session_info, include=FALSE, echo=FALSE}
 sessionInfo()
 ```
