@@ -300,148 +300,148 @@ if (exists("coord_users")) {
 
 # Function to get videos for a specific description
 get_videos_by_description <- function(desc, start_date, end_date) {
-  log_info(sprintf("Querying for description: %s", desc))
-  
-  tryCatch({
-    # First try with max_pages = 1 to ensure we get at least the first page
-    chunk_result <- query() |>
-      query_and(
-        field_name = "keyword",
-        operation = "EQ",
-        field_values = list(desc)  # Wrap in list to ensure proper handling
-      ) |>
-      tt_search_api(
-        start_date = start_date,
-        end_date = end_date,
-        max_pages = 1
-      )
-    
-    log_info(sprintf("Retrieved first page with %d results for description: %s", 
-                    nrow(chunk_result), desc))
-    
-    # Try to get more pages, but catch pagination errors
-    tryCatch({
-      full_results <- query() |>
-        query_and(
-          field_name = "keyword",
-          operation = "EQ",
-          field_values = list(desc)  # Wrap in list here too
-        ) |>
-        tt_search_api(
-          start_date = start_date,
-          end_date = end_date,
-          max_pages = 100
-        )
-      
-      # If pagination succeeded, use the full results
-      if (is.data.frame(full_results) && nrow(full_results) > 0) {
-        chunk_result <- full_results
-        log_info(sprintf("Successfully retrieved all pages with %d total results", 
-                        nrow(chunk_result)))
-      }
-    }, error = function(e) {
-      if (grepl("400|invalid_params|Search Id.*invalid or expired", e$message)) {
-        log_warn("Pagination failed with 400 error - keeping first page results")
-        global_error_list <<- c(global_error_list, list(list(
-          type = "pagination_error",
-          description = desc,
-          message = e$message
-        )))
-      } else {
-        log_error(sprintf("Unexpected error during pagination: %s", conditionMessage(e)))
-      }
-    })
-    
-    return(chunk_result)
-    
-  }, error = function(e) {
-    log_error(sprintf("Error querying description '%s': %s", desc, conditionMessage(e)))
-    global_error_list <<- c(global_error_list, list(list(
-      type = "description_query_error",
-      description = desc,
-      message = e$message
-    )))
-    return(data.frame())
-  })
+ log_info(sprintf("Querying for description: %s", desc))
+ 
+ tryCatch({
+   # First try with max_pages = 1 to ensure we get at least the first page
+   chunk_result <- query() |>
+     query_and(
+       field_name = "keyword",
+       operation = "EQ",
+       field_values = list(desc)  # Wrap in list to ensure proper handling
+     ) |>
+     tt_search_api(
+       start_date = start_date,
+       end_date = end_date,
+       max_pages = 1
+     )
+   
+   log_info(sprintf("Retrieved first page with %d results for description: %s", 
+                   nrow(chunk_result), desc))
+   
+   # Try to get more pages, but catch pagination errors
+   tryCatch({
+     full_results <- query() |>
+       query_and(
+         field_name = "keyword",
+         operation = "EQ",
+         field_values = list(desc)  # Wrap in list here too
+       ) |>
+       tt_search_api(
+         start_date = start_date,
+         end_date = end_date,
+         max_pages = 100
+       )
+     
+     # If pagination succeeded, use the full results
+     if (is.data.frame(full_results) && nrow(full_results) > 0) {
+       chunk_result <- full_results
+       log_info(sprintf("Successfully retrieved all pages with %d total results", 
+                       nrow(chunk_result)))
+     }
+   }, error = function(e) {
+     if (grepl("400|invalid_params|Search Id.*invalid or expired", e$message)) {
+       log_warn("Pagination failed with 400 error - keeping first page results")
+       global_error_list <<- c(global_error_list, list(list(
+         type = "pagination_error",
+         description = desc,
+         message = e$message
+       )))
+     } else {
+       log_error(sprintf("Unexpected error during pagination: %s", conditionMessage(e)))
+     }
+   })
+   
+   return(chunk_result)
+   
+ }, error = function(e) {
+   log_error(sprintf("Error querying description '%s': %s", desc, conditionMessage(e)))
+   global_error_list <<- c(global_error_list, list(list(
+     type = "description_query_error",
+     description = desc,
+     message = e$message
+   )))
+   return(data.frame())
+ })
 }
 
 # Main function to fetch all videos with matching descriptions
 fetch_all_videos <- function(recent_videos, start_date, end_date) {
-  
-  # Get unique descriptions that are long enough to be meaningful
-  unique_descriptions <- unique(recent_videos$video_description[nchar(recent_videos$video_description) >= 80])
-  
-  log_info(sprintf("Found %d unique descriptions to query", length(unique_descriptions)))
-  
-  # Initialize progress bar
-  pb <- progress_bar$new(
-    format = "[:bar] :percent :etas",
-    total = length(unique_descriptions),
-    clear = FALSE
-  )
-  
-  # Initialize results
-  all_results <- data.frame()
-  
-  # Process each description
-  for (desc in unique_descriptions) {
-    # Get videos for this description
-    videos <- get_videos_by_description(desc, start_date, end_date)
-    
-    # Add results if any
-    if (is.data.frame(videos) && nrow(videos) > 0) {
-      all_results <- bind_rows(all_results, videos)
-      log_info(sprintf("Added %d videos for description: %s", nrow(videos), substr(desc, 1, 50)))
-    }
-    
-    # Update progress bar
-    pb$tick()
-    
-    # Add delay between requests
-    Sys.sleep(2)
-  }
-  
-  # Process the combined data
-  if (nrow(all_results) > 0) {
-    final_results <- all_results %>%
-      mutate(
-        region_code = toupper(region_code),
-        video_url = paste0("https://www.tiktok.com/@", author_name, "/video/", video_id)
-      ) %>%
-      filter(!is.na(video_description) & video_description != "") %>%
-      distinct()
-    
-    # Log summary
-    log_info(sprintf("\nCollection completed:"))
-    log_info(sprintf("Total videos collected: %d", nrow(final_results)))
-    log_info(sprintf("Unique users: %d", n_distinct(final_results$author_name)))
-    log_info(sprintf("Unique descriptions: %d", n_distinct(final_results$video_description)))
-    
-    # Create output directory if it doesn't exist
-    output_dir <- file.path(base_dir, "output")
-    dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
-    
-    # Save results
-    output_file <- file.path(output_dir, "latest_snapshot.csv")
-    write_csv(final_results, output_file)
-    log_info(sprintf("Results saved to %s", output_file))
-    
-    return(final_results)
-  } else {
-    log_warn("No results found")
-    return(data.frame())
-  }
+ 
+ # Get unique descriptions that are long enough to be meaningful
+ unique_descriptions <- unique(recent_videos$video_description[nchar(recent_videos$video_description) >= 80])
+ 
+ log_info(sprintf("Found %d unique descriptions to query", length(unique_descriptions)))
+ 
+ # Initialize progress bar
+ pb <- progress_bar$new(
+   format = "[:bar] :percent :etas",
+   total = length(unique_descriptions),
+   clear = FALSE
+ )
+ 
+ # Initialize results
+ all_results <- data.frame()
+ 
+ # Process each description
+ for (desc in unique_descriptions) {
+   # Get videos for this description
+   videos <- get_videos_by_description(desc, start_date, end_date)
+   
+   # Add results if any
+   if (is.data.frame(videos) && nrow(videos) > 0) {
+     all_results <- bind_rows(all_results, videos)
+     log_info(sprintf("Added %d videos for description: %s", nrow(videos), substr(desc, 1, 50)))
+   }
+   
+   # Update progress bar
+   pb$tick()
+   
+   # Add delay between requests
+   Sys.sleep(2)
+ }
+ 
+ # Process the combined data
+ if (nrow(all_results) > 0) {
+   final_results <- all_results %>%
+     mutate(
+       region_code = toupper(region_code),
+       video_url = paste0("https://www.tiktok.com/@", author_name, "/video/", video_id)
+     ) %>%
+     filter(!is.na(video_description) & video_description != "") %>%
+     distinct()
+   
+   # Log summary
+   log_info(sprintf("\nCollection completed:"))
+   log_info(sprintf("Total videos collected: %d", nrow(final_results)))
+   log_info(sprintf("Unique users: %d", n_distinct(final_results$author_name)))
+   log_info(sprintf("Unique descriptions: %d", n_distinct(final_results$video_description)))
+   
+   # Create output directory if it doesn't exist
+   output_dir <- file.path(params$base_dir, "output")
+   dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+   
+   # Save results
+   output_file <- file.path(output_dir, "latest_snapshot.csv")
+   write_csv(final_results, output_file)
+   log_info(sprintf("Results saved to %s", output_file))
+   
+   return(final_results)
+ } else {
+   log_warn("No results found")
+   return(data.frame())
+ }
 }
 
 # Execute if we have recent_videos
 if (exists("recent_videos") && is.data.frame(recent_videos) && nrow(recent_videos) > 0) {
-  log_info("Starting to fetch all videos with matching descriptions")
-  all_videos <- fetch_all_videos(recent_videos, startdate, enddate)
-  
-  # Assign to global environment
-  assign("all_videos", all_videos, envir = .GlobalEnv)
+ log_info("Starting to fetch all videos with matching descriptions")
+ all_videos <- fetch_all_videos(recent_videos, startdate, enddate)
+ 
+ # Assign to global environment
+ assign("all_videos", all_videos, envir = .GlobalEnv)
 } else {
-  log_warn("No recent_videos found or empty dataset")
+ log_warn("No recent_videos found or empty dataset")
 }
 
 ```
@@ -841,17 +841,18 @@ if (exists("coord_users") && exists("startdate") && exists("enddate")) {
 ```{r new-accounts-plot, fig.cap="Trend of newly discovered TikTok accounts.", message=FALSE}
 
 # Read and clean the log data
-log_data <- read_csv("/home/mine/VERAAI_WP4/output/new_accounts_log.csv", show_col_types = FALSE) %>%
-  # Remove future dates
-  filter(Timestamp <= Sys.Date()) %>%
-  # Filter out unrealistic values (e.g., more than 1000 new accounts per day)
-  filter(New_Accounts_Count <= 1000) %>%
-  # Aggregate by date
-  group_by(Timestamp) %>%
-  summarise(Daily_Total = sum(New_Accounts_Count))
+log_data <- read_csv(
+  file.path(params$base_dir, "output", "new_accounts_log.csv"), 
+  show_col_types = FALSE,
+  col_types = cols(
+    Timestamp = col_date(),
+    New_Accounts_Count = col_double(),
+    Total_Accounts = col_double()
+  )
+) 
 
 # Create bar plot with clean data
-ggplot(log_data, aes(x = Timestamp, y = Daily_Total)) +
+ggplot(log_data, aes(x = Timestamp, y = New_Accounts_Count)) +
   geom_bar(stat = "identity", fill = "blue") +
   labs(
     title = "Newly Discovered TikTok Accounts Over Time",
