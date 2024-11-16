@@ -1,33 +1,5 @@
-We attempted to retrieve videos from 1,156 monitored accounts, during the period from November 01, 2024 to November 16, 2024. We successfully retrieved 2,147 recent videos. Using available data, we accessed a total of 3,733 videos posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified 118 accounts spread across 34 components, and it also uncovered 0 new accounts exhibiting coordinated behavior.
+We attempted to retrieve videos from 1,156 monitored accounts, during the period from November 01, 2024 to November 16, 2024. We were unable to retrieve any recent videos due to API issues. Using available data, we accessed a total of 3,733 videos posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified 119 accounts spread across 34 components, and it also uncovered 0 new accounts exhibiting coordinated behavior.
 
 
 
-Error Summary:
-Total errors encountered: 21
-
-Errors by type:
-
-     chunk_error pagination_error 
-               1               20 
-
-Sample Errors:
-Type: pagination_error, Message: HTTP 400 Bad Request.
-• status: invalid_params
-• message: Search Id 7437706594156418094 is invalid or expired
-• log_id: 202411160305423FCFCE3FB9F73211861D
-Type: pagination_error, Message: HTTP 400 Bad Request.
-• status: invalid_params
-• message: Search Id 7437707507482629166 is invalid or expired
-• log_id: 20241116030649C5AE552881A73C10B997
-Type: pagination_error, Message: HTTP 400 Bad Request.
-• status: invalid_params
-• message: Search Id 7437707507482498094 is invalid or expired
-• log_id: 202411160306289C804D5B77309413D071
-Type: pagination_error, Message: HTTP 400 Bad Request.
-• status: invalid_params
-• message: Invalid count or cursor
-• log_id: 20241116030137F6691F83F9667C11EF9A
-Type: pagination_error, Message: HTTP 400 Bad Request.
-• status: invalid_params
-• message: Invalid count or cursor
-• log_id: 20241116030411974A7C4FB59952143088
+No errors were encountered during script execution.

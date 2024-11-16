@@ -5,6 +5,11 @@ format: html
 date: "`r Sys.Date()`"
 params:
   load_from_snapshot: FALSE
+  base_dir: "/home/mine/VERAAI_WP4"
+  time_window: 180
+  min_participation: 2
+  edge_weight: 0.5
+  days_back: 15
 ---
 
 # Introduction
@@ -22,6 +27,8 @@ This approach ensures continuous updates on the number of newly discovered coord
 By delineating these processes, the proof of concept underscores the potential for advanced analytical tools to reveal and understand the complex phenomena of coordinated social media behavior within the context of significant societal events.
 
 ```{r setup, include=FALSE, message=FALSE}
+
+# Set working directory
 setwd("/home/mine/VERAAI_WP4/")
 
 # Library loading and initial setup
@@ -38,13 +45,12 @@ library(jsonlite)
 library(lubridate)
 library(progress)
 library(logger)
-
-knitr::opts_chunk$set(echo = FALSE)
+library(traktok)
 
 # Initialize logging
 log_info("Starting TikTok coordinated activity detection script")
 
-# At the beginning of your script, add:
+# Initialize global error list
 global_error_list <- list()
 
 # Secure credential retrieval
@@ -55,35 +61,23 @@ get_tiktok_credentials <- function() {
   )
 }
 
-# Function to request an access token
-request_access_token <- function(credentials) {
+# Authentication using traktok package
+request_access_token <- function() {
   tryCatch({
-    url <- "https://open.tiktokapis.com/v2/oauth/token/"
-    headers <- c('Content-Type' = 'application/x-www-form-urlencoded')
-    body <- list(
-      client_key = credentials$client_key,
-      client_secret = credentials$client_secret,
-      grant_type = "client_credentials"
+    token <- traktok::auth_research(
+      client_key = Sys.getenv("TIKTOK_CLIENT_KEY"),
+      client_secret = Sys.getenv("TIKTOK_CLIENT_SECRET")
     )
-    
-    response <- httr::POST(url, add_headers(.headers = headers), body = body, encode = "form")
-    
-    if (httr::status_code(response) == 200) {
-      content <- httr::content(response, "parsed")
-      log_info("Successfully obtained access token")
-      return(content$access_token)
-    } else {
-      log_error(paste("Failed to retrieve access token. Status code:", httr::status_code(response)))
-      stop(paste("Failed to retrieve access token. Status code:", httr::status_code(response)))
-    }
+    log_info("Successfully obtained access token using traktok")
+    return(token$access_token)
   }, error = function(e) {
-    log_error(paste("Error in request_access_token:", e$message))
+    log_error(paste("Error in request_access_token using traktok:", e$message))
     stop(e)
   })
 }
 
-# Main execution
-main <- function() {
+# Main setup function
+setup <- function() {
   credentials <- get_tiktok_credentials()
   
   if (!params$load_from_snapshot) {
@@ -94,7 +88,7 @@ main <- function() {
     }
     
     tryCatch({
-      access_token <- request_access_token(credentials)
+      access_token <- request_access_token()
     }, error = function(e) {
       log_error(paste("Authentication with TikTok API failed:", e$message))
       stop("Authentication with TikTok API failed. Error message: ", e$message)
@@ -103,15 +97,16 @@ main <- function() {
   } else {
     # Load data from the latest snapshot
     all_videos <- readr::read_csv("/home/mine/VERAAI_WP4/output/latest_snapshot.csv",
-                                  col_types = cols(video_id = col_character(), 
-                                                   effect_ids = col_character(), music_id = col_character(), 
-                                                   hashtag_names = col_character()))
+                                 col_types = cols(video_id = col_character(), 
+                                                effect_ids = col_character(),
+                                                music_id = col_character(), 
+                                                hashtag_names = col_character()))
     recent_videos <- NA
   }
   
-  # Try reading the CSV file and handle possible errors
+  # Try reading the CSV file
   tryCatch({
-    account_ids <- readr::read_csv("./lists/tiktok_coordinated_accounts_ids.csv")
+    account_ids <- readr::read_csv("/home/mine/VERAAI_WP4/lists/tiktok_coordinated_accounts_ids.csv")
   }, error = function(e) {
     log_error(paste("Failed to read TikTok coordinated accounts ID CSV:", e$message))
     stop("Failed to read TikTok coordinated accounts ID CSV. Error: ", e$message)
@@ -121,614 +116,933 @@ main <- function() {
   enddate <- Sys.Date()
   startdate <- enddate - 15
   
-  # Return the values we want to be globally available
-  list(
+  # Create a list of values to return but don't include params
+  setup_values <- list(
     coord_users = coord_users,
     enddate = enddate,
     startdate = startdate,
     access_token = if(exists("access_token")) access_token else NULL,
-    all_videos = if(exists("all_videos")) all_videos else NULL,
-    recent_videos = if(exists("recent_videos")) recent_videos else NULL
+    all_videos = if(exists("all_videos")) all_videos else NULL
   )
+  
+  # Assign values to global environment individually
+  for(name in names(setup_values)) {
+    assign(name, setup_values[[name]], envir = .GlobalEnv)
+  }
 }
 
-# Run main and assign results to global environment
-result <- main()
-list2env(result, .GlobalEnv)
+# Run setup directly
+setup()
 
 ```
 
-```{r fetch_recent_videos, message=FALSE, eval=!params$load_from_snapshot}
+```{r fetch_recent_videos, include=FALSE, message=FALSE, eval=!params$load_from_snapshot}
 
-# Helper function to split a time range into smaller chunks
-split_time_range <- function(start_time, end_time, num_chunks) {
-  seq(as.POSIXct(start_time), as.POSIXct(end_time), length.out = num_chunks + 1)
-}
-
-# Function to get videos with adaptive time window and user chunking
-get_recent_videos_adaptive <- function(usernames, start_time, end_time, access_token, max_retries = 3, min_chunk_hours = 6) {
-    all_results <- list()
-    time_queue <- list(list(start = start_time, end = end_time))
+# Function to get videos using traktok package
+get_recent_videos <- function(usernames, start_date, end_date, chunk_size = 50) {
+  # Split usernames into chunks
+  username_chunks <- split(usernames, ceiling(seq_along(usernames) / chunk_size))
+  total_chunks <- length(username_chunks)
+  
+  # Initialize results
+  all_results <- data.frame()
+  failure_count <- 0
+  incomplete_count <- 0
+  
+  # Create progress bar
+  pb <- progress_bar$new(
+    format = "[:bar] :percent :etas",
+    total = total_chunks,
+    clear = FALSE
+  )
+  
+  # Process each chunk
+  for (i in seq_along(username_chunks)) {
+    log_info(sprintf("Processing chunk %d of %d", i, total_chunks))
     
-    while (length(time_queue) > 0) {
-        current_chunk <- time_queue[[1]]
-        time_queue <- time_queue[-1]
-        
-        formatted_start <- format(current_chunk$start, "%Y%m%d")
-        formatted_end <- format(current_chunk$end, "%Y%m%d")
-        
-        log_info(paste("Attempting to fetch videos for time chunk:", formatted_start, "to", formatted_end))
-        
-        query_body <- list(
-            query = list(
-                and = list(
-                    list(
-                        operation = "IN",
-                        field_name = "username",
-                        field_values = as.list(usernames)
-                    )
-                )
-            ),
-            start_date = formatted_start,
-            end_date = formatted_end,
-            max_count = 100
-        )
-        
-        success <- FALSE
-        attempts <- 0
-        
-        while (!success && attempts < max_retries) {
-            attempts <- attempts + 1
-            
-            tryCatch({
-                Sys.sleep(5)  # Sleep for 5 seconds between attempts
-                
-                query_json <- jsonlite::toJSON(query_body, auto_unbox = TRUE)
-                
-                response <- httr::POST(
-                    url = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,create_time,region_code,share_count,view_count,like_count,comment_count,video_description,username",
-                    httr::add_headers(
-                        Authorization = paste("Bearer", access_token),
-                        "Content-Type" = "application/json"
-                    ),
-                    body = query_json
-                )
-                
-                if (httr::status_code(response) == 200) {
-                    content <- httr::content(response, "parsed")
-                    
-                    if (length(content$data$videos) > 0) {
-                        result <- do.call(rbind, lapply(content$data$videos, function(video) {
-                            data.frame(
-                                id = ifelse(is.null(video$id), NA, video$id),
-                                create_time = ifelse(is.null(video$create_time), NA, as.POSIXct(video$create_time, origin = "1970-01-01")),
-                                region_code = ifelse(is.null(video$region_code), NA, video$region_code),
-                                share_count = ifelse(is.null(video$share_count), NA, video$share_count),
-                                view_count = ifelse(is.null(video$view_count), NA, video$view_count),
-                                like_count = ifelse(is.null(video$like_count), NA, video$like_count),
-                                comment_count = ifelse(is.null(video$comment_count), NA, video$comment_count),
-                                video_description = ifelse(is.null(video$video_description), NA, video$video_description),
-                                username = ifelse(is.null(video$username), NA, video$username),
-                                stringsAsFactors = FALSE
-                            )
-                        }))
-                        
-                        all_results[[length(all_results) + 1]] <- result
-                        log_info(paste("Retrieved", nrow(result), "videos for chunk", formatted_start, "to", formatted_end))
-                        
-                        if (!is.null(content$data$has_more) && content$data$has_more) {
-                            # If more data is available, use pagination
-                            query_body$cursor <- content$data$cursor
-                            # Continue with the same time chunk
-                        } else {
-                            success <- TRUE
-                        }
-                    } else {
-                        log_info(paste("No videos found for chunk", formatted_start, "to", formatted_end))
-                        success <- TRUE  # Consider this a success, just with no data
-                    }
-                } else if (httr::status_code(response) %in% c(400, 500)) {
-                    log_warn(paste("Request failed with HTTP status", httr::status_code(response), "for chunk", formatted_start, "to", formatted_end))
-                    # If the time difference is greater than the minimum chunk size, split it
-                    if (as.numeric(difftime(current_chunk$end, current_chunk$start, units="hours")) > min_chunk_hours) {
-                        mid_time <- current_chunk$start + difftime(current_chunk$end, current_chunk$start, units="secs") / 2
-                        time_queue <- c(list(list(start = current_chunk$start, end = mid_time)),
-                                        list(list(start = mid_time, end = current_chunk$end)),
-                                        time_queue)
-                        success <- TRUE  # Move on to the next (smaller) chunk
-                    }
-                } else {
-                    stop(paste("API request failed with status code:", httr::status_code(response)))
-                }
-            }, error = function(e) {
-                if (grepl("daily_quota_limit_exceeded", e$message, ignore.case = TRUE)) {
-                    log_error("Daily API quota limit exceeded")
-                    stop("Process terminated: Daily API quota limit exceeded.", call. = FALSE)
-                } else {
-                    log_warn(paste("An unexpected error occurred:", e$message))
-                }
-            })
-        }
-        
-        if (!success) {
-            log_warn(paste("Max retries exceeded for chunk", formatted_start, "to", formatted_end))
-        }
-    }
-    
-    if (length(all_results) > 0) {
-        return(do.call(rbind, all_results))
-    } else {
-        return(data.frame())
-    }
-}
-
-# Main processing loop
-fetch_recent_videos_adaptive <- function(coord_users, startdate, enddate, access_token) {
-    failure_count <- 0
-    incomplete_count <- 0
-    
-    # Split users into chunks of 100
-    user_chunks <- split(coord_users, ceiling(seq_along(coord_users) / 100))
-    total_chunks <- length(user_chunks)
+    # Get current chunk
+    chunk <- as.character(unlist(username_chunks[i]))
     
     tryCatch({
-        pb <- progress_bar$new(format = "[:bar] :percent :etas", total = total_chunks, clear = FALSE)
-        
-        recent_videos_list <- map(user_chunks, function(user_chunk) {
-            tryCatch({
-                videos <- get_recent_videos_adaptive(user_chunk, startdate, enddate, access_token = access_token, max_retries = 10)
-                
-                if (nrow(videos) == 0) {
-                    failure_count <<- failure_count + 1
-                    log_warn(paste("Failed to retrieve videos for user chunk"))
-                    global_error_list <<- c(global_error_list, list(list(
-                        type = "chunk_retrieval_failure",
-                        message = "No videos retrieved"
-                    )))
-                } else {
-                    # Check if the results might be incomplete
-                    if (nrow(videos) == 100) {  # Assuming max_count is 100
-                        incomplete_count <<- incomplete_count + 1
-                        log_warn("Potentially incomplete results for user chunk")
-                        global_error_list <<- c(global_error_list, list(list(
-                            type = "incomplete_results",
-                            video_count = nrow(videos),
-                            message = "Results may be incomplete"
-                        )))
-                    }
-                }
-                pb$tick()
-                return(videos)
-            }, error = function(e) {
-                failure_count <<- failure_count + 1
-                log_warn(paste("Error in processing user chunk:", e$message))
-                global_error_list <<- c(global_error_list, list(list(
-                    type = "chunk_processing_error",
-                    message = e$message
-                )))
-                pb$tick()
-                return(data.frame())
-            })
-        })
-        
-        recent_videos_list <- compact(recent_videos_list)  # Remove empty data frames
-        
-        if (length(recent_videos_list) == 0) {
-            log_warn("All API queries failed or returned no data. Proceeding with empty recent_videos_list.")
-            recent_videos <- data.frame()
-            global_error_list <<- c(global_error_list, list(list(
-                type = "all_queries_failed",
-                message = "All API queries failed or returned no data"
-            )))
-        } else {
-            recent_videos <- bind_rows(recent_videos_list)
-        }
-        
-    }, error = function(e) {
-        log_error(paste("Error in fetching recent videos:", e$message))
-        log_error(paste("Stack trace:", paste(sys.calls(), collapse = "\n")))
-        global_error_list <<- c(global_error_list, list(list(
-            type = "overall_process_error",
-            message = e$message,
-            stack_trace = paste(sys.calls(), collapse = "\n")
-        )))
-        recent_videos <- data.frame()
-    })
-    
-    log_info(paste("Number of API failures:", failure_count, "out of", total_chunks, "user chunks"))
-    log_info(paste("Number of potentially incomplete results:", incomplete_count, "out of", total_chunks, "user chunks"))
-    api_failure_summary <- list(failures = failure_count, incomplete = incomplete_count, total_chunks = total_chunks)
-    
-    # Add a summary of errors to global_error_list
-    global_error_list <<- c(global_error_list, list(list(
-        type = "api_failure_summary",
-        failures = failure_count,
-        incomplete = incomplete_count,
-        total_chunks = total_chunks
-    )))
-    
-    return(recent_videos)
-}
-
-# Execute the main function
-recent_videos <- fetch_recent_videos_adaptive(coord_users, startdate, enddate, access_token)
-
-
-```
-
-```{r fetch_all_videos, message=FALSE, eval=!params$load_from_snapshot}
-
-# Helper function to split a time range into smaller chunks
-split_time_range <- function(start_time, end_time, num_chunks) {
-  seq(as.POSIXct(start_time), as.POSIXct(end_time), length.out = num_chunks + 1)
-}
-
-# Modified function to fetch videos with adaptive time window
-get_videos_by_description_adaptive <- function(desc, start_time, end_time, access_token, max_retries = 3, min_chunk_hours = 1) {
-    all_results <- list()
-    time_queue <- list(list(start = start_time, end = end_time))
-    
-    while (length(time_queue) > 0) {
-        current_chunk <- time_queue[[1]]
-        time_queue <- time_queue[-1]
-        
-        formatted_start <- format(current_chunk$start, "%Y%m%d")
-        formatted_end <- format(current_chunk$end, "%Y%m%d")
-        
-        log_info(paste("Attempting to fetch videos for description:", desc, "time chunk:", formatted_start, "to", formatted_end))
-        
-        query_body <- list(
-            query = list(
-                and = list(
-                    list(
-                        operation = "EQ",
-                        field_name = "keyword",
-                        field_values = list(desc)
-                    )
-                )
-            ),
-            start_date = formatted_start,
-            end_date = formatted_end,
-            max_count = 100
+      # First try with max_pages = 1 to ensure we get at least the first page
+      chunk_result <- query() |>
+        query_and(
+          field_name = "username",
+          operation = "IN",
+          field_values = chunk
+        ) |>
+        tt_search_api(
+          start_date = start_date,
+          end_date = end_date,
+          max_pages = 1
         )
+      
+      log_info(sprintf("Retrieved first page with %d results for chunk %d", 
+                      nrow(chunk_result), i))
+      
+      # Try to get more pages, but catch pagination errors
+      tryCatch({
+        full_results <- query() |>
+          query_and(
+            field_name = "username",
+            operation = "IN",
+            field_values = chunk
+          ) |>
+          tt_search_api(
+            start_date = start_date,
+            end_date = end_date,
+            max_pages = 100
+          )
         
-        success <- FALSE
-        attempts <- 0
-        
-        while (!success && attempts < max_retries) {
-            attempts <- attempts + 1
-            
-            tryCatch({
-                Sys.sleep(5)  # Sleep for 5 seconds between attempts
-                
-                query_json <- jsonlite::toJSON(query_body, auto_unbox = TRUE)
-                
-                response <- httr::POST(
-                    url = "https://open.tiktokapis.com/v2/research/video/query/?fields=id,create_time,region_code,share_count,view_count,like_count,comment_count,video_description,username",
-                    httr::add_headers(
-                        Authorization = paste("Bearer", access_token),
-                        "Content-Type" = "application/json"
-                    ),
-                    body = query_json
-                )
-                
-                if (httr::status_code(response) == 200) {
-                    content <- httr::content(response, "parsed")
-                    
-                    if (length(content$data$videos) > 0) {
-                        result <- do.call(rbind, lapply(content$data$videos, function(video) {
-                            data.frame(
-                                video_id = ifelse(is.null(video$id), NA, video$id),
-                                create_time = ifelse(is.null(video$create_time), NA, as.POSIXct(video$create_time, origin = "1970-01-01")),
-                                region_code = ifelse(is.null(video$region_code), NA, video$region_code),
-                                share_count = ifelse(is.null(video$share_count), NA, video$share_count),
-                                view_count = ifelse(is.null(video$view_count), NA, video$view_count),
-                                like_count = ifelse(is.null(video$like_count), NA, video$like_count),
-                                comment_count = ifelse(is.null(video$comment_count), NA, video$comment_count),
-                                video_description = ifelse(is.null(video$video_description), NA, video$video_description),
-                                username = ifelse(is.null(video$username), NA, video$username),
-                                stringsAsFactors = FALSE
-                            )
-                        }))
-                        
-                        all_results[[length(all_results) + 1]] <- result
-                        log_info(paste("Retrieved", nrow(result), "videos for chunk", formatted_start, "to", formatted_end))
-                        
-                        if (!is.null(content$data$has_more) && content$data$has_more) {
-                            # If more data is available, split the time chunk
-                            mid_time <- current_chunk$start + difftime(current_chunk$end, current_chunk$start, units="secs") / 2
-                            time_queue <- c(time_queue, 
-                                            list(list(start = current_chunk$start, end = mid_time)),
-                                            list(list(start = mid_time, end = current_chunk$end)))
-                        }
-                        
-                        success <- TRUE
-                    } else {
-                        log_info(paste("No videos found for chunk", formatted_start, "to", formatted_end))
-                        success <- TRUE  # Consider this a success, just with no data
-                    }
-                } else if (httr::status_code(response) %in% c(400, 500)) {
-                    log_warn(paste("Request failed with HTTP status", httr::status_code(response), "for chunk", formatted_start, "to", formatted_end))
-                    # If the time difference is greater than the minimum chunk size, split it
-                    if (as.numeric(difftime(current_chunk$end, current_chunk$start, units="hours")) > min_chunk_hours) {
-                        mid_time <- current_chunk$start + difftime(current_chunk$end, current_chunk$start, units="secs") / 2
-                        time_queue <- c(list(list(start = current_chunk$start, end = mid_time)),
-                                        list(list(start = mid_time, end = current_chunk$end)),
-                                        time_queue)
-                        success <- TRUE  # Move on to the next (smaller) chunk
-                    }
-                } else {
-                    stop(paste("API request failed with status code:", httr::status_code(response)))
-                }
-            }, error = function(e) {
-                if (grepl("daily_quota_limit_exceeded", e$message, ignore.case = TRUE)) {
-                    log_error("Daily API quota limit exceeded")
-                    stop("Process terminated: Daily API quota limit exceeded.", call. = FALSE)
-                } else {
-                    log_warn(paste("An unexpected error occurred:", e$message))
-                }
-            })
+        # If pagination succeeded, use the full results
+        if (is.data.frame(full_results) && nrow(full_results) > 0) {
+          chunk_result <- full_results
+          log_info(sprintf("Successfully retrieved all pages with %d total results", 
+                          nrow(chunk_result)))
         }
-        
-        if (!success) {
-            log_warn(paste("Max retries exceeded for chunk", formatted_start, "to", formatted_end))
+      }, error = function(e) {
+        if (grepl("400|invalid_params|Search Id.*invalid or expired", e$message)) {
+          log_warn("Pagination failed with 400 error - keeping first page results")
+          incomplete_count <- incomplete_count + 1
+          global_error_list <<- c(global_error_list, list(list(
+            type = "pagination_error",
+            chunk = i,
+            message = e$message
+          )))
+        } else {
+          log_error(sprintf("Unexpected error during pagination: %s", conditionMessage(e)))
         }
-    }
-    
-    if (length(all_results) > 0) {
-        return(do.call(rbind, all_results))
-    } else {
-        return(data.frame())
-    }
-}
-
-# Main script to fetch all videos
-fetch_all_videos_adaptive <- function(unique_videos_desc, startdate, enddate, access_token) {
-    all_videos_list <- list()
-    errors_list <- list()
-
-    log_info("Starting to fetch all videos with adaptive window approach")
-
-    for (i in 1:nrow(unique_videos_desc)) {
-        desc <- unique_videos_desc$video_description[i]
-        
-        result <- tryCatch({
-            temp_videos <- get_videos_by_description_adaptive(desc, startdate, enddate, access_token, max_retries = 3)
-            log_info(paste("Successfully fetched videos for description", i))
-            temp_videos
-        }, error = function(e) {
-            log_error(paste("Error fetching videos for description", i, ":", e$message))
-            errors_list[[length(errors_list) + 1]] <- list(description = desc, error = e$message)
-            global_error_list <<- c(global_error_list, list(list(type = "video_description", index = i, message = e$message)))
-            data.frame()
-        })
-        
-        all_videos_list[[i]] <- result
-        Sys.sleep(2)
-    }
-
-    all_videos <- bind_rows(all_videos_list)
-
-    # Process the combined data
-    all_videos <- all_videos %>%
-        {if ("region_code" %in% names(.)) 
-            mutate(., region_code = toupper(region_code)) 
-         else .} %>%
-        filter(video_description != "" & nchar(video_description) >= 80) %>%
-        distinct() %>%
-        mutate(video_url = ifelse(!is.na(username) & !is.na(video_id),
-                                  paste0("https://www.tiktok.com/@", username, "/video/", video_id),
-                                  NA))
-
-    log_info(paste("Fetched a total of", nrow(all_videos), "videos"))
-    log_info(paste("Encountered", length(errors_list), "errors during fetching"))
-
-    return(list(videos = all_videos, errors = errors_list))
-}
-
-# Fetch all videos with adaptive approach
-all_videos_result <- tryCatch({
-    fetch_all_videos_adaptive(unique_videos_desc, startdate, enddate, access_token)
-}, error = function(e) {
-    log_error(paste("Error in fetch_all_videos_adaptive:", e$message))
-    global_error_list <<- c(global_error_list, list(list(type = "fetch_all_videos_adaptive", message = e$message)))
-    list(videos = data.frame(), errors = list())
-})
-
-# Save the results
-write.csv(all_videos_result$videos, file = "latest_snapshot_adaptive.csv", row.names = FALSE)
-
-```
-
-```{r coordinated_detection, message=FALSE}
-
-tryCatch({
-  if(nrow(all_videos_result$videos) > 0 && "video_description" %in% colnames(all_videos_result$videos)) {
-    prep_data <- CooRTweet::prep_data(x = all_videos_result$videos,
-                                      object_id = "video_description",
-                                      account_id = "username",
-                                      content_id = "video_id",
-                                      timestamp_share = "create_time")
-
-    result <- CooRTweet::detect_groups(x = prep_data,
-                                       time_window = 180, # set the time interval
-                                       min_participation = 2, # set the minimum number of repetition
-                                       remove_loops = T)
-
-    coord_graph <- CooRTweet::generate_coordinated_network(x = result, 
-                                                edge_weight = 0.5, # default 0.5
-                                                objects = TRUE,
-                                                subgraph = 1)
-
-    # Before calculating summary statistics, ensure the 'coord_graph' and 'result' are valid
-    if(!is.null(coord_graph) && !is.null(result)) {
-      # Check if 'coord_graph' has the expected structure
-      if(!("igraph" %in% class(coord_graph))) {
-        log_error("coord_graph is not of type igraph")
-        stop("coord_graph is not of type igraph. Please check the generate_coordinated_network output.")
+      })
+      
+      # Add results to main dataframe
+      if (is.data.frame(chunk_result) && nrow(chunk_result) > 0) {
+        all_results <- bind_rows(all_results, chunk_result)
+        log_info(sprintf("Added %d videos from chunk %d to final results", 
+                        nrow(chunk_result), i))
+      } else {
+        failure_count <- failure_count + 1
+        global_error_list <<- c(global_error_list, list(list(
+          type = "empty_chunk",
+          chunk = i,
+          usernames = chunk
+        )))
       }
       
-      # Proceed with summary calculations
-      summary_groups <- CooRTweet::group_stats(coord_graph = coord_graph, weight_threshold = "full")
-      summary_accounts <- CooRTweet::account_stats(coord_graph = coord_graph, result = result, weight_threshold = "full")
-      log_info("Successfully calculated summary statistics")
-      
-      new_account_ids <- summary_accounts[!(summary_accounts$account_id %in% coord_users), ]
-      updated_list <- c(coord_users, new_account_ids$account_id)
-    } else {
-      log_warn("coord_graph or result is NULL. Skipping summary statistics.")
-      new_account_ids <- data.frame()
-      updated_list <- account_ids$x
-    }
-  } else {
-    log_warn("No videos available for coordinated detection analysis")
-    new_account_ids <- data.frame()
-    updated_list <- coord_users
+    }, error = function(e) {
+      log_error(sprintf("Error in chunk %d: %s", i, conditionMessage(e)))
+      log_error(sprintf("Usernames in failed chunk: %s", paste(chunk, collapse = ", ")))
+      failure_count <- failure_count + 1
+      global_error_list <<- c(global_error_list, list(list(
+        type = "chunk_error",
+        chunk = i,
+        message = e$message,
+        usernames = chunk
+      )))
+    })
+    
+    # Update progress bar
+    pb$tick()
+    
+    # Add a small delay between chunks
+    Sys.sleep(2)
   }
-}, error = function(e) {
-  log_error(paste("Error in coordinated detection:", e$message))
-  global_error_list <<- c(global_error_list, list(list(type = "coordinated_detection", message = e$message)))
-  new_account_ids <- data.frame()
-  updated_list <- coord_users
-})
+  
+  # Final summary
+  summary_msg <- sprintf("\nCollection completed:\n- Total videos: %d\n- Failed chunks: %d/%d\n- Incomplete chunks: %d/%d",
+                        nrow(all_results), failure_count, total_chunks, incomplete_count, total_chunks)
+  log_info(summary_msg)
+  
+  if (nrow(all_results) > 0) {
+    log_info(sprintf("Unique users in results: %d", length(unique(all_results$username))))
+    log_info(sprintf("Date range: %s to %s", 
+                    min(as.Date(all_results$create_time)), 
+                    max(as.Date(all_results$create_time))))
+  }
+  
+  return(list(
+    data = all_results,
+    summary = list(
+      total_videos = nrow(all_results),
+      failed_chunks = failure_count,
+      incomplete_chunks = incomplete_count,
+      total_chunks = total_chunks
+    )
+  ))
+}
+
+# Main fetch function
+fetch_recent_videos <- function() {
+  if (!params$load_from_snapshot) {
+    log_info("Starting video collection")
+    recent_videos_result <- get_recent_videos(
+      usernames = coord_users,
+      start_date = startdate,
+      end_date = enddate
+    )
+    recent_videos <- recent_videos_result$data
+    log_info(sprintf("Video collection completed with %d videos", nrow(recent_videos)))
+    return(recent_videos)
+  } else {
+    log_info("Loading from snapshot, skipping video collection")
+    return(NULL)
+  }
+}
+
+# If running directly, execute fetch
+if (exists("coord_users")) {
+  recent_videos <- fetch_recent_videos()
+}
+
 
 ```
 
-```{r save_output, message=FALSE}
+```{r fetch_all_videos, include=FALSE, message=FALSE, eval=!params$load_from_snapshot, cache=TRUE}
 
-# Define the log file path
-log_file_path <- "/home/mine/VERAAI_WP4/output/new_accounts_log.csv"
-
-# Check if the log file exists; if not, create it with a header
-if (!file.exists(log_file_path)) {
-  write.csv(data.frame(Timestamp = character(), New_Accounts_Count = numeric()), 
-            log_file_path, row.names = FALSE)
+# Function to get videos for a specific description
+get_videos_by_description <- function(desc, start_date, end_date) {
+ log_info(sprintf("Querying for description: %s", desc))
+ 
+ tryCatch({
+   # First try with max_pages = 1 to ensure we get at least the first page
+   chunk_result <- query() |>
+     query_and(
+       field_name = "keyword",
+       operation = "EQ",
+       field_values = list(desc)  # Wrap in list to ensure proper handling
+     ) |>
+     tt_search_api(
+       start_date = start_date,
+       end_date = end_date,
+       max_pages = 1
+     )
+   
+   log_info(sprintf("Retrieved first page with %d results for description: %s", 
+                   nrow(chunk_result), desc))
+   
+   # Try to get more pages, but catch pagination errors
+   tryCatch({
+     full_results <- query() |>
+       query_and(
+         field_name = "keyword",
+         operation = "EQ",
+         field_values = list(desc)  # Wrap in list here too
+       ) |>
+       tt_search_api(
+         start_date = start_date,
+         end_date = end_date,
+         max_pages = 100
+       )
+     
+     # If pagination succeeded, use the full results
+     if (is.data.frame(full_results) && nrow(full_results) > 0) {
+       chunk_result <- full_results
+       log_info(sprintf("Successfully retrieved all pages with %d total results", 
+                       nrow(chunk_result)))
+     }
+   }, error = function(e) {
+     if (grepl("400|invalid_params|Search Id.*invalid or expired", e$message)) {
+       log_warn("Pagination failed with 400 error - keeping first page results")
+       global_error_list <<- c(global_error_list, list(list(
+         type = "pagination_error",
+         description = desc,
+         message = e$message
+       )))
+     } else {
+       log_error(sprintf("Unexpected error during pagination: %s", conditionMessage(e)))
+     }
+   })
+   
+   return(chunk_result)
+   
+ }, error = function(e) {
+   log_error(sprintf("Error querying description '%s': %s", desc, conditionMessage(e)))
+   global_error_list <<- c(global_error_list, list(list(
+     type = "description_query_error",
+     description = desc,
+     message = e$message
+   )))
+   return(data.frame())
+ })
 }
 
-# Prepare the new entry with the current timestamp and the count of new accounts
-new_entry <- data.frame(Timestamp = Sys.Date(), New_Accounts_Count = nrow(new_account_ids))
+# Main function to fetch all videos with matching descriptions
+fetch_all_videos <- function(recent_videos, start_date, end_date) {
+ 
+ # Get unique descriptions that are long enough to be meaningful
+ unique_descriptions <- unique(recent_videos$video_description[nchar(recent_videos$video_description) >= 80])
+ 
+ log_info(sprintf("Found %d unique descriptions to query", length(unique_descriptions)))
+ 
+ # Initialize progress bar
+ pb <- progress_bar$new(
+   format = "[:bar] :percent :etas",
+   total = length(unique_descriptions),
+   clear = FALSE
+ )
+ 
+ # Initialize results
+ all_results <- data.frame()
+ 
+ # Process each description
+ for (desc in unique_descriptions) {
+   # Get videos for this description
+   videos <- get_videos_by_description(desc, start_date, end_date)
+   
+   # Add results if any
+   if (is.data.frame(videos) && nrow(videos) > 0) {
+     all_results <- bind_rows(all_results, videos)
+     log_info(sprintf("Added %d videos for description: %s", nrow(videos), substr(desc, 1, 50)))
+   }
+   
+   # Update progress bar
+   pb$tick()
+   
+   # Add delay between requests
+   Sys.sleep(2)
+ }
+ 
+ # Process the combined data
+ if (nrow(all_results) > 0) {
+   final_results <- all_results %>%
+     mutate(
+       region_code = toupper(region_code),
+       video_url = paste0("https://www.tiktok.com/@", author_name, "/video/", video_id)
+     ) %>%
+     filter(!is.na(video_description) & video_description != "") %>%
+     distinct()
+   
+   # Log summary
+   log_info(sprintf("\nCollection completed:"))
+   log_info(sprintf("Total videos collected: %d", nrow(final_results)))
+   log_info(sprintf("Unique users: %d", n_distinct(final_results$author_name)))
+   log_info(sprintf("Unique descriptions: %d", n_distinct(final_results$video_description)))
+   
+   # Create output directory if it doesn't exist
+   output_dir <- file.path(params$base_dir, "output")
+   dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+   
+   # Save results
+   output_file <- file.path(output_dir, "latest_snapshot.csv")
+   write_csv(final_results, output_file)
+   log_info(sprintf("Results saved to %s", output_file))
+   
+   return(final_results)
+ } else {
+   log_warn("No results found")
+   return(data.frame())
+ }
+}
 
-# Append the new entry to the log file using write.table
-write.table(new_entry, file = log_file_path, sep = ",", col.names = FALSE, 
-            row.names = FALSE, append = TRUE, quote = FALSE)
+# Execute if we have recent_videos
+if (exists("recent_videos") && is.data.frame(recent_videos) && nrow(recent_videos) > 0) {
+ log_info("Starting to fetch all videos with matching descriptions")
+ all_videos <- fetch_all_videos(recent_videos, startdate, enddate)
+ 
+ # Assign to global environment
+ assign("all_videos", all_videos, envir = .GlobalEnv)
+} else {
+ log_warn("No recent_videos found or empty dataset")
+}
 
-# Make sure the 'write.csv' operation for updating the account list is also wrapped in tryCatch
-tryCatch({
-  # Assuming 'updated_list' is properly generated from 'summary_accounts'
-  if(exists("updated_list") && length(updated_list) > 0) {
-    write.csv(x = updated_list, file = "/home/mine/VERAAI_WP4/lists/tiktok_coordinated_accounts_ids.csv", row.names = FALSE)
-    log_info("Successfully updated the list of TikTok coordinated accounts")
-  } else {
-    log_warn("updated_list is missing or empty. No new data to write.")
-    stop("updated_list is missing or empty. No new data to write.")
+```
+
+```{r coordinated_detection, include=FALSE, message=FALSE}
+
+# Function to detect coordination patterns
+detect_coordination <- function(all_videos) {
+  tryCatch({
+    if(nrow(all_videos) > 0 && "video_description" %in% colnames(all_videos)) {
+      # Prepare data with correct field mappings
+      prep_data <- CooRTweet::prep_data(
+        x = all_videos,
+        object_id = "video_description",
+        account_id = "author_name",      # Changed from username to author_name
+        content_id = "video_id",         # Already correct
+        timestamp_share = "create_time"   # Already correct
+      )
+      
+      log_info("Data prepared for coordination detection")
+      
+      # Detect coordinated groups
+      result <- CooRTweet::detect_groups(
+        x = prep_data,
+        time_window = params$time_window,
+        min_participation = params$min_participation,
+        remove_loops = TRUE)
+      
+      coord_graph <- CooRTweet::generate_coordinated_network(
+        x = result, 
+        edge_weight = params$edge_weight,
+        objects = TRUE,
+        subgraph = 1)
+      
+      log_info("Coordination network generated")
+      
+      # Calculate summary statistics if graph is valid
+      if(!is.null(coord_graph) && !is.null(result)) {
+        if(!("igraph" %in% class(coord_graph))) {
+          log_error("coord_graph is not of type igraph")
+          stop("coord_graph is not of type igraph. Please check the generate_coordinated_network output.")
+        }
+        
+        # Calculate summary statistics
+        summary_groups <- CooRTweet::group_stats(
+          coord_graph = coord_graph, 
+          weight_threshold = "full"
+        )
+        
+        summary_accounts <- CooRTweet::account_stats(
+          coord_graph = coord_graph, 
+          result = result, 
+          weight_threshold = "full"
+        )
+        
+        log_info("Successfully calculated summary statistics")
+        
+        # Get current list of coordinated accounts from summary_accounts
+        current_coordinated_accounts <- summary_accounts$account_id
+        log_info(sprintf("Found %d accounts showing coordination in current analysis", 
+                        length(current_coordinated_accounts)))
+        
+        # Get the starting list of known accounts
+        log_info(sprintf("Starting with %d known coordinated accounts", 
+                        length(coord_users)))
+        
+        # Identify truly new accounts (not in starting list)
+        new_account_ids <- data.frame(
+          account_id = setdiff(current_coordinated_accounts, coord_users)
+        )
+        
+        # Create updated list
+        updated_list <- unique(c(coord_users, new_account_ids$account_id))
+        
+        # Log the results
+        if(nrow(new_account_ids) > 0) {
+          log_info(sprintf("Found %d new coordinated accounts (not in starting list)", 
+                          nrow(new_account_ids)))
+          log_info(sprintf("Total unique accounts after update: %d", 
+                          length(updated_list)))
+        } else {
+          log_info("No new coordinated accounts found")
+        }
+        
+        # Save results
+        dir.create("output/coordination", showWarnings = FALSE, recursive = TRUE)
+        
+        write_csv(summary_groups, "output/coordination/summary_groups.csv")
+        write_csv(summary_accounts, "output/coordination/summary_accounts.csv")
+        write_csv(data.frame(account_id = updated_list), 
+                  "output/coordination/updated_account_list.csv")
+        
+        return(list(
+          coord_graph = coord_graph,
+          summary_groups = summary_groups,
+          summary_accounts = summary_accounts,
+          new_accounts = new_account_ids,
+          updated_list = updated_list
+        ))
+        
+      } else {
+        log_warn("coord_graph or result is NULL. Skipping summary statistics.")
+        return(list(
+          new_accounts = data.frame(),
+          updated_list = coord_users
+        ))
+      }
+    } else {
+      log_warn("No videos available for coordinated detection analysis")
+      return(list(
+        new_accounts = data.frame(),
+        updated_list = coord_users
+      ))
+    }
+  }, error = function(e) {
+    log_error(paste("Error in coordinated detection:", e$message))
+    global_error_list <<- c(global_error_list, list(list(
+      type = "coordinated_detection",
+      message = e$message
+    )))
+    return(list(
+      new_accounts = data.frame(),
+      updated_list = coord_users
+    ))
+  })
+}
+
+# Execute if we have all_videos
+if (exists("all_videos") && is.data.frame(all_videos) && nrow(all_videos) > 0) {
+  log_info("Starting coordination detection analysis")
+  coordination_results <- detect_coordination(all_videos)
+  
+  # Update global variables if needed
+  if (exists("coordination_results") && !is.null(coordination_results$updated_list)) {
+    coord_users <- coordination_results$updated_list
   }
+} else {
+  log_warn("No videos available for coordination analysis")
+}
+
+```
+
+```{r save_output, include=FALSE, message=FALSE}
+
+# Create necessary directories
+tryCatch({
+  dir.create(file.path(params$base_dir, "output"), showWarnings = FALSE, recursive = TRUE)
+  dir.create(file.path(params$base_dir, "output", "coordination"), showWarnings = FALSE, recursive = TRUE)
 }, error = function(e) {
-  log_error(paste("Failed to write the updated list of TikTok coordinated accounts:", e$message))
-  stop("Failed to write the updated list of TikTok coordinated accounts to CSV: ", e$message)
+  log_error(sprintf("Error creating directories: %s", conditionMessage(e)))
 })
+
+# Function to update account logs and save results
+update_account_logs <- function(coordination_results) {
+  # Define file paths using params$base_dir
+  log_file_path <- file.path(params$base_dir, "output", "new_accounts_log.csv")
+  accounts_file_path <- file.path(params$base_dir, "lists", "tiktok_coordinated_accounts_ids.csv")
+  
+  tryCatch({
+    # Create output directory if it doesn't exist
+    dir.create(dirname(log_file_path), showWarnings = FALSE, recursive = TRUE)
+    dir.create(dirname(accounts_file_path), showWarnings = FALSE, recursive = TRUE)
+    
+    # Read existing log file if it exists
+    existing_log <- if(file.exists(log_file_path)) {
+      read_csv(log_file_path, show_col_types = FALSE)
+    } else {
+      log_info("Creating new accounts log file")
+      data.frame(
+        Timestamp = as.Date(character()),
+        New_Accounts_Count = numeric(),
+        Total_Accounts = numeric()
+      )
+    }
+    
+    # Prepare the new log entry with correct column names
+    new_entry <- data.frame(
+      Timestamp = as.Date(Sys.Date()),
+      New_Accounts_Count = nrow(coordination_results$new_accounts),
+      Total_Accounts = length(coordination_results$updated_list)
+    )
+    
+    # Append the new entry to the log file
+    write_csv(
+      new_entry,
+      log_file_path,
+      append = file.exists(log_file_path)
+    )
+    
+    log_info(sprintf("Added new log entry: %d new accounts, %d total accounts", 
+                    new_entry$New_Accounts_Count, 
+                    new_entry$Total_Accounts))
+    
+    # Update the coordinated accounts list
+    if (length(coordination_results$updated_list) > 0) {
+      # Save updated list
+      write_csv(
+        data.frame(x = coordination_results$updated_list),
+        accounts_file_path
+      )
+      
+      log_info(sprintf("Successfully updated coordinated accounts list with %d accounts", 
+                      length(coordination_results$updated_list)))
+    } else {
+      log_warn("No accounts to update in the coordinated accounts list")
+    }
+    
+    return(TRUE)
+    
+  }, error = function(e) {
+    log_error(sprintf("Error updating account logs: %s", conditionMessage(e)))
+    global_error_list <<- c(global_error_list, list(list(
+      type = "update_logs_error",
+      message = e$message
+    )))
+    return(FALSE)
+  })
+}
+
+# Execute if we have coordination results
+if (exists("coordination_results") && 
+    !is.null(coordination_results$updated_list) && 
+    !is.null(coordination_results$new_accounts)) {
+  
+  log_info("Starting to update account logs")
+  update_success <- update_account_logs(coordination_results)
+  
+  if (update_success) {
+    log_info("Successfully completed account log updates")
+  } else {
+    log_warn("Failed to update account logs")
+  }
+  
+} else {
+  log_warn("No coordination results available for logging")
+}
+
+# Save global error list if it contains any errors
+if (length(global_error_list) > 0) {
+  error_log_path <- file.path(params$base_dir, "output", "error_log.csv")
+  
+  error_df <- do.call(rbind, lapply(global_error_list, function(x) {
+    data.frame(
+      timestamp = as.Date(Sys.time()),
+      type = x$type,
+      message = x$message,
+      stringsAsFactors = FALSE
+    )
+  }))
+  
+  write_csv(error_df, error_log_path)
+  log_info("Saved error log to file")
+}
 
 ```
 
 # Today Output
 
-```{r results_summary, results='asis'}
+```{r results_summary, include=FALSE, results='asis'}
 
-# Construct the message with available data
-message <- sprintf("We attempted to retrieve videos from %s monitored accounts, during the period from %s to %s. ",
-                   scales::comma(length(coord_users)), 
-                   format(as.Date(startdate), "%B %d, %Y"), 
-                   format(as.Date(enddate), "%B %d, %Y"))
-
-if (nrow(recent_videos) > 0) {
-    message <- paste0(message, sprintf("We successfully retrieved %s recent videos. ", scales::comma(nrow(recent_videos))))
-} else {
-    message <- paste0(message, "We were unable to retrieve any recent videos due to API issues. ")
-}
-
-message <- paste0(message, sprintf("Using available data, we accessed a total of %s videos posted on TikTok within the timeframe. ",
-                                   scales::comma(nrow(all_videos_result$videos))))
-
-if (exists("summary_accounts") && !is.null(summary_accounts)) {
-    message <- paste0(message, sprintf("Our analysis for coordinated detection in these videos identified %s accounts spread across %s components, and it also uncovered %s new accounts exhibiting coordinated behavior.",
-                                       scales::comma(nrow(summary_accounts)),
-                                       scales::comma(igraph::components(coord_graph)$no),
-                                       scales::comma(nrow(new_account_ids))))
-} else {
-    message <- paste0(message, "We were unable to perform coordinated detection analysis due to insufficient data.")
-}
-
-cat(message)
-
-# Error summary
-cat("\n\nError Summary:\n")
-if (length(global_error_list) > 0) {
-  cat(paste("Total errors encountered:", length(global_error_list), "\n"))
-  error_types <- table(sapply(global_error_list, function(x) x$type))
-  cat("Errors by type:\n")
-  print(error_types)
-
-  # Display a few sample errors
-  cat("\nSample Errors:\n")
-  sample_size <- min(5, length(global_error_list))
-  sample_errors <- sample(global_error_list, sample_size)
-  for (error in sample_errors) {
-    cat(paste0("Type: ", error$type, ", Message: ", error$message, "\n"))
+# Function to generate detailed summary
+generate_summary <- function(
+  coord_users,
+  startdate,
+  enddate,
+  recent_videos,
+  all_videos,
+  coordination_results,
+  global_error_list
+) {
+  # Initialize summary string
+  summary_parts <- list()
+  
+  # Basic collection summary
+  summary_parts$collection <- sprintf(
+    "We attempted to retrieve videos from %s monitored accounts, during the period from %s to %s.",
+    scales::comma(length(coord_users)),
+    format(as.Date(startdate), "%B %d, %Y"),
+    format(as.Date(enddate), "%B %d, %Y")
+  )
+  
+  # Recent videos summary
+  if (is.data.frame(recent_videos) && nrow(recent_videos) > 0) {
+    summary_parts$recent <- sprintf(
+      "We successfully retrieved %s recent videos.",
+      scales::comma(nrow(recent_videos))
+    )
+  } else {
+    summary_parts$recent <- "We were unable to retrieve any recent videos due to API issues."
   }
+  
+  # All videos summary
+  if (is.data.frame(all_videos) && nrow(all_videos) > 0) {
+    summary_parts$all <- sprintf(
+      "Using available data, we accessed a total of %s videos posted on TikTok within the timeframe.",
+      scales::comma(nrow(all_videos))
+    )
+  } else {
+    summary_parts$all <- "No videos were available for analysis."
+  }
+  
+  # Coordination analysis summary
+  if (!is.null(coordination_results) && 
+      !is.null(coordination_results$summary_accounts) && 
+      !is.null(coordination_results$coord_graph)) {
+    
+    summary_parts$coordination <- sprintf(
+      "Our analysis for coordinated detection in these videos identified %s accounts spread across %s components, and it also uncovered %s new accounts exhibiting coordinated behavior.",
+      scales::comma(nrow(coordination_results$summary_accounts)),
+      scales::comma(igraph::components(coordination_results$coord_graph)$no),
+      scales::comma(nrow(coordination_results$new_accounts))
+    )
+  } else {
+    summary_parts$coordination <- "We were unable to perform coordinated detection analysis due to insufficient data."
+  }
+  
+  # Combine all parts
+  full_summary <- paste(unlist(summary_parts), collapse = " ")
+  
+  # Generate error summary
+  error_summary <- generate_error_summary(global_error_list)
+  
+  # Create output directory if it doesn't exist
+  dir.create("output/summary", showWarnings = FALSE, recursive = TRUE)
+  
+  # Save summary to file
+  summary_file_path <- "output/summary/execution_summary.txt"
+  writeLines(c(full_summary, "\n", error_summary), summary_file_path)
+  
+  # Log summary creation
+  log_info("Generated execution summary")
+  log_info(sprintf("Summary saved to %s", summary_file_path))
+  
+  return(list(
+    summary = full_summary,
+    error_summary = error_summary
+  ))
+}
+
+# Function to generate error summary
+generate_error_summary <- function(global_error_list) {
+  if (length(global_error_list) > 0) {
+    # Get error types and counts
+    error_types <- table(sapply(global_error_list, function(x) x$type))
+    
+    # Create error summary text
+    error_parts <- c(
+      "\nError Summary:",
+      sprintf("Total errors encountered: %d", length(global_error_list)),
+      "\nErrors by type:",
+      capture.output(print(error_types)),
+      "\nSample Errors:"
+    )
+    
+    # Add sample errors
+    sample_size <- min(5, length(global_error_list))
+    sample_errors <- sample(global_error_list, sample_size)
+    error_samples <- sapply(sample_errors, function(error) {
+      sprintf("Type: %s, Message: %s", error$type, error$message)
+    })
+    
+    error_summary <- c(error_parts, error_samples)
+    
+  } else {
+    error_summary <- "\nNo errors were encountered during script execution."
+  }
+  
+  return(paste(error_summary, collapse = "\n"))
+}
+
+# Execute summary generation
+if (exists("coord_users") && exists("startdate") && exists("enddate")) {
+  log_info("Generating execution summary")
+  
+  summary_result <- generate_summary(
+    coord_users = coord_users,
+    startdate = startdate,
+    enddate = enddate,
+    recent_videos = if(exists("recent_videos")) recent_videos else NULL,
+    all_videos = if(exists("all_videos")) all_videos else NULL,
+    coordination_results = if(exists("coordination_results")) coordination_results else NULL,
+    global_error_list = global_error_list
+  )
+  
+  # Print summary to console
+  cat("\nExecution Summary:\n")
+  cat(summary_result$summary)
+  cat("\n")
+  cat(summary_result$error_summary)
+  cat("\n")
 } else {
-  cat("No errors were encountered during script execution.\n")
+  log_warn("Missing required variables for summary generation")
 }
 
 ```
 
-```{r new-accounts-plot, fig.cap="Trend of newly discovered TikTok accounts.", message=FALSE}
+```{r new-accounts-plot, include=TRUE, fig.cap="Trend of newly discovered TikTok accounts.", message=FALSE}
 
-log_data <- read_csv(log_file_path)
+# Read and clean the log data
+log_data <- read_csv(
+  file.path(params$base_dir, "output", "new_accounts_log.csv"), 
+  show_col_types = FALSE,
+  col_types = cols(
+    Timestamp = col_date(format = ""),
+    New_Accounts_Count = col_double(),
+    Total_Accounts = col_double())
+  )
 
-# Ensure the Timestamp is treated as a Date
-log_data$Timestamp <- as.Date(log_data$Timestamp)
-
-# Generate the bar chart
-ggplot(log_data, aes(x = Timestamp, y = New_Accounts_Count, group=1)) +
+# Create bar plot with clean data
+ggplot(log_data, aes(x = Timestamp, y = New_Accounts_Count)) +
   geom_bar(stat = "identity", fill = "blue") +
-  labs(title = "Newly Discovered TikTok Accounts Over Time",
-       x = "Date",
-       y = "Number of New Accounts") +
-  theme_minimal() + # Use a minimal theme
+  labs(
+    title = "Newly Discovered TikTok Accounts Over Time",
+    x = "Date",
+    y = "Number of New Accounts"
+  ) +
+  theme_minimal() + 
   scale_y_continuous(limits = c(0, NA)) # Ensure y-axis starts at 0
 
 ```
 
 Explore the interactive chart. Node click to visit the TikTok account.
 
-```{r viz, message=FALSE}
+```{r viz, include=FALSE, echo=FALSE, message=FALSE}
 
-# Add URL attribute to nodes
-V(coord_graph)$url <- paste0("https://tiktok.com/@", V(coord_graph)$name)
+# Function to generate interactive network visualization
+generate_network_visualization <- function(coordination_results) {
+  tryCatch({
+    # Check if we have valid coordination results
+    if (is.null(coordination_results) || 
+        is.null(coordination_results$coord_graph)) {
+      log_warn("No valid coordination graph available for visualization")
+      return(NULL)
+    }
+    
+    log_info("Starting network visualization generation")
+    
+    # Create output directory
+    viz_dir <- "/home/mine/VERAAI_WP4/output/network"
+    dir.create(viz_dir, showWarnings = FALSE, recursive = TRUE)
+    
+    # Get the graph
+    graph <- coordination_results$coord_graph
+    
+    # Add URL attribute to nodes
+    V(graph)$url <- paste0("https://tiktok.com/@", V(graph)$name)
+    
+    # Add additional node attributes
+    V(graph)$title <- sprintf(
+      "<p><b>Account:</b> @%s<br><b>Degree:</b> %d<br><b>Component:</b> %d</p>",
+      V(graph)$name,
+      degree(graph),
+      components(graph)$membership
+    )
+    
+    # Convert to visNetwork format
+    log_info("Converting graph to visNetwork format")
+    data <- toVisNetworkData(graph)
+    
+    # Add node properties
+    data$nodes <- data$nodes %>%
+      mutate(
+        # Size based on degree
+        size = degree(graph) * 3 + 10,
+        # Color based on component membership
+        group = as.factor(components(graph)$membership),
+        # Shape and other visual properties
+        shape = "dot",
+        shadow = TRUE
+      )
+    
+    # Add edge properties
+    data$edges <- data$edges %>%
+      mutate(
+        # Edge width based on weight if available
+        width = if("weight" %in% names(.)) weight * 2 else 1,
+        smooth = TRUE
+      )
+    
+    # Create the network visualization
+    log_info("Creating network visualization")
+    network <- visNetwork(
+      nodes = data$nodes,
+      edges = data$edges,
+      width = "100%",
+      height = "800px"
+    ) %>%
+      visLayout(randomSeed = 123) %>%
+      visOptions(
+        highlightNearest = list(
+          enabled = TRUE,
+          degree = 1,
+          hover = TRUE
+        ),
+        selectedBy = list(
+          variable = "group",
+          main = "Select Component"
+        )
+      ) %>%
+      visPhysics(
+        stabilization = list(
+          enabled = TRUE,
+          iterations = 100
+        )
+      ) %>%
+      visEvents(
+        click = "function(params) {
+          if (params.nodes.length > 0) {
+            var nodeId = params.nodes[0];
+            var nodeData = this.body.data.nodes.get(nodeId);
+            var url = nodeData.url;
+            console.log('Opening URL:', url);
+            window.open(url, '_blank');
+          }
+        }"
+      ) %>%
+      visLegend() %>%
+      visInteraction(
+        navigationButtons = TRUE,
+        keyboard = TRUE
+      )
+    
+    # Save the network visualization
+    log_info("Saving network visualization")
+    html_file <- file.path(viz_dir, "coordination_network.html")
+    
+    network %>%
+      visSave(
+        file = html_file,
+        background = "white"
+      )
+    
+    # Generate network statistics
+    log_info("Calculating network statistics")
+    network_stats <- list(
+      nodes = vcount(graph),
+      edges = ecount(graph),
+      components = components(graph)$no,
+      density = graph.density(graph),
+      diameter = diameter(graph),
+      avg_degree = mean(degree(graph)),
+      clustering_coefficient = transitivity(graph)
+    )
+    
+    # Save network statistics
+    write_csv(
+      data.frame(
+        metric = names(network_stats),
+        value = unlist(network_stats)
+      ),
+      file.path(viz_dir, "network_statistics.csv")
+    )
+    
+    log_info(sprintf("Network visualization saved to %s", html_file))
+    
+    return(list(
+      network = network,  # This is the network object we'll use later
+      statistics = network_stats
+    ))
+    
+  }, error = function(e) {
+    log_error(sprintf("Error generating network visualization: %s", conditionMessage(e)))
+    global_error_list <<- c(global_error_list, list(list(
+      type = "network_visualization_error",
+      message = e$message
+    )))
+    return(NULL)
+  })
+}
 
-# Convert igraph object to visNetwork
-data <- toVisNetworkData(coord_graph)
-
-# Plot the graph using visNetwork
-network <- visNetwork(data$nodes, data$edges, width = "100%", height = "600px") %>%
-  visLayout(randomSeed = 123) # Setting a seed for reproducible layout
-
-# Add event to open URL on node click and log URL for debugging
-network <- network %>%
-  visEvents(click = "function(params) {
-                                      if (params.nodes.length > 0) {
-                                        var nodeId = params.nodes[0];
-                                        var nodeData = this.body.data.nodes.get(nodeId);
-                                        var url = nodeData.url;
-                                        console.log('Opening URL:', url);  // For debugging
-                                        window.open(url, '_blank');
-                                      }
-                                    }")
+# Execute network visualization if we have coordination results and store the results
+if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
+  log_info("Starting network visualization generation")
+  network_results <- generate_network_visualization(coordination_results)
+  
+  if (!is.null(network_results)) {
+    log_info(sprintf(
+      "Network visualization complete. Network has %d nodes and %d edges",
+      network_results$statistics$nodes,
+      network_results$statistics$edges
+    ))
+  } else {
+    log_warn("Failed to generate network visualization")
+  }
+} else {
+  log_warn("No coordination results available for network visualization")
+  network_results <- NULL
+}
 
 ```
 
-```{r interactive-plot, fig.cap="Interactive visualization of coordinated account detected today. Click on a node to visit the respective TikTok account."}
-# Print the network
-network
+```{r interactive-plot, include=TRUE, fig.cap="Interactive visualization of coordinated account detected today. Click on a node to visit the respective TikTok account."}
+
+# Check if network visualization is available
+if (exists("network_results") && !is.null(network_results$network)) {
+  # Print the network
+  network_results$network
+} else {
+  message("No network visualization available for today's analysis.")
+}
+
 ```
 
 # About
@@ -740,3 +1054,9 @@ network
 # References
 
 Giglietto, F., Marino, G., Mincigrucci, R., & Stanziano, A. (2023). A Workflow to Detect, Monitor, and Update Lists of Coordinated Social Media Accounts Across Time: The Case of the 2022 Italian Election. Social Media + Society, 9(3). https://doi.org/10.1177/20563051231196866
+
+# Session Info
+
+```{r session_info, include=FALSE, echo=FALSE}
+sessionInfo()
+```
