@@ -700,7 +700,7 @@ if (length(global_error_list) > 0) {
 
 # Today Output
 
-```{r results_summary, include=FALSE, results='asis'}
+```{r results_summary, include=TRUE, echo=FALSE, results='asis'}
 
 # Function to generate detailed summary
 generate_summary <- function(
