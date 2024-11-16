@@ -838,7 +838,7 @@ if (exists("coord_users") && exists("startdate") && exists("enddate")) {
 
 ```
 
-```{r new-accounts-plot, include=TRUE, fig.cap="Trend of newly discovered TikTok accounts.", message=FALSE}
+```{r new-accounts-plot, include=TRUE, echo=FALSE, fig.cap="Trend of newly discovered TikTok accounts.", message=FALSE}
 
 # Read and clean the log data
 log_data <- read_csv(
