@@ -865,7 +865,7 @@ ggplot(log_data, aes(x = Timestamp, y = New_Accounts_Count)) +
 
 Explore the interactive chart. Node click to visit the TikTok account.
 
-```{r viz, include=FALSE, echo=FALSE, message=FALSE}
+```{r viz, include=FALSE, message=FALSE}
 
 # Function to generate interactive network visualization
 generate_network_visualization <- function(coordination_results) {
@@ -1033,7 +1033,7 @@ if (exists("coordination_results") && !is.null(coordination_results$coord_graph)
 
 ```
 
-```{r interactive-plot, include=TRUE, fig.cap="Interactive visualization of coordinated account detected today. Click on a node to visit the respective TikTok account."}
+```{r interactive-plot, include=TRUE, echo=FALSE, fig.cap="Interactive visualization of coordinated account detected today. Click on a node to visit the respective TikTok account."}
 
 # Check if network visualization is available
 if (exists("network_results") && !is.null(network_results$network)) {
@@ -1057,6 +1057,6 @@ Giglietto, F., Marino, G., Mincigrucci, R., & Stanziano, A. (2023). A Workflow t
 
 # Session Info
 
-```{r session_info, include=FALSE, echo=FALSE}
+```{r session_info, include=TRUE, echo=FALSE}
 sessionInfo()
 ```
