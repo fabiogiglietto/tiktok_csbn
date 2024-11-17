@@ -1,5 +1,33 @@
-We attempted to retrieve videos from 1,156 monitored accounts, during the period from November 02, 2024 to November 17, 2024. We were unable to retrieve any recent videos due to API issues. Using available data, we accessed a total of 3,733 videos posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified 119 accounts spread across 34 components, and it also uncovered 0 new accounts exhibiting coordinated behavior.
+We attempted to retrieve videos from 1,292 monitored accounts, during the period from November 02, 2024 to November 17, 2024. We successfully retrieved 2,225 recent videos. Using available data, we accessed a total of 5,859 videos posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified 210 accounts spread across 69 components, and it also uncovered 136 new accounts exhibiting coordinated behavior.
 
 
 
-No errors were encountered during script execution.
+Error Summary:
+Total errors encountered: 63
+
+Errors by type:
+
+     chunk_error pagination_error 
+               1               62 
+
+Sample Errors:
+Type: pagination_error, Message: HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7438163437085070379 is invalid or expired
+• log_id: 2024111708334349842E502FF8FC3C5344
+Type: pagination_error, Message: HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7438161967468188718 is invalid or expired
+• log_id: 202411170828269123802D0909FB3CA6EF
+Type: pagination_error, Message: HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7438157335836611630 is invalid or expired
+• log_id: 2024111708124231D2BCDB6357A23C3253
+Type: pagination_error, Message: HTTP 400 Bad Request.
+• status: invalid_params
+• message: Invalid count or cursor
+• log_id: 2024111708123331D2BCDB6357A23C3128
+Type: pagination_error, Message: HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7438159868815053870 is invalid or expired
+• log_id: 20241117082024DB25BD5A893EAF371C43
