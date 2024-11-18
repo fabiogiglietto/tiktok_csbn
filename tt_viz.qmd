@@ -14,13 +14,20 @@ params:
 
 # Introduction
 
-This document serves as a proof of concept, developed within the framework of the [Vera.ai Horizon EU project](https://www.veraai.eu/). It presents a comprehensive methodology for tracking and analyzing coordinated sharing activities on TikTok, employing custom code for data collection via the TikTok Research API and [`CooRTweet`](https://github.com/nicolarighetti/CooRTweet) for the analysis of coordinated behavior patterns.
+This document serves as a proof of concept, developed within the framework of the [Vera.ai Horizon EU project](https://www.veraai.eu/). It presents a comprehensive methodology for tracking and analyzing coordinated sharing activities on TikTok, employing [`traktok`](https://github.com/JBGruber/traktok) for data collection via the TikTok Research API and [`CooRTweet`](https://github.com/nicolarighetti/CooRTweet) for the analysis of coordinated behavior patterns.
 
 **Initial Discovery:** The analysis initiates by focusing on content tagged with the #moskow hashtag. This first step successfully identifies a preliminary group of accounts involved in coordinated sharing activities in the aftermath of the attack in Moscow. This discovery lays the groundwork for an extensive examination of coordinated dynamics across social media platforms.
 
 On April 19, 2024, we received a list of 513 problematic accounts from a trusted partner within the Vera AI consortium. Accounts that were mentioned at least twice on this list have been added to our pool of monitored accounts.
 
-**Daily Monitoring and Analysis:** Subsequent to the initial identification, the methodology transitions into a phase of daily monitoring. In this phase, the script consistently retrieves videos posted by the previously identified accounts, with the goal of detecting both ongoing and emerging instances of coordinated behavior. As new accounts manifesting coordinated behavior (time_window = 180, min_participation = 2, edge_weight = 0.5) are discovered, they are incorporated into the daily monitoring routine.
+```{r write_description, results='asis', echo=FALSE}
+cat(sprintf(
+  "**Daily Monitoring and Analysis:** Subsequent to the initial identification, the methodology transitions into a phase of daily monitoring. In this phase, the script consistently retrieves videos posted by the previously identified accounts, with the goal of detecting both ongoing and emerging instances of coordinated behavior. As new accounts manifesting coordinated behavior (time_window = %d minutes, min_participation = %d posts, edge_weight = %.1f) are discovered, they are incorporated into the daily monitoring routine.", 
+  params$time_window,
+  params$min_participation,
+  params$edge_weight
+))
+```
 
 This approach ensures continuous updates on the number of newly discovered coordinated accounts, highlighting the fluid nature of social media coordination. Enhanced by interactive visualizations, the analysis sheds light on the shifting landscape of account activities and the intricate network of interactions among them on the TikTok platform.
 
@@ -717,7 +724,7 @@ generate_summary <- function(
   
   # Basic collection summary
   summary_parts$collection <- sprintf(
-    "We attempted to retrieve videos from %s monitored accounts, during the period from %s to %s.",
+    "We attempted to retrieve videos from **%s monitored accounts**, during the period from %s to %s.",
     scales::comma(length(coord_users)),
     format(as.Date(startdate), "%B %d, %Y"),
     format(as.Date(enddate), "%B %d, %Y")
@@ -726,7 +733,7 @@ generate_summary <- function(
   # Recent videos summary
   if (is.data.frame(recent_videos) && nrow(recent_videos) > 0) {
     summary_parts$recent <- sprintf(
-      "We successfully retrieved %s recent videos.",
+      "We successfully retrieved **%s recent videos**.",
       scales::comma(nrow(recent_videos))
     )
   } else {
@@ -736,7 +743,7 @@ generate_summary <- function(
   # All videos summary
   if (is.data.frame(all_videos) && nrow(all_videos) > 0) {
     summary_parts$all <- sprintf(
-      "Using available data, we accessed a total of %s videos posted on TikTok within the timeframe.",
+      "Using available data, we accessed a total of **%s videos** posted on TikTok within the timeframe.",
       scales::comma(nrow(all_videos))
     )
   } else {
@@ -749,13 +756,21 @@ generate_summary <- function(
       !is.null(coordination_results$coord_graph)) {
     
     summary_parts$coordination <- sprintf(
-      "Our analysis for coordinated detection in these videos identified %s accounts spread across %s components, and it also uncovered %s new accounts exhibiting coordinated behavior.",
+      "Our analysis for coordinated detection in these videos identified **%s accounts** spread across **%s components**, and it also uncovered **%s new accounts** exhibiting coordinated behavior.",
       scales::comma(nrow(coordination_results$summary_accounts)),
       scales::comma(igraph::components(coordination_results$coord_graph)$no),
       scales::comma(nrow(coordination_results$new_accounts))
     )
   } else {
     summary_parts$coordination <- "We were unable to perform coordinated detection analysis due to insufficient data."
+  }
+  
+  # Add warning if errors were encountered
+  if (length(global_error_list) > 0) {
+    summary_parts$warning <- sprintf(
+      "\n\n::: {.callout-warning}\nWarning: %d errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.\n:::", 
+      length(global_error_list)
+    )
   }
   
   # Combine all parts
@@ -765,10 +780,10 @@ generate_summary <- function(
   error_summary <- generate_error_summary(global_error_list)
   
   # Create output directory if it doesn't exist
-  dir.create("output/summary", showWarnings = FALSE, recursive = TRUE)
+  dir.create(file.path(params$base_dir, "output", "summary"), showWarnings = FALSE, recursive = TRUE)
   
   # Save summary to file
-  summary_file_path <- "output/summary/execution_summary.txt"
+  summary_file_path <- file.path(params$base_dir, "output", "summary", "execution_summary.txt")
   writeLines(c(full_summary, "\n", error_summary), summary_file_path)
   
   # Log summary creation

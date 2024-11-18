@@ -1,0 +1,37 @@
+We attempted to retrieve videos from **1,292 monitored accounts**, during the period from November 03, 2024 to November 18, 2024. We successfully retrieved **2,465 recent videos**. Using available data, we accessed a total of **5,859 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **210 accounts** spread across **69 components**, and it also uncovered **0 new accounts** exhibiting coordinated behavior. 
+
+::: {.callout-warning}
+Warning: 23 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+:::
+
+
+
+Error Summary:
+Total errors encountered: 23
+
+Errors by type:
+
+     chunk_error pagination_error 
+               1               22 
+
+Sample Errors:
+Type: pagination_error, Message: HTTP 400 Bad Request.
+• status: invalid_params
+• message: Invalid count or cursor
+• log_id: 202411180306419D4A18209C6C3D67E9F9
+Type: pagination_error, Message: HTTP 400 Bad Request.
+• status: invalid_params
+• message: Invalid count or cursor
+• log_id: 20241118030657F2F71A1C2D1C0D677FBF
+Type: pagination_error, Message: HTTP 400 Bad Request.
+• status: invalid_params
+• message: Invalid count or cursor
+• log_id: 20241118030712A04401CE82498CCDD83B
+Type: pagination_error, Message: HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7438448886601012266 is invalid or expired
+• log_id: 20241118030436695C5FC38186EE69D178
+Type: pagination_error, Message: HTTP 400 Bad Request.
+• status: invalid_params
+• message: Invalid count or cursor
+• log_id: 202411180301392AA20939B2E25E66CB17
