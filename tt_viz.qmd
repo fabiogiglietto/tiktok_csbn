@@ -22,7 +22,7 @@ On April 19, 2024, we received a list of 513 problematic accounts from a trusted
 
 ```{r write_description, results='asis', echo=FALSE}
 cat(sprintf(
-  "**Daily Monitoring and Analysis:** Subsequent to the initial identification, the methodology transitions into a phase of daily monitoring. In this phase, the script consistently retrieves videos posted by the previously identified accounts, with the goal of detecting both ongoing and emerging instances of coordinated behavior. As new accounts manifesting coordinated behavior (time_window = %d minutes, min_participation = %d posts, edge_weight = %.1f) are discovered, they are incorporated into the daily monitoring routine.", 
+  "**Daily Monitoring and Analysis:** Subsequent to the initial identification, the methodology transitions into a phase of daily monitoring. In this phase, the script consistently retrieves videos posted by the previously identified accounts, with the goal of detecting both ongoing and emerging instances of coordinated behavior. As new accounts manifesting coordinated behavior (time_window = %d seconds, min_participation = %d posts, edge_weight = %.1f) are discovered, they are incorporated into the daily monitoring routine.", 
   params$time_window,
   params$min_participation,
   params$edge_weight
