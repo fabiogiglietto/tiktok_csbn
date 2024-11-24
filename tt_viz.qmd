@@ -303,7 +303,7 @@ if (exists("coord_users")) {
 
 ```
 
-```{r fetch_all_videos, include=FALSE, message=FALSE, eval=!params$load_from_snapshot, cache=TRUE}
+```{r fetch_all_videos, include=FALSE, message=FALSE, eval=!params$load_from_snapshot}
 
 # Function to get videos for a specific description
 get_videos_by_description <- function(desc, start_date, end_date) {
