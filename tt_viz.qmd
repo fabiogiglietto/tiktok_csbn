@@ -138,6 +138,23 @@ setup <- function() {
   }
 }
 
+# Add new function to create daily directory
+create_daily_output_dir <- function() {
+  today_date <- format(Sys.Date(), "%Y-%m-%d")
+  daily_dir <- file.path(params$base_dir, "output", "daily", today_date)
+  dir.create(daily_dir, showWarnings = FALSE, recursive = TRUE)
+  
+  # Create subdirectories for different types of output
+  dir.create(file.path(daily_dir, "coordination"), showWarnings = FALSE)
+  dir.create(file.path(daily_dir, "network"), showWarnings = FALSE)
+  dir.create(file.path(daily_dir, "summary"), showWarnings = FALSE)
+  
+  return(daily_dir)
+}
+
+# Create daily directory
+daily_output_dir <- create_daily_output_dir()
+
 # Run setup directly
 setup()
 
@@ -430,7 +447,9 @@ fetch_all_videos <- function(recent_videos, start_date, end_date) {
    
    # Save results
    output_file <- file.path(output_dir, "latest_snapshot.csv")
+   daily_output_file <- file.path(daily_output_dir, "daily_snapshot.csv")
    write_csv(final_results, output_file)
+   write_csv(final_results, daily_output_file)
    log_info(sprintf("Results saved to %s", output_file))
    
    return(final_results)
@@ -602,10 +621,18 @@ tryCatch({
 })
 
 # Function to update account logs and save results
+# Modify save_output to use daily directories
 update_account_logs <- function(coordination_results) {
-  # Define file paths using params$base_dir
-  log_file_path <- file.path(params$base_dir, "output", "new_accounts_log.csv")
-  accounts_file_path <- file.path(params$base_dir, "lists", "tiktok_coordinated_accounts_ids.csv")
+  today_date <- format(Sys.Date(), "%Y-%m-%d")
+  
+  # Define file paths using daily directory
+  log_file_path <- file.path(daily_output_dir, "new_accounts_log.csv")
+  accounts_file_path <- file.path(daily_output_dir, "tiktok_coordinated_accounts_ids.csv")
+  
+  # Save daily snapshot
+  if (exists("all_videos") && !is.null(all_videos)) {
+    write_csv(all_videos, file.path(daily_output_dir, "daily_snapshot.csv"))
+  }
   
   tryCatch({
     # Create output directory if it doesn't exist
@@ -688,7 +715,7 @@ if (exists("coordination_results") &&
 
 # Save global error list if it contains any errors
 if (length(global_error_list) > 0) {
-  error_log_path <- file.path(params$base_dir, "output", "error_log.csv")
+  error_log_path <- file.path(daily_output_dir, "error_log.csv")
   
   error_df <- do.call(rbind, lapply(global_error_list, function(x) {
     data.frame(
@@ -703,6 +730,52 @@ if (length(global_error_list) > 0) {
   log_info("Saved error log to file")
 }
 
+```
+
+```{r load_historical_data, include=TRUE, echo=FALSE}
+# Function to load and combine historical data
+load_historical_data <- function() {
+  # Get all daily directories
+  daily_dirs <- list.dirs(file.path(params$base_dir, "output", "daily"), recursive = FALSE)
+  
+  # Initialize empty lists for different types of data
+  historical_data <- list(
+    accounts = data.frame(),
+    logs = data.frame(),
+    summaries = list()
+  )
+  
+  # Process each daily directory
+  for (dir in daily_dirs) {
+    date <- basename(dir)
+    
+    # Load account data
+    account_file <- file.path(dir, "tiktok_coordinated_accounts_ids.csv")
+    if (file.exists(account_file)) {
+      accounts <- read_csv(account_file, show_col_types = FALSE) %>%
+        mutate(date = as.Date(date))
+      historical_data$accounts <- bind_rows(historical_data$accounts, accounts)
+    }
+    
+    # Load log data
+    log_file <- file.path(dir, "new_accounts_log.csv")
+    if (file.exists(log_file)) {
+      logs <- read_csv(log_file, show_col_types = FALSE)
+      historical_data$logs <- bind_rows(historical_data$logs, logs)
+    }
+    
+    # Load summary
+    summary_file <- file.path(dir, "summary", "execution_summary.txt")
+    if (file.exists(summary_file)) {
+      historical_data$summaries[[date]] <- readLines(summary_file)
+    }
+  }
+  
+  return(historical_data)
+}
+
+# Load historical data
+historical_data <- load_historical_data()
 ```
 
 # Today Output
@@ -853,6 +926,32 @@ if (exists("coord_users") && exists("startdate") && exists("enddate")) {
 
 ```
 
+```{r historical_trends, include=TRUE, echo=FALSE, fig.cap="Historical trends of coordinated accounts"}
+# Plot historical trends
+ggplot(historical_data$logs, aes(x = Timestamp)) +
+  geom_line(aes(y = Total_Accounts, color = "Total Accounts")) +
+  geom_line(aes(y = New_Accounts_Count, color = "New Accounts")) +
+  labs(
+    title = "Historical Trends of Coordinated Accounts",
+    x = "Date",
+    y = "Number of Accounts",
+    color = "Metric"
+  ) +
+  theme_minimal() +
+  scale_color_manual(values = c("Total Accounts" = "blue", "New Accounts" = "red"))
+```
+
+```{r display_previous_summaries, include=TRUE, echo=FALSE, results='asis'}
+# Display last 5 days of summaries
+last_5_dates <- tail(sort(names(historical_data$summaries), decreasing = TRUE), 5)
+
+for (date in last_5_dates) {
+  cat("\n## Summary for", date, "\n")
+  cat(paste(historical_data$summaries[[date]], collapse = "\n"))
+  cat("\n")
+}
+```
+
 ```{r new-accounts-plot, include=TRUE, echo=FALSE, fig.cap="Trend of newly discovered TikTok accounts.", message=FALSE}
 
 # Read and clean the log data
@@ -895,7 +994,7 @@ generate_network_visualization <- function(coordination_results) {
     log_info("Starting network visualization generation")
     
     # Create output directory
-    viz_dir <- "/home/mine/VERAAI_WP4/output/network"
+    viz_dir <- file.path(daily_output_dir, "network")
     dir.create(viz_dir, showWarnings = FALSE, recursive = TRUE)
     
     # Get the graph
