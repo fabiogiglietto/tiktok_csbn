@@ -952,31 +952,6 @@ for (date in last_5_dates) {
 }
 ```
 
-```{r new-accounts-plot, include=TRUE, echo=FALSE, fig.cap="Trend of newly discovered TikTok accounts.", message=FALSE}
-
-# Read and clean the log data
-log_data <- read_csv(
-  file.path(params$base_dir, "output", "new_accounts_log.csv"), 
-  show_col_types = FALSE,
-  col_types = cols(
-    Timestamp = col_date(format = ""),
-    New_Accounts_Count = col_double(),
-    Total_Accounts = col_double())
-  )
-
-# Create bar plot with clean data
-ggplot(log_data, aes(x = Timestamp, y = New_Accounts_Count)) +
-  geom_bar(stat = "identity", fill = "blue") +
-  labs(
-    title = "Newly Discovered TikTok Accounts Over Time",
-    x = "Date",
-    y = "Number of New Accounts"
-  ) +
-  theme_minimal() + 
-  scale_y_continuous(limits = c(0, NA)) # Ensure y-axis starts at 0
-
-```
-
 Explore the interactive chart. Node click to visit the TikTok account.
 
 ```{r viz, include=FALSE, message=FALSE}
