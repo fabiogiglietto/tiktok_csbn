@@ -53,6 +53,8 @@ library(lubridate)
 library(progress)
 library(logger)
 library(traktok)
+library(DT)
+library(igraph)
 
 # Initialize logging
 log_info("Starting TikTok coordinated activity detection script")
@@ -1132,6 +1134,187 @@ if (exists("network_results") && !is.null(network_results$network)) {
   message("No network visualization available for today's analysis.")
 }
 
+```
+
+```{r setup_tables, include=FALSE}
+
+# Helper function to create TikTok profile URL
+create_tiktok_url <- function(username) {
+  sprintf('<a href="https://tiktok.com/@%s" target="_blank">@%s</a>', username, username)
+}
+
+# 1. Coordinated Accounts Table
+create_accounts_table <- function(summary_accounts, coord_graph) {
+  # Calculate network metrics for each account
+  degree_scores <- degree(coord_graph)
+  strength_scores <- strength(coord_graph)
+  betweenness_scores <- betweenness(coord_graph, normalized = TRUE)
+  
+  network_metrics <- data.frame(
+    account_id = names(degree_scores),
+    degree = as.numeric(degree_scores),
+    strength = as.numeric(strength_scores),
+    betweenness = as.numeric(betweenness_scores)
+  )
+  
+  accounts_table <- summary_accounts %>%
+    mutate(
+      account_link = sapply(account_id, create_tiktok_url)
+    ) %>%
+    left_join(network_metrics, by = "account_id") %>%
+    mutate(
+      avg_time_delta = round(avg_time_delta, 2),
+      avg_edge_symmetry_score = round(avg_edge_symmetry_score, 3),
+      betweenness = round(betweenness, 3)
+    ) %>%
+    select(
+      Account = account_link,
+      `Unique Shares` = unique_shares_count,
+      `Avg Time Between Shares (sec)` = avg_time_delta,
+      `Edge Symmetry Score` = avg_edge_symmetry_score,
+      `Degree` = degree,
+      `Strength` = strength,
+      `Betweenness` = betweenness
+    )
+  
+  datatable(accounts_table, 
+    options = list(
+      pageLength = 25, 
+      scrollX = TRUE,
+      order = list(list(2, 'desc'))  # Sort by Unique Shares by default
+    ),
+    escape = FALSE,
+    rownames = FALSE
+  )
+}
+
+# 2. Coordinated Networks/Clusters Table
+create_clusters_table <- function(coord_graph, summary_accounts) {
+  # Get components
+  comp <- components(coord_graph)
+  
+  # Calculate cluster-level metrics
+  clusters <- data.frame(
+    component = 1:comp$no,
+    size = tabulate(comp$membership),
+    density = sapply(1:comp$no, function(i) {
+      subg <- induced_subgraph(coord_graph, which(comp$membership == i))
+      edge_density(subg)
+    }),
+    diameter = sapply(1:comp$no, function(i) {
+      subg <- induced_subgraph(coord_graph, which(comp$membership == i))
+      if(vcount(subg) < 2) return(0)
+      diameter(subg)
+    }),
+    transitivity = sapply(1:comp$no, function(i) {
+      subg <- induced_subgraph(coord_graph, which(comp$membership == i))
+      transitivity(subg, type = "global")
+    })
+  )
+  
+  # Add account lists and average metrics
+  clusters <- clusters %>%
+    mutate(
+      accounts = sapply(1:comp$no, function(i) {
+        paste(V(coord_graph)$name[comp$membership == i], collapse = ", ")
+      }),
+      avg_time_delta = sapply(1:comp$no, function(i) {
+        mean(summary_accounts$avg_time_delta[summary_accounts$account_id %in% 
+             V(coord_graph)$name[comp$membership == i]], na.rm = TRUE)
+      }),
+      avg_edge_symmetry = sapply(1:comp$no, function(i) {
+        mean(summary_accounts$avg_edge_symmetry_score[summary_accounts$account_id %in% 
+             V(coord_graph)$name[comp$membership == i]], na.rm = TRUE)
+      })
+    ) %>%
+    select(
+      Component = component,
+      `Number of Accounts` = size,
+      `Network Density` = density,
+      `Network Diameter` = diameter,
+      `Clustering Coefficient` = transitivity,
+      `Avg Time Between Shares (sec)` = avg_time_delta,
+      `Avg Edge Symmetry` = avg_edge_symmetry,
+      `Member Accounts` = accounts
+    ) %>%
+    mutate(across(where(is.numeric), round, 3))
+  
+  datatable(clusters,
+    options = list(
+      pageLength = 10, 
+      scrollX = TRUE,
+      order = list(list(1, 'asc'))  # Sort by Component by default
+    ),
+    escape = FALSE,
+    rownames = FALSE
+  )
+}
+
+# 3. Coordinated Posts Table
+create_posts_table <- function(summary_groups, all_videos) {
+  posts_table <- summary_groups %>%
+    left_join(
+      select(all_videos, 
+             video_description, 
+             video_url, 
+             author_name, 
+             create_time
+      ),
+      by = c("object_id" = "video_description")
+    ) %>%
+    select(
+      `Post URL` = video_url,
+      Author = author_name,
+      Timestamp = create_time,
+      `Number of Accounts` = num_accounts,
+      Description = object_id
+    ) %>%
+    distinct() %>%
+    mutate(
+      Description = substr(Description, 1, 150),
+      Description = paste0(Description, "...")
+    )
+  
+  datatable(posts_table,
+    options = list(
+      pageLength = 25, 
+      scrollX = TRUE,
+      order = list(list(3, 'desc'))  # Sort by Timestamp by default
+    ),
+    escape = FALSE,
+    rownames = FALSE
+  )
+}
+
+# Create and display all tables if data is available
+if (exists("coordination_results") && exists("all_videos")) {
+  accounts_table <- create_accounts_table(
+    coordination_results$summary_accounts, 
+    coordination_results$coord_graph
+  )
+  
+  clusters_table <- create_clusters_table(
+    coordination_results$coord_graph, 
+    coordination_results$summary_accounts
+  )
+  
+  posts_table <- create_posts_table(
+    coordination_results$summary_groups, 
+    all_videos
+  )
+}
+```
+
+```{r display_tables, echo=FALSE}
+# Display tables with headers
+cat("## Coordinated Accounts\n")
+accounts_table
+
+cat("\n## Coordinated Networks/Clusters\n")
+clusters_table
+
+cat("\n## Coordinated Posts\n")
+posts_table
 ```
 
 # About
