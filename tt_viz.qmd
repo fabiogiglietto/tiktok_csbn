@@ -1124,6 +1124,8 @@ if (exists("coordination_results") && !is.null(coordination_results$coord_graph)
 
 ```
 
+## Interactive Graph Visualization
+
 ```{r interactive-plot, include=TRUE, echo=FALSE, fig.cap="Interactive visualization of coordinated account detected today. Click on a node to visit the respective TikTok account."}
 
 # Check if network visualization is available
@@ -1135,6 +1137,7 @@ if (exists("network_results") && !is.null(network_results$network)) {
 }
 
 ```
+
 
 ```{r setup_tables, include=FALSE}
 
@@ -1325,15 +1328,23 @@ if (exists("coordination_results") && exists("all_videos")) {
 }
 ```
 
-```{r display_tables, echo=FALSE}
+```{r display_tables, echo=FALSE, results='asis'}
 # Display tables with headers
-cat("## Coordinated Accounts\n")
+cat("\n")  # Ensure proper spacing
+```
+
+## Coordinated Accounts
+```{r display_accounts, echo=FALSE}
 accounts_table
+```
 
-cat("\n## Coordinated Networks/Clusters\n")
+## Coordinated Networks/Components
+```{r display_clusters, echo=FALSE}
 clusters_table
+```
 
-cat("\n## Coordinated Posts\n")
+## Coordinated Posts
+```{r display_posts, echo=FALSE}
 posts_table
 ```
 
