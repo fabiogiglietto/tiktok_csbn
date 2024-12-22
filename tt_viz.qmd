@@ -1137,6 +1137,9 @@ if (exists("network_results") && !is.null(network_results$network)) {
 ```
 
 ```{r setup_tables, include=FALSE}
+library(DT)
+library(dplyr)
+library(igraph)
 
 # Helper function to create TikTok profile URL
 create_tiktok_url <- function(username) {
@@ -1157,11 +1160,18 @@ create_accounts_table <- function(summary_accounts, coord_graph) {
     betweenness = as.numeric(betweenness_scores)
   )
   
+  # Get component membership for each account
+  components_df <- data.frame(
+    account_id = V(coord_graph)$name,
+    component = components(coord_graph)$membership
+  )
+  
   accounts_table <- summary_accounts %>%
     mutate(
       account_link = sapply(account_id, create_tiktok_url)
     ) %>%
     left_join(network_metrics, by = "account_id") %>%
+    left_join(components_df, by = "account_id") %>%
     mutate(
       avg_time_delta = round(avg_time_delta, 2),
       avg_edge_symmetry_score = round(avg_edge_symmetry_score, 3),
@@ -1169,6 +1179,7 @@ create_accounts_table <- function(summary_accounts, coord_graph) {
     ) %>%
     select(
       Account = account_link,
+      Network = component,
       `Unique Shares` = unique_shares_count,
       `Avg Time Between Shares (sec)` = avg_time_delta,
       `Edge Symmetry Score` = avg_edge_symmetry_score,
@@ -1181,7 +1192,11 @@ create_accounts_table <- function(summary_accounts, coord_graph) {
     options = list(
       pageLength = 25, 
       scrollX = TRUE,
-      order = list(list(2, 'desc'))  # Sort by Unique Shares by default
+      order = list(list(5, 'desc')),  # Sort by Strength by default
+      initComplete = JS(
+        "function(settings, json) {",
+        "  $(this.api().table().container()).css({'font-size': '9px'});",
+        "}")
     ),
     escape = FALSE,
     rownames = FALSE
