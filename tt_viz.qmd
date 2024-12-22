@@ -1137,9 +1137,6 @@ if (exists("network_results") && !is.null(network_results$network)) {
 ```
 
 ```{r setup_tables, include=FALSE}
-library(DT)
-library(dplyr)
-library(igraph)
 
 # Helper function to create TikTok profile URL
 create_tiktok_url <- function(username) {
@@ -1258,7 +1255,11 @@ create_clusters_table <- function(coord_graph, summary_accounts) {
     options = list(
       pageLength = 10, 
       scrollX = TRUE,
-      order = list(list(1, 'asc'))  # Sort by Component by default
+      order = list(list(1, 'asc')),  # Sort by Component by default
+      initComplete = JS(
+        "function(settings, json) {",
+        "  $(this.api().table().container()).css({'font-size': '9px'});",
+        "}")
     ),
     escape = FALSE,
     rownames = FALSE
@@ -1294,7 +1295,11 @@ create_posts_table <- function(summary_groups, all_videos) {
     options = list(
       pageLength = 25, 
       scrollX = TRUE,
-      order = list(list(3, 'desc'))  # Sort by Timestamp by default
+      order = list(list(3, 'desc')),  # Sort by Timestamp by default
+      initComplete = JS(
+        "function(settings, json) {",
+        "  $(this.api().table().container()).css({'font-size': '9px'});",
+        "}")
     ),
     escape = FALSE,
     rownames = FALSE
