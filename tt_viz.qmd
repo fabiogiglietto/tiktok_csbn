@@ -1138,8 +1138,10 @@ if (exists("network_results") && !is.null(network_results$network)) {
 
 ```
 
-
 ```{r setup_tables, include=FALSE}
+library(DT)
+library(dplyr)
+library(igraph)
 
 # Helper function to create TikTok profile URL
 create_tiktok_url <- function(username) {
@@ -1271,6 +1273,15 @@ create_clusters_table <- function(coord_graph, summary_accounts) {
 
 # 3. Coordinated Posts Table
 create_posts_table <- function(summary_groups, all_videos) {
+  # Helper function to create video link
+  create_video_link <- function(url) {
+    if (!is.na(url)) {
+      sprintf('<a href="%s" target="_blank">%s</a>', url, url)
+    } else {
+      NA_character_
+    }
+  }
+  
   posts_table <- summary_groups %>%
     left_join(
       select(all_videos, 
@@ -1281,8 +1292,11 @@ create_posts_table <- function(summary_groups, all_videos) {
       ),
       by = c("object_id" = "video_description")
     ) %>%
+    mutate(
+      video_link = sapply(video_url, create_video_link)
+    ) %>%
     select(
-      `Post URL` = video_url,
+      `Post URL` = video_link,
       Author = author_name,
       Timestamp = create_time,
       `Number of Accounts` = num_accounts,
@@ -1338,7 +1352,7 @@ cat("\n")  # Ensure proper spacing
 accounts_table
 ```
 
-## Coordinated Networks/Components
+## Coordinated Networks/Clusters
 ```{r display_clusters, echo=FALSE}
 clusters_table
 ```
