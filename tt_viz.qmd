@@ -22,10 +22,10 @@ On April 19, 2024, we received a list of 513 problematic accounts from a trusted
 
 ```{r write_description, results='asis', echo=FALSE}
 cat(sprintf(
-  "**Daily Monitoring and Analysis:** Subsequent to the initial identification, the methodology transitions into a phase of daily monitoring. In this phase, the script consistently retrieves videos posted by the previously identified accounts, with the goal of detecting both ongoing and emerging instances of coordinated behavior. As new accounts manifesting coordinated behavior (time_window = %d seconds, min_participation = %d posts, edge_weight = %.1f) are discovered, they are incorporated into the daily monitoring routine.", 
-  params$time_window,
-  params$min_participation,
-  params$edge_weight
+"**Daily Monitoring and Analysis:** Subsequent to the initial identification, the methodology transitions into a phase of daily monitoring. In this phase, the script consistently retrieves videos posted by the previously identified accounts, with the goal of detecting both ongoing and emerging instances of coordinated behavior. As new accounts manifesting coordinated behavior (time_window = %d seconds, min_participation = %d posts, edge_weight = %.1f) are discovered, they are incorporated into the daily monitoring routine.", 
+params$time_window,
+params$min_participation,
+params$edge_weight
 ))
 ```
 
@@ -36,9 +36,9 @@ By delineating these processes, the proof of concept underscores the potential f
 ```{r setup, include=FALSE, message=FALSE}
 
 # Set working directory
-setwd("/home/mine/VERAAI_WP4/")
+setwd(params$base_dir)
 
-# Library loading and initial setup
+# Library loading
 library(tidyverse)
 library(CooRTweet)
 library(httr)
@@ -54,7 +54,6 @@ library(progress)
 library(logger)
 library(traktok)
 library(DT)
-library(igraph)
 
 # Initialize logging
 log_info("Starting TikTok coordinated activity detection script")
@@ -1154,6 +1153,7 @@ for (date in last_5_dates) {
 Explore the interactive chart. Node click to visit the TikTok account.
 
 ```{r viz, include=FALSE, message=FALSE}
+
 # Function to generate interactive network visualization
 generate_network_visualization <- function(coordination_results) {
   tryCatch({
@@ -1188,7 +1188,7 @@ generate_network_visualization <- function(coordination_results) {
     log_info("Converting graph to visNetwork format")
     data <- toVisNetworkData(graph)
     
-    # Create base nodes data frame
+    # Create base nodes data frame with component info
     data$nodes <- data$nodes %>%
       mutate(
         size = degree(graph) * 3 + 10,
@@ -1201,7 +1201,7 @@ generate_network_visualization <- function(coordination_results) {
       label_lookup <- cluster_labels %>%
         mutate(
           component_id = as.numeric(component),
-          group_label = sprintf("%d - %s", component_id, label)
+          group_label = sprintf("Network %d - %s", component_id, label)
         ) %>%
         select(component_id, group_label)
       
@@ -1209,12 +1209,12 @@ generate_network_visualization <- function(coordination_results) {
       data$nodes <- data$nodes %>%
         left_join(label_lookup, by = "component_id") %>%
         mutate(
-          group = coalesce(group_label, as.character(component_id))
+          group = coalesce(group_label, sprintf("Network %d", component_id))
         )
     } else {
       data$nodes <- data$nodes %>%
         mutate(
-          group = as.character(component_id)
+          group = sprintf("Network %d", component_id)
         )
     }
     
@@ -1283,6 +1283,12 @@ generate_network_visualization <- function(coordination_results) {
         background = "white"
       )
     
+    log_info(sprintf(
+      "Network visualization complete. Network has %d nodes and %d edges",
+      gorder(graph),
+      gsize(graph)
+    ))
+    
     return(network)
     
   }, error = function(e) {
@@ -1291,18 +1297,12 @@ generate_network_visualization <- function(coordination_results) {
   })
 }
 
-# Execute network visualization if we have coordination results and store the results
+# Execute network visualization if we have coordination results
 if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
   log_info("Starting network visualization generation")
   network_results <- generate_network_visualization(coordination_results)
   
-if (!is.null(network_results)) {
-    log_info(sprintf(
-      "Network visualization complete. Network has %d nodes and %d edges",
-      gorder(coordination_results$coord_graph),  # number of nodes
-      gsize(coordination_results$coord_graph)    # number of edges
-    ))
-  } else {
+  if (is.null(network_results)) {
     log_warn("Failed to generate network visualization")
   }
 } else {
