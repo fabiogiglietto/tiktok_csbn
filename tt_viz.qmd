@@ -1651,47 +1651,29 @@ if (!is.null(network_viz)) {
 
 ```
 
-
 ```{r download-section, echo=FALSE}
-# Function to prepare download files
+
+# Function to prepare download files 
 prepare_download_files <- function() {
   temp_dir <- tempdir()
   
-  # Create enhanced tables if they don't exist
-  if (!exists("accounts_table") || !exists("clusters_table") || !exists("posts_table")) {
-    accounts_table <- create_accounts_table(coordination_results$summary_accounts, 
-                                          coordination_results$coord_graph,
-                                          all_videos)
-    clusters_table <- create_clusters_table(coordination_results$coord_graph, 
-                                          coordination_results$summary_accounts,
-                                          all_videos)
-    posts_table <- create_posts_table(coordination_results$summary_groups, 
-                                    all_videos)
-  }
+  # Save tables as CSV - extract data from datatables
+  write.csv(accounts_table$x$data, file.path(temp_dir, "coordinated_accounts.csv"), row.names = FALSE)
+  write.csv(clusters_table$x$data, file.path(temp_dir, "network_clusters.csv"), row.names = FALSE)
+  write.csv(posts_table$x$data, file.path(temp_dir, "coordinated_posts.csv"), row.names = FALSE)
   
-  # Export the DT datatables to CSV
-  write.csv(accounts_table$x$data, 
-            file.path(temp_dir, "coordinated_accounts.csv"), 
-            row.names = FALSE)
-  
-  write.csv(clusters_table$x$data,
-            file.path(temp_dir, "network_clusters.csv"),
-            row.names = FALSE)
-  
-  write.csv(posts_table$x$data,
-            file.path(temp_dir, "coordinated_posts.csv"),
-            row.names = FALSE)
-  
-  # Save graph file
+  # Export network graph
   if (!is.null(coordination_results$coord_graph)) {
     igraph::write.graph(coordination_results$coord_graph,
                        file.path(temp_dir, "coordination_network.graphml"),
                        format = "graphml")
   }
   
+  # Create zip file
   current_date <- format(Sys.Date(), "%Y-%m-%d")
   zip_file <- file.path(daily_output_dir, sprintf("coordination_results_%s.zip", current_date))
   
+  # Get files to zip with base names only
   files_to_zip <- list.files(temp_dir, pattern = "\\.(csv|graphml)$", full.names = TRUE)
   if (length(files_to_zip) > 0) {
     utils::zip(zip_file, files = files_to_zip, flags = "-j")
@@ -1724,6 +1706,7 @@ if (file.exists(zip_file)) {
   
   htmltools::HTML(download_html)
 }
+
 ```
 
 # About
