@@ -1664,10 +1664,10 @@ cat("\n")  # Ensure proper spacing
 ```
 
 ## Coordinated Accounts
-```{r display_accounts, echo=FALSE}
+```{r display_accounts, echo=FALSE, warning=FALSE}
 
 if (exists("accounts_table") && !is.null(accounts_table)) {
-  accounts_table
+  accounts_table  # The table is already a DT::datatable object
 } else {
   cat("No coordinated accounts data available.")
 }
@@ -1678,7 +1678,7 @@ if (exists("accounts_table") && !is.null(accounts_table)) {
 ```{r display_clusters, echo=FALSE}
 
 if (exists("clusters_table") && !is.null(clusters_table)) {
-  clusters_table
+  clusters_table  # The table is already a DT::datatable object
 } else {
   cat("No network clusters data available.")
 }
@@ -1689,7 +1689,7 @@ if (exists("clusters_table") && !is.null(clusters_table)) {
 ```{r display_posts, echo=FALSE}
 
 if (exists("posts_table") && !is.null(posts_table)) {
-  posts_table
+  posts_table  # The table is already a DT::datatable object
 } else {
   cat("No coordinated posts data available.")
 }
