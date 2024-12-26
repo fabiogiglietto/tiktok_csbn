@@ -1655,53 +1655,67 @@ if (!is.null(network_viz)) {
 ```{r download-section, echo=FALSE}
 # Function to prepare download files
 prepare_download_files <- function() {
-  # Create download directory
-  download_dir <- file.path(daily_output_dir, "download")
+  # Create download directory with full path
+  download_dir <- file.path(getwd(), "daily_output", "download")
   dir.create(download_dir, showWarnings = FALSE, recursive = TRUE)
   
   # Save coordinated accounts
   if (exists("coordination_results") && !is.null(coordination_results$summary_accounts)) {
     write.csv(coordination_results$summary_accounts, 
               file.path(download_dir, "coordinated_accounts.csv"), 
-              row.names = FALSE)
+              row.names = FALSE, 
+              fileEncoding = "UTF-8")
   }
   
   # Save network clusters
   if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
-    # Get components
     comp <- components(coordination_results$coord_graph)
     clusters_data <- data.frame(
-      component = 1:comp$no,
+      component = seq_len(comp$no),
       size = tabulate(comp$membership)
     )
     write.csv(clusters_data, 
               file.path(download_dir, "network_clusters.csv"), 
-              row.names = FALSE)
+              row.names = FALSE,
+              fileEncoding = "UTF-8")
   }
   
   # Save coordinated posts
   if (exists("coordination_results") && !is.null(coordination_results$summary_groups)) {
     write.csv(coordination_results$summary_groups,
               file.path(download_dir, "coordinated_posts.csv"),
-              row.names = FALSE)
+              row.names = FALSE,
+              fileEncoding = "UTF-8")
   }
   
-  # Copy network visualization if it exists
-  viz_file <- file.path(daily_output_dir, "network", "coordination_network.html")
-  if (file.exists(viz_file)) {
-    file.copy(viz_file,
+  # Copy network visualization
+  viz_source <- file.path(getwd(), "daily_output", "network", "coordination_network.html")
+  if (file.exists(viz_source)) {
+    file.copy(viz_source,
               file.path(download_dir, "network_visualization.html"),
               overwrite = TRUE)
   }
   
-  # Create zip file
+  # Create zip file with proper path
   current_date <- format(Sys.Date(), "%Y-%m-%d")
-  zip_file <- file.path(daily_output_dir, sprintf("coordination_results_%s.zip", current_date))
+  zip_file <- file.path(getwd(), "daily_output", 
+                       sprintf("coordination_results_%s.zip", current_date))
   
-  # Create zip file from download directory
-  zip(zip_file, download_dir, flags = "-r9X")
+  # Remove existing zip if present
+  if (file.exists(zip_file)) {
+    unlink(zip_file)
+  }
   
-  return(zip_file)
+  # Create zip from download directory contents
+  files_to_zip <- list.files(download_dir, full.names = TRUE)
+  if (length(files_to_zip) > 0) {
+    utils::zip(zip_file, files = files_to_zip, flags = "-r9X")
+  }
+  
+  # Clean up download directory
+  unlink(download_dir, recursive = TRUE)
+  
+  return(if (file.exists(zip_file)) zip_file else NULL)
 }
 
 # Create the zip file
