@@ -1655,65 +1655,47 @@ if (!is.null(network_viz)) {
 ```{r download-section, echo=FALSE}
 # Function to prepare download files
 prepare_download_files <- function() {
-  # Create download directory with full path
-  download_dir <- file.path(getwd(), "daily_output", "download")
-  dir.create(download_dir, showWarnings = FALSE, recursive = TRUE)
+  temp_dir <- tempdir()
   
-  # Save coordinated accounts
-  if (exists("coordination_results") && !is.null(coordination_results$summary_accounts)) {
-    write.csv(coordination_results$summary_accounts, 
-              file.path(download_dir, "coordinated_accounts.csv"), 
-              row.names = FALSE, 
-              fileEncoding = "UTF-8")
+  # Create enhanced tables if they don't exist
+  if (!exists("accounts_table") || !exists("clusters_table") || !exists("posts_table")) {
+    accounts_table <- create_accounts_table(coordination_results$summary_accounts, 
+                                          coordination_results$coord_graph,
+                                          all_videos)
+    clusters_table <- create_clusters_table(coordination_results$coord_graph, 
+                                          coordination_results$summary_accounts,
+                                          all_videos)
+    posts_table <- create_posts_table(coordination_results$summary_groups, 
+                                    all_videos)
   }
   
-  # Save network clusters
-  if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
-    comp <- components(coordination_results$coord_graph)
-    clusters_data <- data.frame(
-      component = seq_len(comp$no),
-      size = tabulate(comp$membership)
-    )
-    write.csv(clusters_data, 
-              file.path(download_dir, "network_clusters.csv"), 
-              row.names = FALSE,
-              fileEncoding = "UTF-8")
+  # Export the DT datatables to CSV
+  write.csv(accounts_table$x$data, 
+            file.path(temp_dir, "coordinated_accounts.csv"), 
+            row.names = FALSE)
+  
+  write.csv(clusters_table$x$data,
+            file.path(temp_dir, "network_clusters.csv"),
+            row.names = FALSE)
+  
+  write.csv(posts_table$x$data,
+            file.path(temp_dir, "coordinated_posts.csv"),
+            row.names = FALSE)
+  
+  # Save graph file
+  if (!is.null(coordination_results$coord_graph)) {
+    igraph::write.graph(coordination_results$coord_graph,
+                       file.path(temp_dir, "coordination_network.graphml"),
+                       format = "graphml")
   }
   
-  # Save coordinated posts
-  if (exists("coordination_results") && !is.null(coordination_results$summary_groups)) {
-    write.csv(coordination_results$summary_groups,
-              file.path(download_dir, "coordinated_posts.csv"),
-              row.names = FALSE,
-              fileEncoding = "UTF-8")
-  }
-  
-  # Copy network visualization
-  viz_source <- file.path(getwd(), "daily_output", "network", "coordination_network.html")
-  if (file.exists(viz_source)) {
-    file.copy(viz_source,
-              file.path(download_dir, "network_visualization.html"),
-              overwrite = TRUE)
-  }
-  
-  # Create zip file with proper path
   current_date <- format(Sys.Date(), "%Y-%m-%d")
-  zip_file <- file.path(getwd(), "daily_output", 
-                       sprintf("coordination_results_%s.zip", current_date))
+  zip_file <- file.path(daily_output_dir, sprintf("coordination_results_%s.zip", current_date))
   
-  # Remove existing zip if present
-  if (file.exists(zip_file)) {
-    unlink(zip_file)
-  }
-  
-  # Create zip from download directory contents
-  files_to_zip <- list.files(download_dir, full.names = TRUE)
+  files_to_zip <- list.files(temp_dir, pattern = "\\.(csv|graphml)$", full.names = TRUE)
   if (length(files_to_zip) > 0) {
-    utils::zip(zip_file, files = files_to_zip, flags = "-r9X")
+    utils::zip(zip_file, files = files_to_zip, flags = "-j")
   }
-  
-  # Clean up download directory
-  unlink(download_dir, recursive = TRUE)
   
   return(if (file.exists(zip_file)) zip_file else NULL)
 }
