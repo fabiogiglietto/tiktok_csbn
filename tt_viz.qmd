@@ -1723,7 +1723,7 @@ zip_file <- prepare_download_files()
 
 # Create download button HTML
 if (file.exists(zip_file)) {
-  download_url <- paste0("coordination_results_", format(Sys.Date(), "%Y-%m-%d"), ".zip")
+  download_url <- file.path("daily_output", paste0("coordination_results_", format(Sys.Date(), "%Y-%m-%d"), ".zip"))
   download_html <- sprintf('
     <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
       <h3>Download Results</h3>
@@ -1740,7 +1740,6 @@ if (file.exists(zip_file)) {
     </div>
   ', download_url)
   
-  # Display the download section
   htmltools::HTML(download_html)
 }
 ```
