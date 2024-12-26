@@ -1608,59 +1608,84 @@ create_posts_table <- function(summary_groups, all_videos) {
 
 # Update the main table creation section with error handling:
 if (exists("coordination_results") && exists("all_videos")) {
+  log_info("Starting table creation")
+  
   tryCatch({
-    accounts_table <- create_accounts_table(
+    log_info("Creating accounts table")
+    accounts_table <<- create_accounts_table(
       coordination_results$summary_accounts, 
       coordination_results$coord_graph,
       all_videos
     )
+    log_info("Accounts table created successfully")
     
-    clusters_table <- create_clusters_table(
+    log_info("Creating clusters table")
+    clusters_table <<- create_clusters_table(
       coordination_results$coord_graph, 
       coordination_results$summary_accounts,
       all_videos
     )
+    log_info("Clusters table created successfully")
     
-    posts_table <- create_posts_table(
+    log_info("Creating posts table")
+    posts_table <<- create_posts_table(
       coordination_results$summary_groups, 
       all_videos
     )
+    log_info("Posts table created successfully")
+    
   }, error = function(e) {
     log_error(sprintf("Error creating tables: %s", e$message))
+    print(str(coordination_results))  # Debug print of coordination results structure
   })
+} else {
+  log_warn("Missing required data for table creation")
+  if (!exists("coordination_results")) log_warn("coordination_results not found")
+  if (!exists("all_videos")) log_warn("all_videos not found")
 }
 
 ```
 
 ```{r display_tables, echo=FALSE, results='asis'}
-# Display tables with headers
 cat("\n")  # Ensure proper spacing
 ```
 
 ## Coordinated Accounts
 ```{r display_accounts, echo=FALSE}
-if (!is.null(accounts_table)) {
-  accounts_table 
+if (exists("accounts_table") && !is.null(accounts_table)) {
+  print(accounts_table)
 } else {
-  cat("No coordinated accounts data available.\n")
+  if (!exists("accounts_table")) {
+    cat("accounts_table variable does not exist\n")
+  } else {
+    cat("No coordinated accounts data available.\n")
+  }
 }
 ```
 
 ## Coordinated Networks/Clusters
 ```{r display_clusters, echo=FALSE}
-if (!is.null(clusters_table)) {
-  clusters_table
+if (exists("clusters_table") && !is.null(clusters_table)) {
+  print(clusters_table)
 } else {
-  cat("No network clusters data available.\n")
+  if (!exists("clusters_table")) {
+    cat("clusters_table variable does not exist\n")
+  } else {
+    cat("No network clusters data available.\n")
+  }
 }
 ```
 
 ## Coordinated Posts
 ```{r display_posts, echo=FALSE}
-if (!is.null(posts_table)) {
-  posts_table
+if (exists("posts_table") && !is.null(posts_table)) {
+  print(posts_table)
 } else {
-  cat("No coordinated posts data available.\n")
+  if (!exists("posts_table")) {
+    cat("posts_table variable does not exist\n")
+  } else {
+    cat("No coordinated posts data available.\n")
+  }
 }
 ```
 
