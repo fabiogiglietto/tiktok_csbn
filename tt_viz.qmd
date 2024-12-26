@@ -1627,7 +1627,7 @@ cat("\n")  # Ensure proper spacing
 
 ## Coordinated Accounts
 ```{r display_accounts, echo=FALSE}
-accounts_table
+str(accounts_table)
 ```
 
 ## Coordinated Networks/Clusters
