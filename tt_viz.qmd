@@ -682,12 +682,12 @@ Label:", content)
             "OpenAI-Organization" = Sys.getenv("OPENAI_VERAAI_ORG_ID")
           ),
           body = list(
-            model = "gpt-4-turbo-preview",
+            model = "chatgpt-4o-latest",
             messages = list(
               list(role = "system", content = system_prompt),
               list(role = "user", content = user_prompt)
             ),
-            temperature = 0.3,
+            temperature = 0,
             max_tokens = 50
           ),
           encode = "json"
@@ -1154,7 +1154,6 @@ for (date in last_5_dates) {
 Explore the interactive chart. Node click to visit the TikTok account.
 
 ```{r viz, include=FALSE, message=FALSE}
-
 # Function to generate interactive network visualization
 generate_network_visualization <- function(coordination_results) {
   tryCatch({
@@ -1189,25 +1188,39 @@ generate_network_visualization <- function(coordination_results) {
     log_info("Converting graph to visNetwork format")
     data <- toVisNetworkData(graph)
     
-    # Add node properties
+    # Create base nodes data frame
     data$nodes <- data$nodes %>%
       mutate(
-        # Size based on degree
         size = degree(graph) * 3 + 10,
-        # First store the component number
         component_id = as.numeric(components(graph)$membership)
-      ) %>%
-      left_join(
-        cluster_labels %>% 
-          mutate(
-            component_id = as.numeric(component)
-          ),
-        by = "component_id"
-      ) %>%
+      )
+    
+    # Add labels if available
+    if(exists("cluster_labels") && is.data.frame(cluster_labels) && nrow(cluster_labels) > 0) {
+      # Create a lookup table for labels
+      label_lookup <- cluster_labels %>%
+        mutate(
+          component_id = as.numeric(component),
+          group_label = sprintf("%d - %s", component_id, label)
+        ) %>%
+        select(component_id, group_label)
+      
+      # Join with nodes
+      data$nodes <- data$nodes %>%
+        left_join(label_lookup, by = "component_id") %>%
+        mutate(
+          group = coalesce(group_label, as.character(component_id))
+        )
+    } else {
+      data$nodes <- data$nodes %>%
+        mutate(
+          group = as.character(component_id)
+        )
+    }
+    
+    # Add remaining node properties
+    data$nodes <- data$nodes %>%
       mutate(
-        # Create the group label using component_id
-        group = sprintf("%d - %s", component_id, ifelse(is.na(label), "No Label", label)),
-        # Shape and other visual properties
         shape = "dot",
         shadow = TRUE
       )
@@ -1215,13 +1228,11 @@ generate_network_visualization <- function(coordination_results) {
     # Add edge properties
     data$edges <- data$edges %>%
       mutate(
-        # Edge width based on weight if available
         width = if("weight" %in% names(.)) weight * 2 else 1,
         smooth = TRUE
       )
     
     # Create the network visualization
-    log_info("Creating network visualization")
     network <- visNetwork(
       nodes = data$nodes,
       edges = data$edges,
@@ -1229,18 +1240,17 @@ generate_network_visualization <- function(coordination_results) {
       height = "800px"
     ) %>%
       visLayout(randomSeed = 123) %>%
-      # Then update the visOptions part:
-    visOptions(
-      highlightNearest = list(
-        enabled = TRUE,
-        degree = 1,
-        hover = TRUE
-      ),
-      selectedBy = list(
-        variable = "group",
-        main = "Select Component - Label"  # Updated title
-      )
-    ) %>%
+      visOptions(
+        highlightNearest = list(
+          enabled = TRUE,
+          degree = 1,
+          hover = TRUE
+        ),
+        selectedBy = list(
+          variable = "group",
+          main = "Select Network"
+        )
+      ) %>%
       visPhysics(
         stabilization = list(
           enabled = TRUE,
@@ -1253,7 +1263,6 @@ generate_network_visualization <- function(coordination_results) {
             var nodeId = params.nodes[0];
             var nodeData = this.body.data.nodes.get(nodeId);
             var url = nodeData.url;
-            console.log('Opening URL:', url);
             window.open(url, '_blank');
           }
         }"
@@ -1274,40 +1283,10 @@ generate_network_visualization <- function(coordination_results) {
         background = "white"
       )
     
-    # Generate network statistics
-    log_info("Calculating network statistics")
-    network_stats <- list(
-      nodes = vcount(graph),
-      edges = ecount(graph),
-      components = components(graph)$no,
-      density = graph.density(graph),
-      diameter = diameter(graph),
-      avg_degree = mean(degree(graph)),
-      clustering_coefficient = transitivity(graph)
-    )
-    
-    # Save network statistics
-    write_csv(
-      data.frame(
-        metric = names(network_stats),
-        value = unlist(network_stats)
-      ),
-      file.path(viz_dir, "network_statistics.csv")
-    )
-    
-    log_info(sprintf("Network visualization saved to %s", html_file))
-    
-    return(list(
-      network = network,  # This is the network object we'll use later
-      statistics = network_stats
-    ))
+    return(network)
     
   }, error = function(e) {
     log_error(sprintf("Error generating network visualization: %s", conditionMessage(e)))
-    global_error_list <<- c(global_error_list, list(list(
-      type = "network_visualization_error",
-      message = e$message
-    )))
     return(NULL)
   })
 }
@@ -1471,34 +1450,46 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
       avg_shares = mean(share_count, na.rm = TRUE)
     )
   
+  # Prepare base clusters data frame
   clusters <- clusters %>%
     mutate(
       accounts = sapply(1:comp$no, function(i) {
         paste(V(coord_graph)$name[comp$membership == i], collapse = ", ")
       })
     ) %>%
-    left_join(engagement_metrics, by = c("component")) %>%
-    # Add cluster labels
-    left_join(cluster_labels, by = c("component" = "component")) %>%
-    select(
-      Component = component,
-      Label = label,
-      `Number of Accounts` = size,
-      `Network Density` = density,
-      `Network Diameter` = diameter,
-      `Clustering Coefficient` = transitivity,
-      `Avg Views` = avg_views,
-      `Avg Likes` = avg_likes,
-      `Avg Comments` = avg_comments,
-      `Avg Shares` = avg_shares,
-      `Member Accounts` = accounts
-    ) %>%
+    left_join(engagement_metrics, by = c("component"))
+  
+  # Add labels if available
+  if(exists("cluster_labels") && is.data.frame(cluster_labels) && nrow(cluster_labels) > 0) {
+    clusters <- clusters %>%
+      left_join(cluster_labels, by = c("component" = "component"))
+  } else {
+    clusters$label <- NA_character_
+  }
+  
+  # Format final table
+  clusters <- clusters %>%
     mutate(
-      # Format Component and Label together
-      Component = sprintf("%d. %s", Component, ifelse(is.na(Label), "No Label", Label)),
-      across(where(is.numeric), round, 3)
-    )
+      network_id = sprintf("Network %d", component),
+      network_label = ifelse(!is.na(label) & label != "", 
+                           sprintf("%s: %s", network_id, label),
+                           network_id)
+    ) %>%
+    select(
+          Network = network_label,
+          "Number of Accounts" = size,
+          "Network Density" = density,
+          "Network Diameter" = diameter,
+          "Clustering Coefficient" = transitivity,
+          "Avg Views" = avg_views,
+          "Avg Likes" = avg_likes,
+          "Avg Comments" = avg_comments,
+          "Avg Shares" = avg_shares,
+          "Member Accounts" = accounts
+        ) %>%
+    mutate(across(where(is.numeric), round, 3))
 
+  # Create the datatable
   datatable(clusters,
     options = list(
       pageLength = 10, 
@@ -1506,8 +1497,8 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
       order = list(list(0, 'asc')),
       initComplete = JS(
         "function(settings, json) {",
-        "  $(this.api().table().container()).css({'font-size': '9px'});",
-        "}")
+        "$(this.api().table().container()).css({'font-size': '9px'});"
+      )
     ),
     escape = FALSE,
     rownames = FALSE
