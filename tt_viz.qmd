@@ -1389,6 +1389,85 @@ clusters_table
 posts_table
 ```
 
+```{r download-section, echo=FALSE}
+# Function to prepare download files
+prepare_download_files <- function() {
+  # Create download directory
+  download_dir <- file.path(daily_output_dir, "download")
+  dir.create(download_dir, showWarnings = FALSE, recursive = TRUE)
+  
+  # Save coordinated accounts
+  if (exists("coordination_results") && !is.null(coordination_results$summary_accounts)) {
+    write.csv(coordination_results$summary_accounts, 
+              file.path(download_dir, "coordinated_accounts.csv"), 
+              row.names = FALSE)
+  }
+  
+  # Save network clusters
+  if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
+    # Get components
+    comp <- components(coordination_results$coord_graph)
+    clusters_data <- data.frame(
+      component = 1:comp$no,
+      size = tabulate(comp$membership)
+    )
+    write.csv(clusters_data, 
+              file.path(download_dir, "network_clusters.csv"), 
+              row.names = FALSE)
+  }
+  
+  # Save coordinated posts
+  if (exists("coordination_results") && !is.null(coordination_results$summary_groups)) {
+    write.csv(coordination_results$summary_groups,
+              file.path(download_dir, "coordinated_posts.csv"),
+              row.names = FALSE)
+  }
+  
+  # Copy network visualization if it exists
+  viz_file <- file.path(daily_output_dir, "network", "coordination_network.html")
+  if (file.exists(viz_file)) {
+    file.copy(viz_file,
+              file.path(download_dir, "network_visualization.html"),
+              overwrite = TRUE)
+  }
+  
+  # Create zip file
+  current_date <- format(Sys.Date(), "%Y-%m-%d")
+  zip_file <- file.path(daily_output_dir, sprintf("coordination_results_%s.zip", current_date))
+  
+  # Create zip file from download directory
+  zip(zip_file, download_dir, flags = "-r9X")
+  
+  return(zip_file)
+}
+
+# Create the zip file
+zip_file <- prepare_download_files()
+
+# Create download button HTML
+if (file.exists(zip_file)) {
+  download_url <- paste0("coordination_results_", format(Sys.Date(), "%Y-%m-%d"), ".zip")
+  download_html <- sprintf('
+    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <h3>Download Results</h3>
+      <p>Download a comprehensive package of today\'s coordination analysis results, including:</p>
+      <ul style="margin-bottom: 15px;">
+        <li>Network visualization (HTML format)</li>
+        <li>Coordinated accounts table (CSV format)</li>
+        <li>Network clusters analysis (CSV format)</li>
+        <li>Coordinated posts data (CSV format)</li>
+      </ul>
+      <a href="%s" download class="btn btn-primary" style="display: inline-block; padding: 8px 16px; background-color: #0d6efd; color: white; text-decoration: none; border-radius: 4px; border: none;">
+        Download Results Package
+      </a>
+    </div>
+  ', download_url)
+  
+  # Display the download section
+  htmltools::HTML(download_html)
+}
+```
+
 # About
 
 |                                                                                                                                                                      |                                                                                                                                                                                                                                                                                                           |
