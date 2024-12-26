@@ -1483,55 +1483,46 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
       avg_shares = mean(share_count, na.rm = TRUE)
     )
   
-  # Prepare base clusters data frame
   clusters <- clusters %>%
     mutate(
       accounts = sapply(1:comp$no, function(i) {
         paste(V(coord_graph)$name[comp$membership == i], collapse = ", ")
+      }),
+      avg_time_delta = sapply(1:comp$no, function(i) {
+        mean(summary_accounts$avg_time_delta[summary_accounts$account_id %in% 
+             V(coord_graph)$name[comp$membership == i]], na.rm = TRUE)
+      }),
+      avg_edge_symmetry = sapply(1:comp$no, function(i) {
+        mean(summary_accounts$avg_edge_symmetry_score[summary_accounts$account_id %in% 
+             V(coord_graph)$name[comp$membership == i]], na.rm = TRUE)
       })
     ) %>%
-    left_join(engagement_metrics, by = c("component"))
-  
-  # Add labels if available
-  if(exists("cluster_labels") && is.data.frame(cluster_labels) && nrow(cluster_labels) > 0) {
-    clusters <- clusters %>%
-      left_join(cluster_labels, by = c("component" = "component"))
-  } else {
-    clusters$label <- NA_character_
-  }
-  
-  # Format final table
-  clusters <- clusters %>%
-    mutate(
-      network_id = sprintf("Network %d", component),
-      network_label = ifelse(!is.na(label) & label != "", 
-                           sprintf("%s: %s", network_id, label),
-                           network_id)
-    ) %>%
+    left_join(engagement_metrics, by = c("component")) %>%
     select(
-          Network = network_label,
-          "Number of Accounts" = size,
-          "Network Density" = density,
-          "Network Diameter" = diameter,
-          "Clustering Coefficient" = transitivity,
-          "Avg Views" = avg_views,
-          "Avg Likes" = avg_likes,
-          "Avg Comments" = avg_comments,
-          "Avg Shares" = avg_shares,
-          "Member Accounts" = accounts
-        ) %>%
+      Component = component,
+      `Number of Accounts` = size,
+      `Network Density` = density,
+      `Network Diameter` = diameter,
+      `Clustering Coefficient` = transitivity,
+      `Avg Time Between Shares (sec)` = avg_time_delta,
+      `Avg Edge Symmetry` = avg_edge_symmetry,
+      `Avg Views` = avg_views,
+      `Avg Likes` = avg_likes,
+      `Avg Comments` = avg_comments,
+      `Avg Shares` = avg_shares,
+      `Member Accounts` = accounts
+    ) %>%
     mutate(across(where(is.numeric), round, 3))
-
-  # Create the datatable
+  
   datatable(clusters,
     options = list(
       pageLength = 10, 
       scrollX = TRUE,
-      order = list(list(0, 'asc')),
+      order = list(list(1, 'asc')),
       initComplete = JS(
         "function(settings, json) {",
-        "$(this.api().table().container()).css({'font-size': '9px'});"
-      )
+        "  $(this.api().table().container()).css({'font-size': '9px'});",
+        "}")
     ),
     escape = FALSE,
     rownames = FALSE
@@ -1587,7 +1578,7 @@ create_posts_table <- function(summary_groups, all_videos) {
     options = list(
       pageLength = 10,
       scrollX = TRUE,
-      order = list(list(4, 'desc')),  # Column index 4 is "Views", sorting in descending order
+      order = list(list(3, 'desc')),
       initComplete = JS(
         "function(settings, json) {",
         "  $(this.api().table().container()).css({'font-size': '9px'});",
