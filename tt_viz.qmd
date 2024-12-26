@@ -873,14 +873,21 @@ generate_summary <- function(
 
 # Function to generate error summary
 generate_error_summary <- function(global_error_list) {
+  # Only generate error summary if there are errors
   if (length(global_error_list) > 0) {
+    # Create warning box first
+    warning_box <- sprintf(
+      "::: {.callout-warning}\nWarning: %d errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.\n:::\n\n",
+      length(global_error_list)
+    )
+    
     # Get error types and counts
     error_types <- table(sapply(global_error_list, function(x) x$type))
     
-    # Create error summary text parts
+    # Create collapsible error details
     error_parts <- c(
       '<details>',
-      '<summary>Error Summary</summary>',
+      '<summary>Error Details</summary>',
       '\n',  # Important blank line after summary
       sprintf("**Total errors encountered:** %d\n", length(global_error_list)),
       "### Errors by type:\n",
@@ -895,19 +902,22 @@ generate_error_summary <- function(global_error_list) {
       sprintf("- **Type:** %s, **Message:** %s", error$type, error$message)
     })
     
-    error_summary <- c(error_parts, error_samples, '</details>')
+    error_details <- c(error_parts, error_samples, '</details>')
     
-  } else {
-    error_summary <- c(
-      '<details>',
-      '<summary>Error Summary</summary>',
-      '\n',  # Important blank line after summary
-      "No errors were encountered during script execution.",
-      '</details>'
-    )
+    # Combine warning box and error details
+    return(paste(c(warning_box, error_details), collapse = "\n"))
   }
   
-  return(paste(error_summary, collapse = "\n"))
+  # Return empty string if no errors
+  return("")
+}
+
+# In the generate_summary function, modify the results printing part:
+if (length(global_error_list) > 0) {
+    summary_parts$warning <- sprintf(
+      "\n\n%s",
+      generate_error_summary(global_error_list)
+    )
 }
 
 # In the generate_summary function, modify the results printing part to:
