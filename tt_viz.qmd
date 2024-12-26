@@ -1693,7 +1693,7 @@ zip_result <- prepare_download_files()
 
 # Create download button HTML
 if (!is.null(zip_result$file)) {
- download_url <- file.path("output", "daily", format(Sys.Date(), "%Y-%m-%d"), zip_result$filename)
+ download_url <- file.path("daily", format(Sys.Date(), "%Y-%m-%d"), zip_result$filename)
  download_html <- sprintf('
    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
      <h3>Download Results</h3>
