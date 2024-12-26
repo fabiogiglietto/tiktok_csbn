@@ -1359,7 +1359,7 @@ if (!is.null(network_viz)) {
 
 ```
 
-```{r setup_tables, include=FALSE}
+```{r setup_tables}
 
 # Helper function to create TikTok profile URL
 create_tiktok_url <- function(username) {
@@ -1427,18 +1427,30 @@ create_accounts_table <- function(summary_accounts, coord_graph, all_videos) {
       `Avg Shares` = avg_shares
     )
   
-  datatable(accounts_table, 
+  datatable(
+    accounts_table,
+    escape = FALSE,
+    rownames = FALSE,
     options = list(
-      pageLength = 25, 
+      pageLength = 25,
       scrollX = TRUE,
       order = list(list(5, 'desc')),
       initComplete = JS(
         "function(settings, json) {",
-        "  $(this.api().table().container()).css({'font-size': '9px'});",
-        "}")
-    ),
-    escape = FALSE,
-    rownames = FALSE
+        "$(this.api().table().container()).css({'font-size': '12px'});", # Increased font size
+        "}"
+      ),
+      columnDefs = list(
+        list(className = 'dt-right', targets = 1:11), 
+        list(width = '200px', targets = 0),  # Adjust width of Account column
+        list(targets = 0, render = JS(   # Truncate Account names and show full name on hover
+          "function(data, type, row, meta) {",
+          "return type === 'display' && data.length > 30 ?",
+          "'<span title=\"' + data + '\">' + data.substr(0, 30) + '...</span>' : data;",
+          "}"
+        ))
+      )
+    )
   )
 }
 
@@ -1523,18 +1535,29 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
     mutate(across(where(is.numeric), round, 3))
 
   # Create the datatable
-  datatable(clusters,
+  datatable(
+    clusters,
+    escape = FALSE,
+    rownames = FALSE,
     options = list(
-      pageLength = 10, 
+      pageLength = 10,
       scrollX = TRUE,
-      order = list(list(0, 'asc')),
       initComplete = JS(
         "function(settings, json) {",
-        "$(this.api().table().container()).css({'font-size': '9px'});"
+        "$(this.api().table().container()).css({'font-size': '12px'});", # Increased font size
+        "}"
+      ),
+      columnDefs = list(
+        list(className = 'dt-right', targets = 1:8),
+        list(width = '300px', targets = 0),  # Adjust width of Network column
+        list(targets = 9, render = JS(   # Truncate Member Accounts and show full list on hover
+          "function(data, type, row, meta) {",
+          "return type === 'display' && data.length > 60 ?",
+          "'<span title=\"' + data + '\">' + data.substr(0, 60) + '...</span>' : data;",
+          "}"
+        ))
       )
-    ),
-    escape = FALSE,
-    rownames = FALSE
+    )
   )
 }
 
@@ -1583,18 +1606,30 @@ create_posts_table <- function(summary_groups, all_videos) {
       Description = paste0(Description, "...")
     )
   
-  datatable(posts_table,
+  datatable(
+    posts_table,
+    escape = FALSE,
+    rownames = FALSE,
     options = list(
-      pageLength = 10,
+      pageLength = 10, 
       scrollX = TRUE,
-      order = list(list(4, 'desc')),  # Column index 4 is "Views", sorting in descending order
+      order = list(list(4, 'desc')),
       initComplete = JS(
         "function(settings, json) {",
-        "  $(this.api().table().container()).css({'font-size': '9px'});",
-        "}")
-    ),
-    escape = FALSE,
-    rownames = FALSE
+        "$(this.api().table().container()).css({'font-size': '12px'});", # Increased font size
+        "}"
+      ),
+      columnDefs = list(
+        list(className = 'dt-right', targets = 3:7),
+        list(width = '300px', targets = 0),  # Adjust width of Post URL column
+        list(targets = 8, render = JS(   # Truncate Description and show full text on hover
+          "function(data, type, row, meta) {",
+          "return type === 'display' && data.length > 60 ?",
+          "'<span title=\"' + data + '\">' + data.substr(0, 60) + '...</span>' : data;",
+          "}"
+        ))
+      )
+    )
   )
 }
 
