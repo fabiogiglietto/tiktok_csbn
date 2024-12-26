@@ -1150,10 +1150,7 @@ for (date in last_5_dates) {
 }
 ```
 
-Explore the interactive chart. Node click to visit the TikTok account.
-
 ```{r viz, include=FALSE, message=FALSE}
-
 # Function to generate interactive network visualization
 generate_network_visualization <- function(coordination_results) {
   tryCatch({
@@ -1300,26 +1297,23 @@ generate_network_visualization <- function(coordination_results) {
 # Execute network visualization if we have coordination results
 if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
   log_info("Starting network visualization generation")
-  network_results <- generate_network_visualization(coordination_results)
-  
-  if (is.null(network_results)) {
-    log_warn("Failed to generate network visualization")
-  }
+  network_viz <- generate_network_visualization(coordination_results)
 } else {
   log_warn("No coordination results available for network visualization")
-  network_results <- NULL
+  network_viz <- NULL
 }
 
 ```
 
 ## Interactive Graph Visualization
 
+Explore the interactive chart. Node click to visit the TikTok account.
+
 ```{r interactive-plot, include=TRUE, echo=FALSE, fig.cap="Interactive visualization of coordinated account detected today. Click on a node to visit the respective TikTok account."}
 
-# Check if network visualization is available
-if (exists("network_results") && !is.null(network_results$network)) {
-  # Print the network
-  network_results$network
+# Check if network visualization is available and display it
+if (!is.null(network_viz)) {
+  network_viz
 } else {
   message("No network visualization available for today's analysis.")
 }
