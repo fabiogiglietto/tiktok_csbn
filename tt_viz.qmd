@@ -1359,7 +1359,7 @@ if (!is.null(network_viz)) {
 
 ```
 
-```{r setup_tables, include=FALSE, message=FALSE}
+```{r setup_tables, include=FALSE}
 
 # Helper function to create TikTok profile URL
 create_tiktok_url <- function(username) {
@@ -1368,31 +1368,77 @@ create_tiktok_url <- function(username) {
 
 # 1. Coordinated Accounts Table
 create_accounts_table <- function(summary_accounts, coord_graph, all_videos) {
-  # Create the datatable with proper options
-  DT::datatable(
-    summary_accounts,
-    escape = FALSE,
-    rownames = FALSE,
+  # Calculate network metrics for each account
+  degree_scores <- degree(coord_graph)
+  strength_scores <- strength(coord_graph)
+  betweenness_scores <- betweenness(coord_graph, normalized = TRUE)
+  
+  network_metrics <- data.frame(
+    account_id = names(degree_scores),
+    degree = as.numeric(degree_scores),
+    strength = as.numeric(strength_scores),
+    betweenness = as.numeric(betweenness_scores)
+  )
+  
+  # Calculate average engagement metrics per account
+  engagement_metrics <- all_videos %>%
+    group_by(author_name) %>%
+    summarize(
+      avg_views = mean(view_count, na.rm = TRUE),
+      avg_likes = mean(like_count, na.rm = TRUE),
+      avg_comments = mean(comment_count, na.rm = TRUE),
+      avg_shares = mean(share_count, na.rm = TRUE)
+    )
+  
+  # Get component membership for each account
+  components_df <- data.frame(
+    account_id = V(coord_graph)$name,
+    component = components(coord_graph)$membership
+  )
+  
+  accounts_table <- summary_accounts %>%
+    mutate(
+      account_link = sapply(account_id, create_tiktok_url)
+    ) %>%
+    left_join(network_metrics, by = "account_id") %>%
+    left_join(components_df, by = "account_id") %>%
+    left_join(engagement_metrics, by = c("account_id" = "author_name")) %>%
+    mutate(
+      avg_time_delta = round(avg_time_delta, 2),
+      avg_edge_symmetry_score = round(avg_edge_symmetry_score, 3),
+      betweenness = round(betweenness, 3),
+      avg_views = round(avg_views, 0),
+      avg_likes = round(avg_likes, 0),
+      avg_comments = round(avg_comments, 0),
+      avg_shares = round(avg_shares, 0)
+    ) %>%
+    select(
+      Account = account_link,
+      Network = component,
+      `Unique Shares` = unique_shares_count,
+      `Avg Time Between Shares (sec)` = avg_time_delta,
+      `Edge Symmetry Score` = avg_edge_symmetry_score,
+      `Degree` = degree,
+      `Strength` = strength,
+      `Betweenness` = betweenness,
+      `Avg Views` = avg_views,
+      `Avg Likes` = avg_likes,
+      `Avg Comments` = avg_comments,
+      `Avg Shares` = avg_shares
+    )
+  
+  datatable(accounts_table, 
     options = list(
-      pageLength = 25,
+      pageLength = 25, 
       scrollX = TRUE,
-      order = list(list(5, 'desc')), # Sort by degree by default
+      order = list(list(5, 'desc')),
       initComplete = JS(
         "function(settings, json) {",
-        "$(this.api().table().container()).css({'font-size': '12px'});",
-        "}"
-      ),
-      columnDefs = list(
-        list(className = 'dt-right', targets = 1:11), # Right-align numeric columns
-        list(width = '200px', targets = 0), # Adjust Account column width
-        list(targets = 0, render = JS(
-          "function(data, type, row, meta) {",
-          "return type === 'display' && data.length > 30 ?",
-          "'<span title=\"' + data + '\">' + data.substr(0, 30) + '...</span>' : data;",
-          "}"
-        ))
-      )
-    )
+        "  $(this.api().table().container()).css({'font-size': '9px'});",
+        "}")
+    ),
+    escape = FALSE,
+    rownames = FALSE
   )
 }
 
@@ -1444,12 +1490,12 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
         paste(V(coord_graph)$name[comp$membership == i], collapse = ", ")
       })
     ) %>%
-    left_join(engagement_metrics, by = "component")
+    left_join(engagement_metrics, by = c("component"))
   
   # Add labels if available
   if(exists("cluster_labels") && is.data.frame(cluster_labels) && nrow(cluster_labels) > 0) {
     clusters <- clusters %>%
-      left_join(cluster_labels, by = "component")
+      left_join(cluster_labels, by = c("component" = "component"))
   } else {
     clusters$label <- NA_character_
   }
@@ -1463,93 +1509,111 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
                            network_id)
     ) %>%
     select(
-      Network = network_label,
-      "Number of Accounts" = size,
-      "Network Density" = density,
-      "Network Diameter" = diameter,
-      "Clustering Coefficient" = transitivity,
-      "Avg Views" = avg_views,
-      "Avg Likes" = avg_likes,
-      "Avg Comments" = avg_comments,
-      "Avg Shares" = avg_shares,
-      "Member Accounts" = accounts
-    ) %>%
+          Network = network_label,
+          "Number of Accounts" = size,
+          "Network Density" = density,
+          "Network Diameter" = diameter,
+          "Clustering Coefficient" = transitivity,
+          "Avg Views" = avg_views,
+          "Avg Likes" = avg_likes,
+          "Avg Comments" = avg_comments,
+          "Avg Shares" = avg_shares,
+          "Member Accounts" = accounts
+        ) %>%
     mutate(across(where(is.numeric), round, 3))
 
   # Create the datatable
-  DT::datatable(
-    clusters,
-    escape = FALSE,
-    rownames = FALSE,
+  datatable(clusters,
     options = list(
-      pageLength = 10,
+      pageLength = 10, 
       scrollX = TRUE,
+      order = list(list(0, 'asc')),
       initComplete = JS(
         "function(settings, json) {",
-        "$(this.api().table().container()).css({'font-size': '12px'});",
-        "}"
-      ),
-      columnDefs = list(
-        list(className = 'dt-right', targets = 1:8),
-        list(width = '300px', targets = 0),
-        list(targets = 9, render = JS(
-          "function(data, type, row, meta) {",
-          "return type === 'display' && data.length > 60 ?",
-          "'<span title=\"' + data + '\">' + data.substr(0, 60) + '...</span>' : data;",
-          "}"
-        ))
+        "$(this.api().table().container()).css({'font-size': '9px'});"
       )
-    )
+    ),
+    escape = FALSE,
+    rownames = FALSE
   )
 }
 
 # 3. Coordinated Posts Table
 create_posts_table <- function(summary_groups, all_videos) {
-  # Create posts table from summary_groups 
-  # Note: summary_groups should already contain the primary metrics and grouping info
-  DT::datatable(
-    summary_groups,
-    escape = FALSE,
-    rownames = FALSE,
+  # Helper function to create video link
+  create_video_link <- function(url) {
+    if (!is.na(url)) {
+      sprintf('<a href="%s" target="_blank">%s</a>', url, url)
+    } else {
+      NA_character_
+    }
+  }
+  
+  posts_table <- summary_groups %>%
+    left_join(
+      select(all_videos, 
+             video_description, 
+             video_url, 
+             author_name, 
+             create_time,
+             view_count,
+             like_count,
+             comment_count,
+             share_count
+      ),
+      by = c("object_id" = "video_description")
+    ) %>%
+    mutate(
+      video_link = sapply(video_url, create_video_link)
+    ) %>%
+    select(
+      `Post URL` = video_link,
+      Author = author_name,
+      Timestamp = create_time,
+      `Number of Accounts` = num_accounts,
+      Views = view_count,
+      Likes = like_count,
+      Comments = comment_count,
+      Shares = share_count,
+      Description = object_id
+    ) %>%
+    distinct() %>%
+    mutate(
+      Description = substr(Description, 1, 150),
+      Description = paste0(Description, "...")
+    )
+  
+  datatable(posts_table,
     options = list(
       pageLength = 10,
       scrollX = TRUE,
-      order = list(list(4, 'desc')), # Sort by views by default
+      order = list(list(4, 'desc')),  # Column index 4 is "Views", sorting in descending order
       initComplete = JS(
         "function(settings, json) {",
-        "$(this.api().table().container()).css({'font-size': '12px'});",
-        "}"
-      ),
-      columnDefs = list(
-        list(className = 'dt-right', targets = 3:7),
-        list(width = '300px', targets = 0),
-        list(targets = 8, render = JS(
-          "function(data, type, row, meta) {",
-          "return type === 'display' && data.length > 60 ?",
-          "'<span title=\"' + data + '\">' + data.substr(0, 60) + '...</span>' : data;",
-          "}"
-        ))
-      )
-    )
+        "  $(this.api().table().container()).css({'font-size': '9px'});",
+        "}")
+    ),
+    escape = FALSE,
+    rownames = FALSE
   )
 }
 
 # Update the main code section where tables are created:
 if (exists("coordination_results") && exists("all_videos")) {
   accounts_table <- create_accounts_table(
-    coordination_results$summary_accounts,
+    coordination_results$summary_accounts, 
     coordination_results$coord_graph,
     all_videos
   )
-
+  
   clusters_table <- create_clusters_table(
-    coordination_results$coord_graph,
+    coordination_results$coord_graph, 
     coordination_results$summary_accounts,
     all_videos
   )
-
+  
   posts_table <- create_posts_table(
-    coordination_results$summary_groups,
+    coordination_results$summary_groups, 
     all_videos
   )
 }
