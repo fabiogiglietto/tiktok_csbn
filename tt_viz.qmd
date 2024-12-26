@@ -1,8 +1,13 @@
 ---
 title: "TikTok Coordinated Sharing Network"
-format: html
 author: "Fabio Giglietto"
 date: "`r Sys.Date()`"
+format: 
+  html:
+    css: styles.css
+    code-fold: true
+    toc: true
+    number-sections: true
 params:
   load_from_snapshot: FALSE
   base_dir: "/home/mine/VERAAI_WP4"
@@ -1422,19 +1427,30 @@ create_accounts_table <- function(summary_accounts, coord_graph, all_videos) {
       `Avg Shares` = avg_shares
     )
   
-  datatable(accounts_table, 
-    options = list(
-      pageLength = 25, 
-      scrollX = TRUE,
-      order = list(list(5, 'desc')),
-      initComplete = JS(
-        "function(settings, json) {",
-        "  $(this.api().table().container()).css({'font-size': '9px'});",
-        "}")
-    ),
-    escape = FALSE,
-    rownames = FALSE
-  )
+    datatable(
+      accounts_table,
+      escape = FALSE,
+      options = list(
+        pageLength = 25,
+        scrollX = TRUE,
+        order = list(list(5, 'desc')),
+        initComplete = JS(
+          "function(settings, json) {",
+          "$(this.api().table().container()).css({'font-size': '12px'});", # Increased font size
+          "}"
+        ),
+        columnDefs = list(
+          list(className = 'dt-right', targets = 1:11), 
+          list(width = '200px', targets = 0),  # Adjust width of Account column
+          list(targets = 0, render = JS(   # Truncate Account names and show full name on hover
+            "function(data, type, row, meta) {",
+            "return type === 'display' && data.length > 30 ?",
+            "'<span title=\"' + data + '\">' + data.substr(0, 30) + '...</span>' : data;",
+            "}"
+          ))
+        )
+      )
+    )
 }
 
 # 2. Coordinated Networks/Clusters Table
