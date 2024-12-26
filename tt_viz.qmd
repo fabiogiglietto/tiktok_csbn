@@ -612,6 +612,176 @@ if (exists("all_videos") && is.data.frame(all_videos) && nrow(all_videos) > 0) {
 
 ```
 
+```{r label_clusters, include=FALSE, message=FALSE}
+# Function to generate cluster labels using OpenAI API
+generate_cluster_labels <- function(coordination_results, all_videos) {
+  # Check if required packages are installed
+  if (!require("httr")) install.packages("httr")
+  if (!require("jsonlite")) install.packages("jsonlite")
+  
+  # Check for API credentials
+  if (Sys.getenv("OPENAI_VERAAI_API_KEY") == "" || Sys.getenv("OPENAI_VERAAI_ORG_ID") == "") {
+    log_warn("OpenAI VERAAI credentials not set")
+    return(NULL)
+  }
+  
+  # Function to get cluster content
+  get_cluster_content <- function(cluster_id, max_videos = 20) {
+    # Get accounts in this cluster
+    cluster_accounts <- V(coordination_results$coord_graph)$name[
+      components(coordination_results$coord_graph)$membership == cluster_id
+    ]
+    
+    # Get videos from these accounts
+    cluster_videos <- all_videos %>%
+      filter(author_name %in% cluster_accounts) %>%
+      mutate(
+        total_engagement = view_count + like_count + share_count + comment_count
+      ) %>%
+      arrange(desc(total_engagement)) %>%
+      head(max_videos)
+    
+    # Combine descriptions and voice transcripts
+    content_parts <- sapply(1:nrow(cluster_videos), function(i) {
+      video <- cluster_videos[i,]
+      parts <- c()
+      if (!is.na(video$video_description)) {
+        parts <- c(parts, sprintf("Description: %s", video$video_description))
+      }
+      if (!is.na(video$voice_to_text)) {
+        parts <- c(parts, sprintf("Voice transcript: %s", video$voice_to_text))
+      }
+      paste(parts, collapse = " | ")
+    })
+    
+    paste(content_parts, collapse = "\n\n")
+  }
+  
+  # Function to get label from OpenAI
+  get_cluster_label <- function(content, retries = 3) {
+    system_prompt <- "You are a researcher analyzing coordinated behavior on TikTok. 
+Your task is to generate a concise (maximum 10 words), descriptive label in English that 
+captures the main theme or characteristic of the content shared by a cluster of TikTok accounts.
+Focus on the primary topic, political alignment (if evident), or content style that unifies these accounts.
+The label should be factual and neutral in tone."
+    
+    user_prompt <- sprintf("Analyze the following content from a cluster of TikTok accounts and 
+generate a concise label that describes their shared characteristics:
+
+%s
+
+Label:", content)
+    
+    for (attempt in 1:retries) {
+      tryCatch({
+        response <- httr::POST(
+          url = "https://api.openai.com/v1/chat/completions",
+          httr::add_headers(
+            "Content-Type" = "application/json",
+            "Authorization" = paste("Bearer", Sys.getenv("OPENAI_VERAAI_API_KEY")),
+            "OpenAI-Organization" = Sys.getenv("OPENAI_VERAAI_ORG_ID")
+          ),
+          body = list(
+            model = "gpt-4-turbo-preview",
+            messages = list(
+              list(role = "system", content = system_prompt),
+              list(role = "user", content = user_prompt)
+            ),
+            temperature = 0.3,
+            max_tokens = 50
+          ),
+          encode = "json"
+        )
+        
+        if (httr::status_code(response) == 200) {
+          content <- httr::content(response)
+          return(content$choices[[1]]$message$content)
+        } else {
+          log_warn(sprintf("Attempt %d failed with status code %d: %s", 
+                         attempt, 
+                         httr::status_code(response),
+                         httr::content(response, "text")))
+        }
+      }, error = function(e) {
+        log_warn(sprintf("Attempt %d failed: %s", attempt, conditionMessage(e)))
+      })
+      
+      if (attempt < retries) Sys.sleep(2^attempt)
+    }
+    
+    return("Failed to generate label")
+  }
+  
+  # Get number of components
+  num_components <- components(coordination_results$coord_graph)$no
+  
+  # Initialize progress bar
+  pb <- progress_bar$new(
+    format = "[:bar] :percent Labeling cluster :current/:total",
+    total = num_components
+  )
+  
+  # Process each component
+  labels <- data.frame(
+    component = integer(),
+    label = character(),
+    stringsAsFactors = FALSE
+  )
+  
+  for (i in 1:num_components) {
+    # Get content for this cluster
+    content <- get_cluster_content(i)
+    
+    # Get label
+    label <- get_cluster_label(content)
+    
+    # Add to results
+    labels <- rbind(labels, data.frame(
+      component = i,
+      label = label,
+      stringsAsFactors = FALSE
+    ))
+    
+    # Update progress bar
+    pb$tick()
+    
+    # Add small delay
+    Sys.sleep(0.5)
+  }
+  
+  # Save labels to file
+  write_csv(labels, file.path(daily_output_dir, "cluster_labels.csv"))
+  
+  return(labels)
+}
+
+# Generate labels if we have coordination results
+if (exists("coordination_results") && 
+    !is.null(coordination_results$coord_graph) && 
+    Sys.getenv("OPENAI_VERAAI_API_KEY") != "" &&
+    Sys.getenv("OPENAI_VERAAI_ORG_ID") != "") {
+    
+  log_info("Starting cluster labeling")
+  cluster_labels <- generate_cluster_labels(coordination_results, all_videos)
+  
+  # Add labels to clusters table if it exists
+  if (!is.null(cluster_labels) && exists("clusters_table")) {
+    clusters_table <- clusters_table %>%
+      left_join(cluster_labels, by = c("Component" = "component")) %>%
+      select(
+        Component,
+        Label = label,
+        everything()
+      )
+  }
+  
+  log_info("Cluster labeling completed")
+} else {
+  log_warn("Skipping cluster labeling - missing coordination results or API credentials")
+}
+
+```
+
 ```{r save_output, include=FALSE, message=FALSE}
 
 # Create necessary directories
@@ -1024,8 +1194,19 @@ generate_network_visualization <- function(coordination_results) {
       mutate(
         # Size based on degree
         size = degree(graph) * 3 + 10,
-        # Color based on component membership
-        group = as.factor(components(graph)$membership),
+        # First store the component number
+        component_id = as.numeric(components(graph)$membership)
+      ) %>%
+      left_join(
+        cluster_labels %>% 
+          mutate(
+            component_id = as.numeric(component)
+          ),
+        by = "component_id"
+      ) %>%
+      mutate(
+        # Create the group label using component_id
+        group = sprintf("%d - %s", component_id, ifelse(is.na(label), "No Label", label)),
         # Shape and other visual properties
         shape = "dot",
         shadow = TRUE
@@ -1048,17 +1229,18 @@ generate_network_visualization <- function(coordination_results) {
       height = "800px"
     ) %>%
       visLayout(randomSeed = 123) %>%
-      visOptions(
-        highlightNearest = list(
-          enabled = TRUE,
-          degree = 1,
-          hover = TRUE
-        ),
-        selectedBy = list(
-          variable = "group",
-          main = "Select Component"
-        )
-      ) %>%
+      # Then update the visOptions part:
+    visOptions(
+      highlightNearest = list(
+        enabled = TRUE,
+        degree = 1,
+        hover = TRUE
+      ),
+      selectedBy = list(
+        variable = "group",
+        main = "Select Component - Label"  # Updated title
+      )
+    ) %>%
       visPhysics(
         stabilization = list(
           enabled = TRUE,
@@ -1293,38 +1475,35 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
     mutate(
       accounts = sapply(1:comp$no, function(i) {
         paste(V(coord_graph)$name[comp$membership == i], collapse = ", ")
-      }),
-      avg_time_delta = sapply(1:comp$no, function(i) {
-        mean(summary_accounts$avg_time_delta[summary_accounts$account_id %in% 
-             V(coord_graph)$name[comp$membership == i]], na.rm = TRUE)
-      }),
-      avg_edge_symmetry = sapply(1:comp$no, function(i) {
-        mean(summary_accounts$avg_edge_symmetry_score[summary_accounts$account_id %in% 
-             V(coord_graph)$name[comp$membership == i]], na.rm = TRUE)
       })
     ) %>%
     left_join(engagement_metrics, by = c("component")) %>%
+    # Add cluster labels
+    left_join(cluster_labels, by = c("component" = "component")) %>%
     select(
       Component = component,
+      Label = label,
       `Number of Accounts` = size,
       `Network Density` = density,
       `Network Diameter` = diameter,
       `Clustering Coefficient` = transitivity,
-      `Avg Time Between Shares (sec)` = avg_time_delta,
-      `Avg Edge Symmetry` = avg_edge_symmetry,
       `Avg Views` = avg_views,
       `Avg Likes` = avg_likes,
       `Avg Comments` = avg_comments,
       `Avg Shares` = avg_shares,
       `Member Accounts` = accounts
     ) %>%
-    mutate(across(where(is.numeric), round, 3))
-  
+    mutate(
+      # Format Component and Label together
+      Component = sprintf("%d. %s", Component, ifelse(is.na(Label), "No Label", Label)),
+      across(where(is.numeric), round, 3)
+    )
+
   datatable(clusters,
     options = list(
       pageLength = 10, 
       scrollX = TRUE,
-      order = list(list(1, 'asc')),
+      order = list(list(0, 'asc')),
       initComplete = JS(
         "function(settings, json) {",
         "  $(this.api().table().container()).css({'font-size': '9px'});",
@@ -1384,7 +1563,7 @@ create_posts_table <- function(summary_groups, all_videos) {
     options = list(
       pageLength = 10,
       scrollX = TRUE,
-      order = list(list(3, 'desc')),
+      order = list(list(4, 'desc')),  # Column index 4 is "Views", sorting in descending order
       initComplete = JS(
         "function(settings, json) {",
         "  $(this.api().table().container()).css({'font-size': '9px'});",
