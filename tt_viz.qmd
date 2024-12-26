@@ -1656,29 +1656,30 @@ if (!is.null(network_viz)) {
 # Function to prepare download files 
 prepare_download_files <- function() {
   temp_dir <- tempdir()
+  current_wd <- getwd()
   
-  # Save tables as CSV - extract data from datatables
-  write.csv(accounts_table$x$data, file.path(temp_dir, "coordinated_accounts.csv"), row.names = FALSE)
-  write.csv(clusters_table$x$data, file.path(temp_dir, "network_clusters.csv"), row.names = FALSE)
-  write.csv(posts_table$x$data, file.path(temp_dir, "coordinated_posts.csv"), row.names = FALSE)
+  # Change to temp dir for flat zip structure
+  setwd(temp_dir)
+  
+  # Save tables as CSV
+  write.csv(accounts_table$x$data, "coordinated_accounts.csv", row.names = FALSE)
+  write.csv(clusters_table$x$data, "network_clusters.csv", row.names = FALSE)
+  write.csv(posts_table$x$data, "coordinated_posts.csv", row.names = FALSE)
   
   # Export network graph
   if (!is.null(coordination_results$coord_graph)) {
-    igraph::write.graph(coordination_results$coord_graph,
-                       file.path(temp_dir, "coordination_network.graphml"),
-                       format = "graphml")
+    igraph::write_graph(coordination_results$coord_graph, "coordination_network.graphml", format = "graphml")
   }
   
   # Create zip file
-  current_date <- format(Sys.Date(), "%Y-%m-%d")
-  zip_file <- file.path(daily_output_dir, sprintf("coordination_results_%s.zip", current_date))
-  
-  # Get files to zip with base names only
-  files_to_zip <- list.files(temp_dir, pattern = "\\.(csv|graphml)$", full.names = TRUE)
+  zip_file <- file.path(daily_output_dir, sprintf("coordination_results_%s.zip", format(Sys.Date(), "%Y-%m-%d")))
+  files_to_zip <- list.files(pattern = "\\.(csv|graphml)$")
   if (length(files_to_zip) > 0) {
-    utils::zip(zip_file, files = files_to_zip, flags = "-j")
+    utils::zip(zip_file, files = files_to_zip)
   }
   
+  # Restore working directory
+  setwd(current_wd)
   return(if (file.exists(zip_file)) zip_file else NULL)
 }
 
@@ -1697,6 +1698,7 @@ if (file.exists(zip_file)) {
         <li>Coordinated accounts table (CSV format)</li>
         <li>Network clusters analysis (CSV format)</li>
         <li>Coordinated posts data (CSV format)</li>
+        <li>Network graph (GraphML format)</li>
       </ul>
       <a href="%s" download class="btn btn-primary" style="display: inline-block; padding: 8px 16px; background-color: #0d6efd; color: white; text-decoration: none; border-radius: 4px; border: none;">
         Download Results Package
