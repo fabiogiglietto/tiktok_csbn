@@ -1151,7 +1151,6 @@ for (date in last_5_dates) {
 ```
 
 ```{r viz, include=FALSE, message=FALSE}
-```{r viz, include=FALSE, message=FALSE}
 # Function to generate interactive network visualization
 generate_network_visualization <- function(coordination_results) {
   tryCatch({
@@ -1220,23 +1219,14 @@ generate_network_visualization <- function(coordination_results) {
     data$nodes <- data$nodes %>%
       mutate(
         shape = "dot",
-        shadow = TRUE,
-        color = list(
-          background = "#97C2FC",
-          border = "#2B7CE9",
-          highlight = list(
-            background = "#D2E5FF",
-            border = "#2B7CE9"
-          )
-        )
+        shadow = TRUE
       )
     
     # Add edge properties
     data$edges <- data$edges %>%
       mutate(
         width = if("weight" %in% names(.)) weight * 2 else 1,
-        smooth = TRUE,
-        color = "#848484"
+        smooth = TRUE
       )
     
     # Create custom CSS for the dropdown
