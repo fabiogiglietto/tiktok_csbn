@@ -879,33 +879,44 @@ generate_error_summary <- function(global_error_list) {
     
     # Create error summary text parts
     error_parts <- c(
-      "::: {.callout-note collapse='true'}",
-      "## Error Summary",
-      sprintf("Total errors encountered: %d", length(global_error_list)),
-      "\n### Errors by type:",
+      '<details>',
+      '<summary>Error Summary</summary>',
+      '\n',  # Important blank line after summary
+      sprintf("**Total errors encountered:** %d\n", length(global_error_list)),
+      "### Errors by type:\n",
       paste(capture.output(print(error_types)), collapse="\n"),
-      "\n### Sample Errors:"
+      "\n### Sample Errors:\n"
     )
     
     # Add sample errors
     sample_size <- min(5, length(global_error_list))
     sample_errors <- sample(global_error_list, sample_size)
     error_samples <- sapply(sample_errors, function(error) {
-      sprintf("- Type: %s, Message: %s", error$type, error$message)
+      sprintf("- **Type:** %s, **Message:** %s", error$type, error$message)
     })
     
-    error_summary <- c(error_parts, error_samples, ":::")
+    error_summary <- c(error_parts, error_samples, '</details>')
     
   } else {
     error_summary <- c(
-      "::: {.callout-note collapse='true'}",
-      "## Error Summary",
+      '<details>',
+      '<summary>Error Summary</summary>',
+      '\n',  # Important blank line after summary
       "No errors were encountered during script execution.",
-      ":::"
+      '</details>'
     )
   }
   
   return(paste(error_summary, collapse = "\n"))
+}
+
+# In the generate_summary function, modify the results printing part to:
+# Change this part in your generate_summary function
+if (length(global_error_list) > 0) {
+    summary_parts$warning <- sprintf(
+      "\n\n%s",
+      generate_error_summary(global_error_list)
+    )
 }
 
 # Execute summary generation
