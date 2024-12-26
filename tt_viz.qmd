@@ -1166,9 +1166,6 @@ if (exists("network_results") && !is.null(network_results$network)) {
 ```
 
 ```{r setup_tables, include=FALSE}
-library(DT)
-library(dplyr)
-library(igraph)
 
 # Helper function to create TikTok profile URL
 create_tiktok_url <- function(username) {
@@ -1176,7 +1173,7 @@ create_tiktok_url <- function(username) {
 }
 
 # 1. Coordinated Accounts Table
-create_accounts_table <- function(summary_accounts, coord_graph) {
+create_accounts_table <- function(summary_accounts, coord_graph, all_videos) {
   # Calculate network metrics for each account
   degree_scores <- degree(coord_graph)
   strength_scores <- strength(coord_graph)
@@ -1188,6 +1185,16 @@ create_accounts_table <- function(summary_accounts, coord_graph) {
     strength = as.numeric(strength_scores),
     betweenness = as.numeric(betweenness_scores)
   )
+  
+  # Calculate average engagement metrics per account
+  engagement_metrics <- all_videos %>%
+    group_by(author_name) %>%
+    summarize(
+      avg_views = mean(view_count, na.rm = TRUE),
+      avg_likes = mean(like_count, na.rm = TRUE),
+      avg_comments = mean(comment_count, na.rm = TRUE),
+      avg_shares = mean(share_count, na.rm = TRUE)
+    )
   
   # Get component membership for each account
   components_df <- data.frame(
@@ -1201,10 +1208,15 @@ create_accounts_table <- function(summary_accounts, coord_graph) {
     ) %>%
     left_join(network_metrics, by = "account_id") %>%
     left_join(components_df, by = "account_id") %>%
+    left_join(engagement_metrics, by = c("account_id" = "author_name")) %>%
     mutate(
       avg_time_delta = round(avg_time_delta, 2),
       avg_edge_symmetry_score = round(avg_edge_symmetry_score, 3),
-      betweenness = round(betweenness, 3)
+      betweenness = round(betweenness, 3),
+      avg_views = round(avg_views, 0),
+      avg_likes = round(avg_likes, 0),
+      avg_comments = round(avg_comments, 0),
+      avg_shares = round(avg_shares, 0)
     ) %>%
     select(
       Account = account_link,
@@ -1214,14 +1226,18 @@ create_accounts_table <- function(summary_accounts, coord_graph) {
       `Edge Symmetry Score` = avg_edge_symmetry_score,
       `Degree` = degree,
       `Strength` = strength,
-      `Betweenness` = betweenness
+      `Betweenness` = betweenness,
+      `Avg Views` = avg_views,
+      `Avg Likes` = avg_likes,
+      `Avg Comments` = avg_comments,
+      `Avg Shares` = avg_shares
     )
   
   datatable(accounts_table, 
     options = list(
       pageLength = 25, 
       scrollX = TRUE,
-      order = list(list(5, 'desc')),  # Sort by Strength by default
+      order = list(list(5, 'desc')),
       initComplete = JS(
         "function(settings, json) {",
         "  $(this.api().table().container()).css({'font-size': '9px'});",
@@ -1233,7 +1249,7 @@ create_accounts_table <- function(summary_accounts, coord_graph) {
 }
 
 # 2. Coordinated Networks/Clusters Table
-create_clusters_table <- function(coord_graph, summary_accounts) {
+create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
   # Get components
   comp <- components(coord_graph)
   
@@ -1256,7 +1272,23 @@ create_clusters_table <- function(coord_graph, summary_accounts) {
     })
   )
   
-  # Add account lists and average metrics
+  # Calculate average engagement metrics per component
+  engagement_metrics <- all_videos %>%
+    left_join(
+      data.frame(
+        author_name = V(coord_graph)$name,
+        component = components(coord_graph)$membership
+      ),
+      by = "author_name"
+    ) %>%
+    group_by(component) %>%
+    summarize(
+      avg_views = mean(view_count, na.rm = TRUE),
+      avg_likes = mean(like_count, na.rm = TRUE),
+      avg_comments = mean(comment_count, na.rm = TRUE),
+      avg_shares = mean(share_count, na.rm = TRUE)
+    )
+  
   clusters <- clusters %>%
     mutate(
       accounts = sapply(1:comp$no, function(i) {
@@ -1271,6 +1303,7 @@ create_clusters_table <- function(coord_graph, summary_accounts) {
              V(coord_graph)$name[comp$membership == i]], na.rm = TRUE)
       })
     ) %>%
+    left_join(engagement_metrics, by = c("component")) %>%
     select(
       Component = component,
       `Number of Accounts` = size,
@@ -1279,6 +1312,10 @@ create_clusters_table <- function(coord_graph, summary_accounts) {
       `Clustering Coefficient` = transitivity,
       `Avg Time Between Shares (sec)` = avg_time_delta,
       `Avg Edge Symmetry` = avg_edge_symmetry,
+      `Avg Views` = avg_views,
+      `Avg Likes` = avg_likes,
+      `Avg Comments` = avg_comments,
+      `Avg Shares` = avg_shares,
       `Member Accounts` = accounts
     ) %>%
     mutate(across(where(is.numeric), round, 3))
@@ -1287,7 +1324,7 @@ create_clusters_table <- function(coord_graph, summary_accounts) {
     options = list(
       pageLength = 10, 
       scrollX = TRUE,
-      order = list(list(1, 'asc')),  # Sort by Component by default
+      order = list(list(1, 'asc')),
       initComplete = JS(
         "function(settings, json) {",
         "  $(this.api().table().container()).css({'font-size': '9px'});",
@@ -1315,7 +1352,11 @@ create_posts_table <- function(summary_groups, all_videos) {
              video_description, 
              video_url, 
              author_name, 
-             create_time
+             create_time,
+             view_count,
+             like_count,
+             comment_count,
+             share_count
       ),
       by = c("object_id" = "video_description")
     ) %>%
@@ -1327,6 +1368,10 @@ create_posts_table <- function(summary_groups, all_videos) {
       Author = author_name,
       Timestamp = create_time,
       `Number of Accounts` = num_accounts,
+      Views = view_count,
+      Likes = like_count,
+      Comments = comment_count,
+      Shares = share_count,
       Description = object_id
     ) %>%
     distinct() %>%
@@ -1337,9 +1382,9 @@ create_posts_table <- function(summary_groups, all_videos) {
   
   datatable(posts_table,
     options = list(
-      pageLength = 25, 
+      pageLength = 10,
       scrollX = TRUE,
-      order = list(list(3, 'desc')),  # Sort by Timestamp by default
+      order = list(list(3, 'desc')),
       initComplete = JS(
         "function(settings, json) {",
         "  $(this.api().table().container()).css({'font-size': '9px'});",
@@ -1350,16 +1395,18 @@ create_posts_table <- function(summary_groups, all_videos) {
   )
 }
 
-# Create and display all tables if data is available
+# Update the main code section where tables are created:
 if (exists("coordination_results") && exists("all_videos")) {
   accounts_table <- create_accounts_table(
     coordination_results$summary_accounts, 
-    coordination_results$coord_graph
+    coordination_results$coord_graph,
+    all_videos
   )
   
   clusters_table <- create_clusters_table(
     coordination_results$coord_graph, 
-    coordination_results$summary_accounts
+    coordination_results$summary_accounts,
+    all_videos
   )
   
   posts_table <- create_posts_table(
@@ -1367,6 +1414,7 @@ if (exists("coordination_results") && exists("all_videos")) {
     all_videos
   )
 }
+
 ```
 
 ```{r display_tables, echo=FALSE, results='asis'}
