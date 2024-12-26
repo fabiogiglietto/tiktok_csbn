@@ -1659,23 +1659,18 @@ if (exists("coordination_results") && exists("all_videos")) {
 
 ```
 
-```{r display_tables, echo=FALSE, results='asis'}
-cat("\n")  # Ensure proper spacing
-```
-
 ## Coordinated Accounts
-```{r display_accounts, echo=FALSE, warning=FALSE, message=FALSE}
+```{r display_accounts, echo=FALSE, warning=FALSE}
 
 if (exists("accounts_table") && !is.null(accounts_table)) {
-  accounts_table  # DT::datatable object
+  accounts_table
 } else {
   cat("No coordinated accounts data available.")
 }
-
 ```
 
 ## Coordinated Networks/Clusters
-```{r display_clusters, echo=FALSE, warning=FALSE, message=FALSE}
+```{r display_clusters, echo=FALSE, warning=FALSE}
 
 if (exists("clusters_table") && !is.null(clusters_table)) {
   clusters_table
@@ -1686,7 +1681,7 @@ if (exists("clusters_table") && !is.null(clusters_table)) {
 ```
 
 ## Coordinated Posts
-```{r display_posts, echo=FALSE, warning=FALSE, message=FALSE}
+```{r display_posts, echo=FALSE, warning=FALSE}
 
 if (exists("posts_table") && !is.null(posts_table)) {
   posts_table
