@@ -8,7 +8,6 @@ format:
     code-fold: true
     toc: true
     number-sections: true
-    embed-resources: true
 params:
   load_from_snapshot: FALSE
   base_dir: "/home/mine/VERAAI_WP4"
