@@ -877,26 +877,32 @@ generate_error_summary <- function(global_error_list) {
     # Get error types and counts
     error_types <- table(sapply(global_error_list, function(x) x$type))
     
-    # Create error summary text
+    # Create error summary text parts
     error_parts <- c(
-      "\nError Summary:",
+      "::: {.callout-note collapse='true'}",
+      "## Error Summary",
       sprintf("Total errors encountered: %d", length(global_error_list)),
-      "\nErrors by type:",
-      capture.output(print(error_types)),
-      "\nSample Errors:"
+      "\n### Errors by type:",
+      paste(capture.output(print(error_types)), collapse="\n"),
+      "\n### Sample Errors:"
     )
     
     # Add sample errors
     sample_size <- min(5, length(global_error_list))
     sample_errors <- sample(global_error_list, sample_size)
     error_samples <- sapply(sample_errors, function(error) {
-      sprintf("Type: %s, Message: %s", error$type, error$message)
+      sprintf("- Type: %s, Message: %s", error$type, error$message)
     })
     
-    error_summary <- c(error_parts, error_samples)
+    error_summary <- c(error_parts, error_samples, ":::")
     
   } else {
-    error_summary <- "\nNo errors were encountered during script execution."
+    error_summary <- c(
+      "::: {.callout-note collapse='true'}",
+      "## Error Summary",
+      "No errors were encountered during script execution.",
+      ":::"
+    )
   }
   
   return(paste(error_summary, collapse = "\n"))
