@@ -1,7 +1,7 @@
 ---
 title: "TikTok Coordinated Sharing Network"
-author: "Fabio Giglietto"
 format: html
+author: "Fabio Giglietto"
 date: "`r Sys.Date()`"
 params:
   load_from_snapshot: FALSE
@@ -1354,7 +1354,7 @@ if (!is.null(network_viz)) {
 
 ```
 
-```{r setup_tables, include=FALSE}
+```{r setup_tables, include=FALSE, echo=FALSE, message=FALSE, eval=TRUE}
 
 # Helper function to create TikTok profile URL
 create_tiktok_url <- function(username) {
@@ -1664,10 +1664,10 @@ cat("\n")  # Ensure proper spacing
 ```
 
 ## Coordinated Accounts
-```{r display_accounts, echo=FALSE, warning=FALSE}
+```{r display_accounts, echo=FALSE, warning=FALSE, message=FALSE}
 
 if (exists("accounts_table") && !is.null(accounts_table)) {
-  accounts_table  # The table is already a DT::datatable object
+  accounts_table  # DT::datatable object
 } else {
   cat("No coordinated accounts data available.")
 }
@@ -1675,10 +1675,10 @@ if (exists("accounts_table") && !is.null(accounts_table)) {
 ```
 
 ## Coordinated Networks/Clusters
-```{r display_clusters, echo=FALSE}
+```{r display_clusters, echo=FALSE, warning=FALSE, message=FALSE}
 
 if (exists("clusters_table") && !is.null(clusters_table)) {
-  clusters_table  # The table is already a DT::datatable object
+  clusters_table
 } else {
   cat("No network clusters data available.")
 }
@@ -1686,10 +1686,10 @@ if (exists("clusters_table") && !is.null(clusters_table)) {
 ```
 
 ## Coordinated Posts
-```{r display_posts, echo=FALSE}
+```{r display_posts, echo=FALSE, warning=FALSE, message=FALSE}
 
 if (exists("posts_table") && !is.null(posts_table)) {
-  posts_table  # The table is already a DT::datatable object
+  posts_table
 } else {
   cat("No coordinated posts data available.")
 }
