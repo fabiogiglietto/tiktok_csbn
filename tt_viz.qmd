@@ -969,7 +969,7 @@ generate_summary <- function(
   coordination_results,
   global_error_list
 ) {
-  # Initialize summary string
+  # Initialize empty list for summary parts
   summary_parts <- list()
   
   # Basic collection summary
@@ -1015,26 +1015,23 @@ generate_summary <- function(
     summary_parts$coordination <- "We were unable to perform coordinated detection analysis due to insufficient data."
   }
   
-  # Add warning if errors were encountered
-  if (length(global_error_list) > 0) {
-    summary_parts$warning <- sprintf(
-      "\n\n::: {.callout-warning}\nWarning: %d errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.\n:::", 
-      length(global_error_list)
-    )
-  }
+  # Generate error summary if there are errors
+  error_summary <- generate_error_summary(global_error_list)
   
   # Combine all parts
   full_summary <- paste(unlist(summary_parts), collapse = " ")
   
-  # Generate error summary
-  error_summary <- generate_error_summary(global_error_list)
+  # Add error summary if there are errors
+  if (nchar(error_summary) > 0) {
+    full_summary <- paste(full_summary, "\n\n", error_summary)
+  }
   
   # Create output directory if it doesn't exist
   dir.create(file.path(params$base_dir, "output", "summary"), showWarnings = FALSE, recursive = TRUE)
   
   # Save summary to file
   summary_file_path <- file.path(params$base_dir, "output", "summary", "execution_summary.txt")
-  writeLines(c(full_summary, "\n", error_summary), summary_file_path)
+  writeLines(c(full_summary), summary_file_path)
   
   # Log summary creation
   log_info("Generated execution summary")
@@ -1050,7 +1047,7 @@ generate_summary <- function(
 generate_error_summary <- function(global_error_list) {
   # Only generate error summary if there are errors
   if (length(global_error_list) > 0) {
-    # Create warning box first
+    # Create warning box
     warning_box <- sprintf(
       "::: {.callout-warning}\nWarning: %d errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.\n:::\n\n",
       length(global_error_list)
