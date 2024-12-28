@@ -1127,20 +1127,22 @@ ggplot(historical_data$logs, aes(x = Timestamp)) +
 
 ```{r generate_network_function}
 
-generate_network_visualization <- function(coordination_results) {
-  # Load required package
-  if (!require("htmltools")) install.packages("htmltools")
-  library(htmltools)
+generate_network_visualization <- function(coordination_results,
+                                        height = "800px",
+                                        seed = 123,
+                                        node_size_multiplier = 3,
+                                        node_size_base = 10,
+                                        edge_width_multiplier = 2) {
+  
+  if (!requireNamespace("htmltools", quietly = TRUE)) {
+    stop("Package 'htmltools' is required")
+  }
   
   tryCatch({
-    # Check if we have valid coordination results
-    if (is.null(coordination_results) || 
-        is.null(coordination_results$coord_graph)) {
-      log_warn("No valid coordination graph available for visualization")
+    if (is.null(coordination_results) || is.null(coordination_results$coord_graph)) {
+      warning("No valid coordination graph available for visualization")
       return(NULL)
     }
-    
-    log_info("Starting network visualization generation")
     
     # Create output directory
     viz_dir <- file.path(daily_output_dir, "network")
@@ -1148,129 +1150,102 @@ generate_network_visualization <- function(coordination_results) {
     
     # Get the graph
     graph <- coordination_results$coord_graph
+    if (!igraph::is_igraph(graph)) {
+      stop("Invalid graph object provided")
+    }
     
-    # Add URL attribute to nodes
-    V(graph)$url <- paste0("https://tiktok.com/@", V(graph)$name)
+    # Process node attributes
+    node_data <- data.frame(
+      id = igraph::V(graph)$name,
+      url = paste0("https://tiktok.com/@", igraph::V(graph)$name),
+      degree = igraph::degree(graph),
+      component = igraph::components(graph)$membership,
+      stringsAsFactors = FALSE
+    )
     
-    # Add additional node attributes
-    V(graph)$title <- sprintf(
-      "<p><b>Account:</b> @%s<br><b>Degree:</b> %d<br><b>Component:</b> %d</p>",
-      V(graph)$name,
-      degree(graph),
-      components(graph)$membership
+    # Create tooltips
+    node_data$title <- sprintf(
+      paste0(
+        "<div class='network-tooltip'>",
+        "<p><strong>Account:</strong> @%s</p>",
+        "<p><strong>Connections:</strong> %d</p>",
+        "<p><strong>Network Group:</strong> %d</p>",
+        "</div>"
+      ),
+      node_data$id,
+      node_data$degree,
+      node_data$component
     )
     
     # Convert to visNetwork format
-    log_info("Converting graph to visNetwork format")
-    data <- toVisNetworkData(graph)
+    data <- visNetwork::toVisNetworkData(graph)
     
-    # Create base nodes data frame with component info
+    # Create base nodes data frame
     data$nodes <- data$nodes %>%
-      mutate(
-        size = degree(graph) * 3 + 10,
-        component_id = as.numeric(components(graph)$membership)
-      )
-    
-    # Add labels if available
-    if(exists("cluster_labels") && is.data.frame(cluster_labels) && nrow(cluster_labels) > 0) {
-      # Create a lookup table for labels
-      label_lookup <- cluster_labels %>%
-        mutate(
-          component_id = as.numeric(component),
-          group_label = sprintf("Network %d - %s", component_id, label)
-        ) %>%
-        select(component_id, group_label)
-      
-      # Join with nodes
-      data$nodes <- data$nodes %>%
-        left_join(label_lookup, by = "component_id") %>%
-        mutate(
-          group = coalesce(group_label, sprintf("Network %d", component_id))
-        )
-    } else {
-      data$nodes <- data$nodes %>%
-        mutate(
-          group = sprintf("Network %d", component_id)
-        )
-    }
-    
-    # Add remaining node properties
-    data$nodes <- data$nodes %>%
-      mutate(
+      dplyr::left_join(node_data, by = "id") %>%
+      dplyr::mutate(
+        size = degree * node_size_multiplier + node_size_base,
+        component_id = as.numeric(component),
         shape = "dot",
         shadow = TRUE
       )
     
-    # Add edge properties
+    # Add labels if available
+    if(exists("cluster_labels") && is.data.frame(cluster_labels) && nrow(cluster_labels) > 0) {
+      label_lookup <- cluster_labels %>%
+        dplyr::mutate(
+          component_id = as.numeric(component),
+          group_label = sprintf("Network %d - %s", component_id, label)
+        ) %>%
+        dplyr::select(component_id, group_label)
+      
+      data$nodes <- data$nodes %>%
+        dplyr::left_join(label_lookup, by = "component_id") %>%
+        dplyr::mutate(
+          group = dplyr::coalesce(group_label, sprintf("Network %d", component_id))
+        )
+    } else {
+      data$nodes$group <- sprintf("Network %d", data$nodes$component_id)
+    }
+    
+    # Process edges
     data$edges <- data$edges %>%
-      mutate(
-        width = if("weight" %in% names(.)) weight * 2 else 1,
-        smooth = TRUE
+      dplyr::mutate(
+        width = if("weight" %in% names(.)) weight * edge_width_multiplier else 1,
+        smooth = TRUE,
+        arrows = "to"
+      ) %>%
+      dplyr::mutate(
+        color = lapply(seq_len(nrow(.)), function(i) {
+          list(
+            color = "#666666",
+            highlight = "#3388ff"
+          )
+        })
       )
     
-    # Create strictly isolated CSS
+    # Create isolated CSS that won't interfere with Quarto
     isolated_css <- paste0(
       "<style>",
-      ".coordination-network-viz {",
-      "  position: relative;",
-      "  z-index: 1;",
-      "  all: initial;", # Reset all properties
-      "  display: block;",
-      "  contain: content;", # Contain any layout/style effects
-      "}",
-      ".coordination-network-viz * {",
-      "  all: revert;", # Reset all inherited properties
-      "}",
-      ".coordination-network-viz .vis-network {",
-      "  position: relative !important;",
-      "  border: none !important;",
-      "  box-sizing: content-box !important;",
-      "}",
-      ".coordination-network-viz .vis-network-configuration {",
-      "  position: absolute !important;",
-      "  top: 10px !important;",
-      "  right: 10px !important;",
-      "  z-index: 100 !important;",
-      "  background: white !important;",
-      "  padding: 8px !important;",
-      "  border-radius: 4px !important;",
-      "  box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;",
-      "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;",
-      "  font-size: 14px !important;",
-      "  color: #333 !important;",
-      "}",
-      ".coordination-network-viz .vis-network-configuration select {",
-      "  width: 100% !important;",
-      "  padding: 4px 8px !important;",
-      "  border: 1px solid #ddd !important;",
-      "  border-radius: 4px !important;",
-      "  background: white !important;",
-      "  font-family: inherit !important;",
-      "  font-size: inherit !important;",
-      "  color: inherit !important;",
-      "}",
-      ".coordination-network-viz .vis-navigation {",
-      "  position: absolute !important;",
-      "  z-index: 100 !important;",
-      "}",
+      ".network-container { position: relative !important; z-index: 1 !important; }",
+      ".network-container .vis-network { position: relative !important; border: none !important; }",
+      ".network-container .vis-network-configuration { position: absolute !important; top: 10px !important; right: 10px !important; z-index: 100 !important; background: white !important; padding: 8px !important; border-radius: 4px !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; }",
+      ".network-container .vis-network-configuration select { width: 200px !important; padding: 4px !important; border: 1px solid #ddd !important; border-radius: 4px !important; }",
+      ".network-container .vis-navigation { position: absolute !important; z-index: 100 !important; }",
+      ".network-tooltip { background: white !important; padding: 8px !important; border-radius: 4px !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; }",
+      ".network-tooltip p { margin: 4px 0 !important; }",
       "</style>"
     )
     
-    # Create container div with scoped class
-    container_div <- sprintf(
-      '<div class="coordination-network-viz">%s</div>',
-      isolated_css
-    )
-    
     # Create the network visualization
-    network <- visNetwork(
+    network <- visNetwork::visNetwork(
       nodes = data$nodes,
       edges = data$edges,
       width = "100%",
-      height = "800px"
+      height = height
     ) %>%
-      visLayout(randomSeed = 123) %>%
-      visOptions(
+      visNetwork::visLayout(randomSeed = seed) %>%
+      visNetwork::visOptions(
         highlightNearest = list(
           enabled = TRUE,
           degree = 1,
@@ -1284,53 +1259,55 @@ generate_network_visualization <- function(coordination_results) {
         nodesIdSelection = FALSE,
         manipulation = FALSE
       ) %>%
-      visPhysics(
+      visNetwork::visPhysics(
         stabilization = list(
           enabled = TRUE,
           iterations = 100
         )
       ) %>%
-      visEvents(
+      visNetwork::visEvents(
         click = "function(params) {
           if (params.nodes.length > 0) {
             var nodeId = params.nodes[0];
             var nodeData = this.body.data.nodes.get(nodeId);
-            var url = nodeData.url;
-            window.open(url, '_blank');
+            if (nodeData.url) {
+              window.open(nodeData.url, '_blank');
+            }
           }
         }"
       ) %>%
-      visInteraction(
+      visNetwork::visInteraction(
         navigationButtons = TRUE,
-        keyboard = TRUE
-      ) %>%
-      htmlwidgets::onRender(sprintf("
-        function(el,x) {
-          // Wrap the network in the container div
-          el.innerHTML = '%s' + el.innerHTML;
-        }
-      ", container_div))
-    
-    # Save the network visualization
-    log_info("Saving network visualization")
-    html_file <- file.path(viz_dir, "coordination_network.html")
-    
-    network %>%
-      visSave(
-        file = html_file,
-        background = "white"
+        keyboard = TRUE,
+        tooltipDelay = 100,
+        hover = TRUE
       )
     
-    log_info(sprintf(
+    # Add the isolated CSS and container
+    network <- htmlwidgets::onRender(
+      network,
+      sprintf(
+        "function(el) {
+          el.innerHTML = '<div class=\"network-container\">%s' + el.innerHTML + '</div>';
+        }",
+        isolated_css
+      )
+    )
+    
+    # Save visualization
+    html_file <- file.path(viz_dir, "coordination_network.html")
+    visNetwork::visSave(network, file = html_file, background = "white")
+    
+    message(sprintf(
       "Network visualization complete. Network has %d nodes and %d edges",
-      gorder(graph),
-      gsize(graph)
+      igraph::gorder(graph),
+      igraph::gsize(graph)
     ))
     
     return(network)
     
   }, error = function(e) {
-    log_error(sprintf("Error generating network visualization: %s", conditionMessage(e)))
+    warning(sprintf("Error generating network visualization: %s", conditionMessage(e)))
     return(NULL)
   })
 }
