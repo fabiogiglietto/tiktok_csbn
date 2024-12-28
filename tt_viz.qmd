@@ -1172,34 +1172,31 @@ generate_network_visualization <- function(coordination_results,
     data$nodes$component <- comp
     
     # Add cluster labels if available
-    if(exists("cluster_labels") && is.data.frame(get("cluster_labels"))) {
-      label_data <- get("cluster_labels") %>%
+    if(exists("cluster_labels") && is.data.frame(get("cluster_labels")) && nrow(get("cluster_labels")) > 0) {
+      # Create a lookup table for labels
+      label_lookup <- get("cluster_labels") %>%
         dplyr::mutate(
-          component = as.numeric(component),
-          group_label = sprintf("Network %d - %s", component, label)
-        )
-      
-      # Join with nodes data
-      data$nodes <- data$nodes %>%
-        dplyr::left_join(
-          label_data %>% dplyr::select(component, label),
-          by = c("component" = "component")
+          component_id = as.numeric(component),
+          group_label = sprintf("Network %d - %s", component_id, label)
         ) %>%
+        dplyr::select(component_id, group_label)
+      
+      # Join with nodes
+      data$nodes <- data$nodes %>%
+        dplyr::left_join(label_lookup, by = c("component" = "component_id")) %>%
         dplyr::mutate(
           size = value * node_size_multiplier + node_size_base,
-          color = "#97C2FC",  # Default blue color
+          color = "#97C2FC",
           shape = "dot",
           shadow = TRUE,
-          group = ifelse(!is.na(label),
-                        sprintf("Network %d - %s", component, label),
-                        sprintf("Network %d", component))
+          group = dplyr::coalesce(group_label, sprintf("Network %d", component))
         )
     } else {
       # If no labels available, use default numbering
       data$nodes <- data$nodes %>%
         dplyr::mutate(
           size = value * node_size_multiplier + node_size_base,
-          color = "#97C2FC",  # Default blue color
+          color = "#97C2FC",
           shape = "dot",
           shadow = TRUE,
           group = sprintf("Network %d", component)
