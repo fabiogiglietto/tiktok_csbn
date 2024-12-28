@@ -959,157 +959,6 @@ historical_data <- load_historical_data()
 
 # Today Results
 
-```{r results_summary, include=TRUE, echo=FALSE, results='asis'}
-
-# Function to generate detailed summary
-generate_summary <- function(
-  coord_users,
-  startdate,
-  enddate,
-  recent_videos,
-  all_videos,
-  coordination_results,
-  global_error_list
-) {
-  # Initialize empty list for summary parts
-  summary_parts <- list()
-  
-  # Basic collection summary
-  summary_parts$collection <- sprintf(
-    "We attempted to retrieve videos from **%s monitored accounts**, during the period from %s to %s.",
-    scales::comma(length(coord_users)),
-    format(as.Date(startdate), "%B %d, %Y"),
-    format(as.Date(enddate), "%B %d, %Y")
-  )
-  
-  # Recent videos summary
-  if (is.data.frame(recent_videos) && nrow(recent_videos) > 0) {
-    summary_parts$recent <- sprintf(
-      "We successfully retrieved **%s recent videos**.",
-      scales::comma(nrow(recent_videos))
-    )
-  } else {
-    summary_parts$recent <- "We were unable to retrieve any recent videos due to API issues."
-  }
-  
-  # All videos summary
-  if (is.data.frame(all_videos) && nrow(all_videos) > 0) {
-    summary_parts$all <- sprintf(
-      "Using available data, we accessed a total of **%s videos** posted on TikTok within the timeframe.",
-      scales::comma(nrow(all_videos))
-    )
-  } else {
-    summary_parts$all <- "No videos were available for analysis."
-  }
-  
-  # Coordination analysis summary
-  if (!is.null(coordination_results) && 
-      !is.null(coordination_results$summary_accounts) && 
-      !is.null(coordination_results$coord_graph)) {
-    
-    summary_parts$coordination <- sprintf(
-      "Our analysis for coordinated detection in these videos identified **%s accounts** spread across **%s components**, and it also uncovered **%s new accounts** exhibiting coordinated behavior.",
-      scales::comma(nrow(coordination_results$summary_accounts)),
-      scales::comma(igraph::components(coordination_results$coord_graph)$no),
-      scales::comma(nrow(coordination_results$new_accounts))
-    )
-  } else {
-    summary_parts$coordination <- "We were unable to perform coordinated detection analysis due to insufficient data."
-  }
-  
-  # Generate error summary if there are errors
-  error_summary <- generate_error_summary(global_error_list)
-  
-  # Combine all parts
-  full_summary <- paste(unlist(summary_parts), collapse = " ")
-  
-  # Add error summary if there are errors
-  if (nchar(error_summary) > 0) {
-    full_summary <- paste(full_summary, "\n\n", error_summary)
-  }
-  
-  # Create output directory if it doesn't exist
-  dir.create(file.path(params$base_dir, "output", "summary"), showWarnings = FALSE, recursive = TRUE)
-  
-  # Save summary to file
-  summary_file_path <- file.path(params$base_dir, "output", "summary", "execution_summary.txt")
-  writeLines(c(full_summary), summary_file_path)
-  
-  # Log summary creation
-  log_info("Generated execution summary")
-  log_info(sprintf("Summary saved to %s", summary_file_path))
-  
-  return(list(
-    summary = full_summary,
-    error_summary = error_summary
-  ))
-}
-
-# Function to generate error summary
-generate_error_summary <- function(global_error_list) {
-  # Only generate error summary if there are errors
-  if (length(global_error_list) > 0) {
-    # Create warning box
-    warning_box <- sprintf(
-      "::: {.callout-warning}\nWarning: %d errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.\n:::\n\n",
-      length(global_error_list)
-    )
-    
-    # Get error types and counts
-    error_types <- table(sapply(global_error_list, function(x) x$type))
-    
-    # Create collapsible error details
-    error_parts <- c(
-      '<details>',
-      '<summary>Error Details</summary>',
-      '\n',  # Important blank line after summary
-      sprintf("**Total errors encountered:** %d\n", length(global_error_list)),
-      "### Errors by type:\n",
-      paste(capture.output(print(error_types)), collapse="\n"),
-      "\n### Sample Errors:\n"
-    )
-    
-    # Add sample errors
-    sample_size <- min(5, length(global_error_list))
-    sample_errors <- sample(global_error_list, sample_size)
-    error_samples <- sapply(sample_errors, function(error) {
-      sprintf("- **Type:** %s, **Message:** %s", error$type, error$message)
-    })
-    
-    error_details <- c(error_parts, error_samples, '</details>')
-    
-    # Combine warning box and error details
-    return(paste(c(warning_box, error_details), collapse = "\n"))
-  }
-  
-  # Return empty string if no errors
-  return("")
-}
-
-# Execute summary generation
-if (exists("coord_users") && exists("startdate") && exists("enddate")) {
-  log_info("Generating execution summary")
-  
-  summary_result <- generate_summary(
-    coord_users = coord_users,
-    startdate = startdate,
-    enddate = enddate,
-    recent_videos = if(exists("recent_videos")) recent_videos else NULL,
-    all_videos = if(exists("all_videos")) all_videos else NULL,
-    coordination_results = if(exists("coordination_results")) coordination_results else NULL,
-    global_error_list = global_error_list
-  )
-  
-  # Print summary to console
-  cat("\nExecution Summary:\n")
-  cat(summary_result$summary)
-  cat("\n")
-} else {
-  log_warn("Missing required variables for summary generation")
-}
-
-```
-
 ```{r historical_trends, include=TRUE, echo=FALSE, fig.cap="Historical trends of coordinated accounts"}
 # Plot historical trends
 ggplot(historical_data$logs, aes(x = Timestamp)) +
@@ -1125,8 +974,7 @@ ggplot(historical_data$logs, aes(x = Timestamp)) +
   scale_color_manual(values = c("Total Accounts" = "blue", "New Accounts" = "red"))
 ```
 
-```{r generate_network_function, include=FALSE}
-
+```{r generate_network_function}
 # Function to generate interactive network visualization
 generate_network_visualization <- function(coordination_results, 
                                         height = "800px",
@@ -1159,6 +1007,17 @@ generate_network_visualization <- function(coordination_results,
     stop("Invalid graph object provided")
   }
   
+  # Debug information
+  message("Graph summary:")
+  message(sprintf("Number of vertices: %d", igraph::vcount(graph)))
+  message(sprintf("Number of edges: %d", igraph::ecount(graph)))
+  message("Graph attributes:")
+  print(igraph::graph_attr_names(graph))
+  message("Vertex attributes:")
+  print(igraph::vertex_attr_names(graph))
+  message("Edge attributes:")
+  print(igraph::edge_attr_names(graph))
+  
   # Process node attributes
   node_data <- data.frame(
     id = igraph::V(graph)$name,
@@ -1185,6 +1044,13 @@ generate_network_visualization <- function(coordination_results,
   # Convert to visNetwork format with error handling
   tryCatch({
     network_data <- visNetwork::toVisNetworkData(graph)
+    message("Network data after conversion:")
+    message(sprintf("Number of nodes: %d", nrow(network_data$nodes)))
+    message(sprintf("Number of edges: %d", nrow(network_data$edges)))
+    message("Node columns:")
+    print(names(network_data$nodes))
+    message("Edge columns:")
+    print(names(network_data$edges))
   }, error = function(e) {
     stop(paste("Failed to convert graph to visNetwork format:", e$message))
   })
@@ -1242,11 +1108,11 @@ generate_network_visualization <- function(coordination_results,
   # Custom CSS for better styling
   custom_css <- paste0(
     "<style>",
-    ".vis-network { border: 1px solid #ddd; border-radius: 4px; }",
-    ".node-tooltip { padding: 10px; max-width: 300px; }",
+    ".vis-network { border: 1px solid #ddd; border-radius: 4px; min-height: 600px; }",
+    ".node-tooltip { padding: 10px; max-width: 300px; background: white; border: 1px solid #ddd; border-radius: 4px; }",
     ".node-tooltip p { margin: 5px 0; }",
     ".vis-network-configuration { padding: 10px; background: #f8f9fa; border-radius: 4px; }",
-    ".vis-network-configuration select { max-width: 100%; }",
+    ".vis-network-configuration select { max-width: 100%; padding: 5px; }",
     "</style>"
   )
   
@@ -1257,31 +1123,52 @@ generate_network_visualization <- function(coordination_results,
     width = "100%",
     height = height
   ) %>%
-    visNetwork::visLayout(randomSeed = seed) %>%
+    visNetwork::visLayout(
+      randomSeed = seed,
+      improvedLayout = TRUE
+    ) %>%
     visNetwork::visOptions(
       highlightNearest = list(
         enabled = TRUE,
         degree = 1,
-        hover = TRUE,
-        algorithm = "hierarchical"
+        hover = TRUE
       ),
       selectedBy = list(
         variable = "group",
-        main = "Select Network Group",
-        style = "width: 250px; height: 35px;"
+        main = "Select Network Group"
       ),
       manipulation = FALSE
     ) %>%
     visNetwork::visPhysics(
+      solver = "forceAtlas2Based",
+      forceAtlas2Based = list(
+        gravitationalConstant = -50,
+        centralGravity = 0.01,
+        springLength = 100,
+        springConstant = 0.08
+      ),
       stabilization = list(
         enabled = TRUE,
-        iterations = 200,
-        fit = TRUE
+        iterations = 1000,
+        updateInterval = 100
+      )
+    ) %>%
+    visNetwork::visEdges(
+      smooth = FALSE,
+      color = list(
+        color = "#666666",
+        highlight = "#3388ff"
       ),
-      barnesHut = list(
-        gravitationalConstant = -2000,
-        centralGravity = 0.1,
-        springLength = 150
+      arrows = list(to = TRUE)
+    ) %>%
+    visNetwork::visNodes(
+      color = list(
+        background = "#97C2FC",
+        border = "#2B7CE9",
+        highlight = list(
+          background = "#D2E5FF",
+          border = "#2B7CE9"
+        )
       )
     ) %>%
     visNetwork::visEvents(
@@ -1327,9 +1214,17 @@ generate_network_visualization <- function(coordination_results,
     max(igraph::components(graph)$membership)
   ))
   
+  # Final validation before returning
+  if (is.null(network)) {
+    stop("Network object is NULL")
+  }
+  
+  message("Network object created successfully")
+  message("Network configuration:")
+  print(network$x$options)
+  
   return(network)
 }
-
 ```
 
 ```{r generate_visualization, results='asis'}
