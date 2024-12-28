@@ -955,7 +955,7 @@ load_historical_data <- function() {
 historical_data <- load_historical_data()
 ```
 
-# Today Output
+# Today Results
 
 ```{r results_summary, include=TRUE, echo=FALSE, results='asis'}
 
@@ -1337,7 +1337,9 @@ if (!is.null(network_viz)) {
 
 ```
 
-```{r setup_tables, include=FALSE}
+## Detailed Tables
+
+```{r setup_tables, include=FALSE, eval=TRUE}
 
 # Helper function to create TikTok profile URL
 create_tiktok_url <- function(username) {
@@ -1614,17 +1616,17 @@ if (exists("coordination_results") && exists("all_videos")) {
 cat("\n")  # Ensure proper spacing
 ```
 
-## Coordinated Accounts
+### Coordinated Accounts
 ```{r display_accounts, echo=FALSE}
 accounts_table
 ```
 
-## Coordinated Networks/Clusters
+### Coordinated Networks/Clusters
 ```{r display_clusters, echo=FALSE}
 clusters_table
 ```
 
-## Coordinated Posts
+### Coordinated Posts
 ```{r display_posts, echo=FALSE}
 posts_table
 ```
