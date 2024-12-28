@@ -1238,16 +1238,9 @@ generate_network_visualization <- function(coordination_results,
         )
       ) %>%
       visNetwork::visPhysics(
-        solver = "forceAtlas2Based",
-        forceAtlas2Based = list(
-          gravitationalConstant = -100,
-          centralGravity = 0.01,
-          springLength = 200,
-          springConstant = 0.08
-        ),
         stabilization = list(
           enabled = TRUE,
-          iterations = 1000
+          iterations = 100
         )
       ) %>%
       visNetwork::visEvents(
