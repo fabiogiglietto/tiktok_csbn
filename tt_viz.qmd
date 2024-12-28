@@ -1134,6 +1134,209 @@ for (date in last_5_dates) {
 }
 ```
 
+```{r viz, include=FALSE, message=FALSE}
+
+# Function to generate interactive network visualization
+generate_network_visualization <- function(coordination_results) {
+  # Load required package
+  if (!require("htmltools")) install.packages("htmltools")
+  library(htmltools)
+  
+  tryCatch({
+    # Check if we have valid coordination results
+    if (is.null(coordination_results) || 
+        is.null(coordination_results$coord_graph)) {
+      log_warn("No valid coordination graph available for visualization")
+      return(NULL)
+    }
+    
+    log_info("Starting network visualization generation")
+    
+    # Create output directory
+    viz_dir <- file.path(daily_output_dir, "network")
+    dir.create(viz_dir, showWarnings = FALSE, recursive = TRUE)
+    
+    # Get the graph
+    graph <- coordination_results$coord_graph
+    
+    # Add URL attribute to nodes
+    V(graph)$url <- paste0("https://tiktok.com/@", V(graph)$name)
+    
+    # Add additional node attributes
+    V(graph)$title <- sprintf(
+      "<p><b>Account:</b> @%s<br><b>Degree:</b> %d<br><b>Component:</b> %d</p>",
+      V(graph)$name,
+      degree(graph),
+      components(graph)$membership
+    )
+    
+    # Convert to visNetwork format
+    log_info("Converting graph to visNetwork format")
+    data <- toVisNetworkData(graph)
+    
+    # Create base nodes data frame with component info
+    data$nodes <- data$nodes %>%
+      mutate(
+        size = degree(graph) * 3 + 10,
+        component_id = as.numeric(components(graph)$membership)
+      )
+    
+    # Add labels if available
+    if(exists("cluster_labels") && is.data.frame(cluster_labels) && nrow(cluster_labels) > 0) {
+      # Create a lookup table for labels
+      label_lookup <- cluster_labels %>%
+        mutate(
+          component_id = as.numeric(component),
+          group_label = sprintf("Network %d - %s", component_id, label)
+        ) %>%
+        select(component_id, group_label)
+      
+      # Join with nodes
+      data$nodes <- data$nodes %>%
+        left_join(label_lookup, by = "component_id") %>%
+        mutate(
+          group = coalesce(group_label, sprintf("Network %d", component_id))
+        )
+    } else {
+      data$nodes <- data$nodes %>%
+        mutate(
+          group = sprintf("Network %d", component_id)
+        )
+    }
+    
+    # Add remaining node properties
+    data$nodes <- data$nodes %>%
+      mutate(
+        shape = "dot",
+        shadow = TRUE
+      )
+    
+    # Add edge properties
+    data$edges <- data$edges %>%
+      mutate(
+        width = if("weight" %in% names(.)) weight * 2 else 1,
+        smooth = TRUE
+      )
+    
+    # Create custom CSS for the dropdown
+    dropdown_css <- paste0(
+      "<style>",
+      ".vis-network-configuration {",
+      "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;",
+      "  font-size: 1rem;",
+      "  color: #212529;",
+      "}",
+      ".vis-network-configuration select {",
+      "  font-family: inherit;",
+      "  font-size: inherit;",
+      "  color: inherit;",
+      "  padding: 0.375rem 0.75rem;",
+      "  border: 1px solid #ced4da;",
+      "  border-radius: 0.25rem;",
+      "  background-color: #fff;",
+      "}",
+      "</style>"
+    )
+    
+    # Create the network visualization
+    network <- visNetwork(
+      nodes = data$nodes,
+      edges = data$edges,
+      width = "100%",
+      height = "800px"
+    ) %>%
+      visLayout(randomSeed = 123) %>%
+      visOptions(
+        highlightNearest = list(
+          enabled = TRUE,
+          degree = 1,
+          hover = TRUE
+        ),
+        selectedBy = list(
+          variable = "group",
+          main = "Select Network",
+          style = "width: 200px; height: 30px; background-color: white;"
+        ),
+        nodesIdSelection = FALSE,
+        manipulation = FALSE
+      ) %>%
+      visPhysics(
+        stabilization = list(
+          enabled = TRUE,
+          iterations = 100
+        )
+      ) %>%
+      visEvents(
+        click = "function(params) {
+          if (params.nodes.length > 0) {
+            var nodeId = params.nodes[0];
+            var nodeData = this.body.data.nodes.get(nodeId);
+            var url = nodeData.url;
+            window.open(url, '_blank');
+          }
+        }"
+      ) %>%
+      visInteraction(
+        navigationButtons = TRUE,
+        keyboard = TRUE
+      ) %>%
+      htmlwidgets::onRender(paste0("
+        function(el,x) {
+          // Add custom CSS
+          el.innerHTML += '", dropdown_css, "';
+        }
+      "))
+    
+    # Save the network visualization
+    log_info("Saving network visualization")
+    html_file <- file.path(viz_dir, "coordination_network.html")
+    
+    network %>%
+      visSave(
+        file = html_file,
+        background = "white"
+      )
+    
+    log_info(sprintf(
+      "Network visualization complete. Network has %d nodes and %d edges",
+      gorder(graph),
+      gsize(graph)
+    ))
+    
+    return(network)
+    
+  }, error = function(e) {
+    log_error(sprintf("Error generating network visualization: %s", conditionMessage(e)))
+    return(NULL)
+  })
+}
+
+# Execute network visualization if we have coordination results
+if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
+  log_info("Starting network visualization generation")
+  network_viz <- generate_network_visualization(coordination_results)
+} else {
+  log_warn("No coordination results available for network visualization")
+  network_viz <- NULL
+}
+
+```
+
+## Interactive Graph Visualization
+
+Explore the interactive chart. Node click to visit the TikTok account.
+
+```{r interactive-plot, include=TRUE, echo=FALSE, fig.cap="Interactive visualization of coordinated account detected today. Click on a node to visit the respective TikTok account."}
+
+# Check if network visualization is available and display it
+if (!is.null(network_viz)) {
+  network_viz
+} else {
+  message("No network visualization available for today's analysis.")
+}
+
+```
+
 ```{r setup_tables, include=FALSE}
 
 # Helper function to create TikTok profile URL
@@ -1402,209 +1605,6 @@ if (exists("coordination_results") && exists("all_videos")) {
     coordination_results$summary_groups, 
     all_videos
   )
-}
-
-```
-
-```{r viz, include=FALSE, message=FALSE}
-
-# Function to generate interactive network visualization
-generate_network_visualization <- function(coordination_results) {
-  # Load required package
-  if (!require("htmltools")) install.packages("htmltools")
-  library(htmltools)
-  
-  tryCatch({
-    # Check if we have valid coordination results
-    if (is.null(coordination_results) || 
-        is.null(coordination_results$coord_graph)) {
-      log_warn("No valid coordination graph available for visualization")
-      return(NULL)
-    }
-    
-    log_info("Starting network visualization generation")
-    
-    # Create output directory
-    viz_dir <- file.path(daily_output_dir, "network")
-    dir.create(viz_dir, showWarnings = FALSE, recursive = TRUE)
-    
-    # Get the graph
-    graph <- coordination_results$coord_graph
-    
-    # Add URL attribute to nodes
-    V(graph)$url <- paste0("https://tiktok.com/@", V(graph)$name)
-    
-    # Add additional node attributes
-    V(graph)$title <- sprintf(
-      "<p><b>Account:</b> @%s<br><b>Degree:</b> %d<br><b>Component:</b> %d</p>",
-      V(graph)$name,
-      degree(graph),
-      components(graph)$membership
-    )
-    
-    # Convert to visNetwork format
-    log_info("Converting graph to visNetwork format")
-    data <- toVisNetworkData(graph)
-    
-    # Create base nodes data frame with component info
-    data$nodes <- data$nodes %>%
-      mutate(
-        size = degree(graph) * 3 + 10,
-        component_id = as.numeric(components(graph)$membership)
-      )
-    
-    # Add labels if available
-    if(exists("cluster_labels") && is.data.frame(cluster_labels) && nrow(cluster_labels) > 0) {
-      # Create a lookup table for labels
-      label_lookup <- cluster_labels %>%
-        mutate(
-          component_id = as.numeric(component),
-          group_label = sprintf("Network %d - %s", component_id, label)
-        ) %>%
-        select(component_id, group_label)
-      
-      # Join with nodes
-      data$nodes <- data$nodes %>%
-        left_join(label_lookup, by = "component_id") %>%
-        mutate(
-          group = coalesce(group_label, sprintf("Network %d", component_id))
-        )
-    } else {
-      data$nodes <- data$nodes %>%
-        mutate(
-          group = sprintf("Network %d", component_id)
-        )
-    }
-    
-    # Add remaining node properties
-    data$nodes <- data$nodes %>%
-      mutate(
-        shape = "dot",
-        shadow = TRUE
-      )
-    
-    # Add edge properties
-    data$edges <- data$edges %>%
-      mutate(
-        width = if("weight" %in% names(.)) weight * 2 else 1,
-        smooth = TRUE
-      )
-    
-    # Create custom CSS for the dropdown
-    dropdown_css <- paste0(
-      "<style>",
-      ".vis-network-configuration {",
-      "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;",
-      "  font-size: 1rem;",
-      "  color: #212529;",
-      "}",
-      ".vis-network-configuration select {",
-      "  font-family: inherit;",
-      "  font-size: inherit;",
-      "  color: inherit;",
-      "  padding: 0.375rem 0.75rem;",
-      "  border: 1px solid #ced4da;",
-      "  border-radius: 0.25rem;",
-      "  background-color: #fff;",
-      "}",
-      "</style>"
-    )
-    
-    # Create the network visualization
-    network <- visNetwork(
-      nodes = data$nodes,
-      edges = data$edges,
-      width = "100%",
-      height = "800px"
-    ) %>%
-      visLayout(randomSeed = 123) %>%
-      visOptions(
-        highlightNearest = list(
-          enabled = TRUE,
-          degree = 1,
-          hover = TRUE
-        ),
-        selectedBy = list(
-          variable = "group",
-          main = "Select Network",
-          style = "width: 200px; height: 30px; background-color: white;"
-        ),
-        nodesIdSelection = FALSE,
-        manipulation = FALSE
-      ) %>%
-      visPhysics(
-        stabilization = list(
-          enabled = TRUE,
-          iterations = 100
-        )
-      ) %>%
-      visEvents(
-        click = "function(params) {
-          if (params.nodes.length > 0) {
-            var nodeId = params.nodes[0];
-            var nodeData = this.body.data.nodes.get(nodeId);
-            var url = nodeData.url;
-            window.open(url, '_blank');
-          }
-        }"
-      ) %>%
-      visInteraction(
-        navigationButtons = TRUE,
-        keyboard = TRUE
-      ) %>%
-      htmlwidgets::onRender(paste0("
-        function(el,x) {
-          // Add custom CSS
-          el.innerHTML += '", dropdown_css, "';
-        }
-      "))
-    
-    # Save the network visualization
-    log_info("Saving network visualization")
-    html_file <- file.path(viz_dir, "coordination_network.html")
-    
-    network %>%
-      visSave(
-        file = html_file,
-        background = "white"
-      )
-    
-    log_info(sprintf(
-      "Network visualization complete. Network has %d nodes and %d edges",
-      gorder(graph),
-      gsize(graph)
-    ))
-    
-    return(network)
-    
-  }, error = function(e) {
-    log_error(sprintf("Error generating network visualization: %s", conditionMessage(e)))
-    return(NULL)
-  })
-}
-
-# Execute network visualization if we have coordination results
-if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
-  log_info("Starting network visualization generation")
-  network_viz <- generate_network_visualization(coordination_results)
-} else {
-  log_warn("No coordination results available for network visualization")
-  network_viz <- NULL
-}
-
-```
-
-## Interactive Graph Visualization
-
-Explore the interactive chart. Node click to visit the TikTok account.
-
-```{r interactive-plot, include=TRUE, echo=FALSE, fig.cap="Interactive visualization of coordinated account detected today. Click on a node to visit the respective TikTok account."}
-
-# Check if network visualization is available and display it
-if (!is.null(network_viz)) {
-  network_viz
-} else {
-  message("No network visualization available for today's analysis.")
 }
 
 ```
