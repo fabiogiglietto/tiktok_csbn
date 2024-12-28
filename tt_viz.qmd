@@ -1227,8 +1227,16 @@ generate_network_visualization <- function(coordination_results,
         rep(1, nrow(.))
       },
       smooth = TRUE,
-      color = "#666666",
-      highlight = list(enabled = TRUE, color = "#3388ff")
+      arrows = "to"  # Add arrows for directed graphs if needed
+    ) %>%
+    mutate(
+      # Set edge colors - each edge gets its own color object
+      color = lapply(seq_len(nrow(.)), function(i) {
+        list(
+          color = "#666666",
+          highlight = "#3388ff"
+        )
+      })
     )
   
   # Custom CSS for better styling
