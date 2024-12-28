@@ -8,19 +8,8 @@ format:
     toc: true
     number-sections: true
     include-in-header:
-      text: |
-        <style>
-        /* Override the grid layout for #quarto-content to fix the large row issue */
-        #quarto-content {
-        grid-template-rows: none !important;
-        grid-auto-rows: min-content !important;
-        }
-
-        .dt-head-left, 
-        .dt-body-left {
-        white-space: normal !important; 
-        }
-        </style>
+      - text: |
+          <link rel="stylesheet" type="text/css" href="styles.css">
 params:
   load_from_snapshot: FALSE
   base_dir: "/home/mine/VERAAI_WP4"
