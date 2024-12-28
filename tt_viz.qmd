@@ -1221,9 +1221,11 @@ generate_network_visualization <- function(coordination_results,
   # Process edges with weights
   network_data$edges <- network_data$edges %>%
     dplyr::mutate(
-      width = dplyr::if_else("weight" %in% names(.), 
-                            weight * edge_width_multiplier, 
-                            1),
+      width = if ("weight" %in% names(.)) {
+        weight * edge_width_multiplier
+      } else {
+        rep(1, nrow(.))
+      },
       smooth = TRUE,
       color = list(color = "#666666", highlight = "#3388ff")
     )
@@ -1318,6 +1320,7 @@ generate_network_visualization <- function(coordination_results,
   
   return(network)
 }
+
 ```
 
 ```{r generate_visualization, results='asis'}
