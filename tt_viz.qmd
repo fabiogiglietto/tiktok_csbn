@@ -1155,7 +1155,7 @@ generate_network_visualization <- function(coordination_results,
   
   # Extract graph and ensure it's valid
   graph <- coordination_results$coord_graph
-  if (!igraph::is.igraph(graph)) {
+  if (!igraph::is_igraph(graph)) {
     stop("Invalid graph object provided")
   }
   
@@ -1227,7 +1227,8 @@ generate_network_visualization <- function(coordination_results,
         rep(1, nrow(.))
       },
       smooth = TRUE,
-      color = list(color = "#666666", highlight = "#3388ff")
+      color = "#666666",
+      highlight = list(enabled = TRUE, color = "#3388ff")
     )
   
   # Custom CSS for better styling
