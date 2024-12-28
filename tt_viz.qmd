@@ -1127,7 +1127,6 @@ ggplot(historical_data$logs, aes(x = Timestamp)) +
 
 ```{r generate_network_function}
 
-# Function to generate interactive network visualization
 generate_network_visualization <- function(coordination_results) {
   # Load required package
   if (!require("htmltools")) install.packages("htmltools")
@@ -1209,15 +1208,19 @@ generate_network_visualization <- function(coordination_results) {
         smooth = TRUE
       )
     
-    # Create custom CSS for the dropdown
+    # Create scoped CSS for the dropdown
     dropdown_css <- paste0(
       "<style>",
-      ".vis-network-configuration {",
+      ".coordination-network-viz {",
+      "  position: relative;",
+      "  z-index: 1;", # Ensure proper stacking context
+      "}",
+      ".coordination-network-viz .vis-network-configuration {",
       "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;",
       "  font-size: 1rem;",
       "  color: #212529;",
       "}",
-      ".vis-network-configuration select {",
+      ".coordination-network-viz .vis-network-configuration select {",
       "  font-family: inherit;",
       "  font-size: inherit;",
       "  color: inherit;",
@@ -1227,6 +1230,12 @@ generate_network_visualization <- function(coordination_results) {
       "  background-color: #fff;",
       "}",
       "</style>"
+    )
+    
+    # Create container div with scoped class
+    container_div <- sprintf(
+      '<div class="coordination-network-viz">%s</div>',
+      dropdown_css
     )
     
     # Create the network visualization
@@ -1271,12 +1280,12 @@ generate_network_visualization <- function(coordination_results) {
         navigationButtons = TRUE,
         keyboard = TRUE
       ) %>%
-      htmlwidgets::onRender(paste0("
+      htmlwidgets::onRender(sprintf("
         function(el,x) {
-          // Add custom CSS
-          el.innerHTML += '", dropdown_css, "';
+          // Wrap the network in the container div
+          el.innerHTML = '%s' + el.innerHTML;
         }
-      "))
+      ", container_div))
     
     # Save the network visualization
     log_info("Saving network visualization")
