@@ -1171,15 +1171,40 @@ generate_network_visualization <- function(coordination_results,
     comp <- igraph::components(graph)$membership
     data$nodes$component <- comp
     
-    # Add visual properties to nodes
-    data$nodes <- data$nodes %>%
-      dplyr::mutate(
-        size = value * node_size_multiplier + node_size_base,
-        color = "#97C2FC",  # Default blue color
-        shape = "dot",
-        shadow = TRUE,
-        group = sprintf("Network %d", component)
-      )
+    # Add cluster labels if available
+    if(exists("cluster_labels") && is.data.frame(get("cluster_labels"))) {
+      label_data <- get("cluster_labels") %>%
+        dplyr::mutate(
+          component = as.numeric(component),
+          group_label = sprintf("Network %d - %s", component, label)
+        )
+      
+      # Join with nodes data
+      data$nodes <- data$nodes %>%
+        dplyr::left_join(
+          label_data %>% dplyr::select(component, label),
+          by = c("component" = "component")
+        ) %>%
+        dplyr::mutate(
+          size = value * node_size_multiplier + node_size_base,
+          color = "#97C2FC",  # Default blue color
+          shape = "dot",
+          shadow = TRUE,
+          group = ifelse(!is.na(label),
+                        sprintf("Network %d - %s", component, label),
+                        sprintf("Network %d", component))
+        )
+    } else {
+      # If no labels available, use default numbering
+      data$nodes <- data$nodes %>%
+        dplyr::mutate(
+          size = value * node_size_multiplier + node_size_base,
+          color = "#97C2FC",  # Default blue color
+          shape = "dot",
+          shadow = TRUE,
+          group = sprintf("Network %d", component)
+        )
+    }
     
     # Add visual properties to edges
     data$edges <- data$edges %>%
@@ -1195,6 +1220,8 @@ generate_network_visualization <- function(coordination_results,
       "#network-viz-container { position: relative; }",
       "#network-viz-container .vis-network { position: relative; }",
       "#network-viz-container .network-tooltip { padding: 8px; background: white; border: 1px solid #ddd; border-radius: 4px; }",
+      "#network-viz-container .vis-network-configuration { position: absolute; top: 10px; right: 10px; z-index: 100; background: white; padding: 8px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }",
+      "#network-viz-container .vis-network-configuration select { width: 200px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; }",
       "</style>"
     )
     
