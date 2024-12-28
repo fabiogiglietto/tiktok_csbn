@@ -1125,7 +1125,7 @@ ggplot(historical_data$logs, aes(x = Timestamp)) +
   scale_color_manual(values = c("Total Accounts" = "blue", "New Accounts" = "red"))
 ```
 
-```{r generate_network_function}
+```{r generate_network_function, include=FALSE, message=FALSE}
 
 generate_network_visualization <- function(coordination_results,
                                         height = "800px",
@@ -1231,11 +1231,14 @@ generate_network_visualization <- function(coordination_results,
     ) %>%
       visNetwork::visLayout(randomSeed = seed) %>%
       visNetwork::visOptions(
-        highlightNearest = list(enabled = TRUE, degree = 1),
+        highlightNearest = list(enabled = TRUE, degree = 1, hover = TRUE),
         selectedBy = list(
           variable = "group",
-          main = "Select Network"
-        )
+          main = "Select Network",
+          style = "width: 200px; height: 30px; background-color: white;"
+        ),
+        nodesIdSelection = FALSE,
+        manipulation = FALSE
       ) %>%
       visNetwork::visPhysics(
         stabilization = list(
@@ -1294,7 +1297,7 @@ generate_network_visualization <- function(coordination_results,
 
 ```
 
-```{r generate_visualization, results='asis'}
+```{r generate_visualization, include=FALSE, message=FALSE}
 # Generate the visualization and store it in the global environment
 network_viz <- local({
   tryCatch({
@@ -1314,7 +1317,7 @@ network_viz <- local({
 assign("network_viz", network_viz, envir = .GlobalEnv)
 ```
 
-```{r display_visualization}
+```{r display_visualization, include=TRUE, echo=FALSE}
 #| label: fig-network
 #| fig-cap: "Interactive visualization of coordinated accounts detected today. Click on a node to visit the respective TikTok account."
 
