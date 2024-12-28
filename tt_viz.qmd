@@ -1406,26 +1406,6 @@ if (exists("coordination_results") && exists("all_videos")) {
 
 ```
 
-```{r display_tables, echo=FALSE, results='asis'}
-# Display tables with headers
-cat("\n")  # Ensure proper spacing
-```
-
-## Coordinated Accounts
-```{r display_accounts, echo=FALSE}
-accounts_table
-```
-
-## Coordinated Networks/Clusters
-```{r display_clusters, echo=FALSE}
-clusters_table
-```
-
-## Coordinated Posts
-```{r display_posts, echo=FALSE}
-posts_table
-```
-
 ```{r viz, include=FALSE, message=FALSE}
 
 # Function to generate interactive network visualization
@@ -1627,6 +1607,26 @@ if (!is.null(network_viz)) {
   message("No network visualization available for today's analysis.")
 }
 
+```
+
+```{r display_tables, echo=FALSE, results='asis'}
+# Display tables with headers
+cat("\n")  # Ensure proper spacing
+```
+
+## Coordinated Accounts
+```{r display_accounts, echo=FALSE}
+accounts_table
+```
+
+## Coordinated Networks/Clusters
+```{r display_clusters, echo=FALSE}
+clusters_table
+```
+
+## Coordinated Posts
+```{r display_posts, echo=FALSE}
+posts_table
 ```
 
 ```{r download-section, echo=FALSE}
