@@ -1154,86 +1154,47 @@ generate_network_visualization <- function(coordination_results,
       stop("Invalid graph object provided")
     }
     
-    # Process node attributes
-    node_data <- data.frame(
-      id = igraph::V(graph)$name,
-      url = paste0("https://tiktok.com/@", igraph::V(graph)$name),
-      degree = igraph::degree(graph),
-      component = igraph::components(graph)$membership,
-      stringsAsFactors = FALSE
-    )
-    
-    # Create tooltips
-    node_data$title <- sprintf(
-      paste0(
-        "<div class='network-tooltip'>",
-        "<p><strong>Account:</strong> @%s</p>",
-        "<p><strong>Connections:</strong> %d</p>",
-        "<p><strong>Network Group:</strong> %d</p>",
-        "</div>"
-      ),
-      node_data$id,
-      node_data$degree,
-      node_data$component
-    )
-    
-    # Convert to visNetwork format
+    # Convert to visNetwork format first
     data <- visNetwork::toVisNetworkData(graph)
     
-    # Create base nodes data frame
+    # Basic node properties
+    data$nodes$label <- data$nodes$id  # Ensure labels are set
+    data$nodes$value <- igraph::degree(graph)
+    data$nodes$title <- sprintf(
+      "<div class='network-tooltip'>@%s<br>Connections: %d</div>",
+      data$nodes$id,
+      data$nodes$value
+    )
+    data$nodes$url <- paste0("https://tiktok.com/@", data$nodes$id)
+    
+    # Calculate component membership
+    comp <- igraph::components(graph)$membership
+    data$nodes$component <- comp
+    
+    # Add visual properties to nodes
     data$nodes <- data$nodes %>%
-      dplyr::left_join(node_data, by = "id") %>%
       dplyr::mutate(
-        size = degree * node_size_multiplier + node_size_base,
-        component_id = as.numeric(component),
+        size = value * node_size_multiplier + node_size_base,
+        color = "#97C2FC",  # Default blue color
         shape = "dot",
-        shadow = TRUE
+        shadow = TRUE,
+        group = sprintf("Network %d", component)
       )
     
-    # Add labels if available
-    if(exists("cluster_labels") && is.data.frame(cluster_labels) && nrow(cluster_labels) > 0) {
-      label_lookup <- cluster_labels %>%
-        dplyr::mutate(
-          component_id = as.numeric(component),
-          group_label = sprintf("Network %d - %s", component_id, label)
-        ) %>%
-        dplyr::select(component_id, group_label)
-      
-      data$nodes <- data$nodes %>%
-        dplyr::left_join(label_lookup, by = "component_id") %>%
-        dplyr::mutate(
-          group = dplyr::coalesce(group_label, sprintf("Network %d", component_id))
-        )
-    } else {
-      data$nodes$group <- sprintf("Network %d", data$nodes$component_id)
-    }
-    
-    # Process edges
+    # Add visual properties to edges
     data$edges <- data$edges %>%
       dplyr::mutate(
         width = if("weight" %in% names(.)) weight * edge_width_multiplier else 1,
-        smooth = TRUE,
-        arrows = "to"
-      ) %>%
-      dplyr::mutate(
-        color = lapply(seq_len(nrow(.)), function(i) {
-          list(
-            color = "#666666",
-            highlight = "#3388ff"
-          )
-        })
+        color = "#666666",
+        smooth = FALSE
       )
     
-    # Create isolated CSS that won't interfere with Quarto
-    isolated_css <- paste0(
+    # Create minimalist CSS that won't interfere
+    custom_css <- paste0(
       "<style>",
-      ".network-container { position: relative !important; z-index: 1 !important; }",
-      ".network-container .vis-network { position: relative !important; border: none !important; }",
-      ".network-container .vis-network-configuration { position: absolute !important; top: 10px !important; right: 10px !important; z-index: 100 !important; background: white !important; padding: 8px !important; border-radius: 4px !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; }",
-      ".network-container .vis-network-configuration select { width: 200px !important; padding: 4px !important; border: 1px solid #ddd !important; border-radius: 4px !important; }",
-      ".network-container .vis-navigation { position: absolute !important; z-index: 100 !important; }",
-      ".network-tooltip { background: white !important; padding: 8px !important; border-radius: 4px !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important; }",
-      ".network-tooltip p { margin: 4px 0 !important; }",
+      "#network-viz-container { position: relative; }",
+      "#network-viz-container .vis-network { position: relative; }",
+      "#network-viz-container .network-tooltip { padding: 8px; background: white; border: 1px solid #ddd; border-radius: 4px; }",
       "</style>"
     )
     
@@ -1246,23 +1207,23 @@ generate_network_visualization <- function(coordination_results,
     ) %>%
       visNetwork::visLayout(randomSeed = seed) %>%
       visNetwork::visOptions(
-        highlightNearest = list(
-          enabled = TRUE,
-          degree = 1,
-          hover = TRUE
-        ),
+        highlightNearest = list(enabled = TRUE, degree = 1),
         selectedBy = list(
           variable = "group",
-          main = "Select Network",
-          style = "width: 200px; height: 30px; background-color: white;"
-        ),
-        nodesIdSelection = FALSE,
-        manipulation = FALSE
+          main = "Select Network"
+        )
       ) %>%
       visNetwork::visPhysics(
+        solver = "forceAtlas2Based",
+        forceAtlas2Based = list(
+          gravitationalConstant = -100,
+          centralGravity = 0.01,
+          springLength = 200,
+          springConstant = 0.08
+        ),
         stabilization = list(
           enabled = TRUE,
-          iterations = 100
+          iterations = 1000
         )
       ) %>%
       visNetwork::visEvents(
@@ -1278,19 +1239,21 @@ generate_network_visualization <- function(coordination_results,
       ) %>%
       visNetwork::visInteraction(
         navigationButtons = TRUE,
-        keyboard = TRUE,
-        tooltipDelay = 100,
-        hover = TRUE
+        keyboard = TRUE
       )
     
-    # Add the isolated CSS and container
+    # Add container and CSS
     network <- htmlwidgets::onRender(
       network,
       sprintf(
         "function(el) {
-          el.innerHTML = '<div class=\"network-container\">%s' + el.innerHTML + '</div>';
+          const container = document.createElement('div');
+          container.id = 'network-viz-container';
+          el.parentNode.insertBefore(container, el);
+          container.appendChild(el);
+          document.head.insertAdjacentHTML('beforeend', '%s');
         }",
-        isolated_css
+        custom_css
       )
     )
     
