@@ -1125,218 +1125,230 @@ ggplot(historical_data$logs, aes(x = Timestamp)) +
   scale_color_manual(values = c("Total Accounts" = "blue", "New Accounts" = "red"))
 ```
 
-```{r display_previous_summaries, include=TRUE, echo=FALSE, results='asis'}
-# Display last 5 days of summaries
-last_5_dates <- tail(sort(names(historical_data$summaries), decreasing = TRUE), 5)
-
-for (date in last_5_dates) {
-  cat("\n## Summary for", date, "\n")
-  cat(paste(historical_data$summaries[[date]], collapse = "\n"))
-  cat("\n")
-}
-```
-
-```{r viz, include=FALSE, message=FALSE}
+```{r generate_network_function, include=FALSE}
 
 # Function to generate interactive network visualization
-generate_network_visualization <- function(coordination_results) {
-  # Load required package
-  if (!require("htmltools")) install.packages("htmltools")
-  library(htmltools)
+generate_network_visualization <- function(coordination_results, 
+                                        height = "800px",
+                                        seed = 123,
+                                        node_size_multiplier = 3,
+                                        node_size_base = 10,
+                                        edge_width_multiplier = 2) {
+  # Input validation
+  if (!requireNamespace("htmltools", quietly = TRUE)) {
+    stop("Package 'htmltools' is required. Please install it using install.packages('htmltools')")
+  }
   
+  if (is.null(coordination_results) || is.null(coordination_results$coord_graph)) {
+    warning("No valid coordination graph available for visualization")
+    return(NULL)
+  }
+  
+  # Create output directory with error handling
+  viz_dir <- file.path(daily_output_dir, "network")
+  if (!dir.exists(viz_dir)) {
+    dir.create(viz_dir, recursive = TRUE)
+    if (!dir.exists(viz_dir)) {
+      stop("Failed to create visualization directory")
+    }
+  }
+  
+  # Extract graph and ensure it's valid
+  graph <- coordination_results$coord_graph
+  if (!igraph::is.igraph(graph)) {
+    stop("Invalid graph object provided")
+  }
+  
+  # Process node attributes
+  node_data <- data.frame(
+    id = igraph::V(graph)$name,
+    url = paste0("https://tiktok.com/@", igraph::V(graph)$name),
+    degree = igraph::degree(graph),
+    component = igraph::components(graph)$membership,
+    stringsAsFactors = FALSE
+  )
+  
+  # Create informative tooltips
+  node_data$title <- sprintf(
+    paste0(
+      "<div class='node-tooltip'>",
+      "<p><strong>Account:</strong> @%s</p>",
+      "<p><strong>Connections:</strong> %d</p>",
+      "<p><strong>Network Group:</strong> %d</p>",
+      "</div>"
+    ),
+    node_data$id,
+    node_data$degree,
+    node_data$component
+  )
+  
+  # Convert to visNetwork format with error handling
   tryCatch({
-    # Check if we have valid coordination results
-    if (is.null(coordination_results) || 
-        is.null(coordination_results$coord_graph)) {
-      log_warn("No valid coordination graph available for visualization")
-      return(NULL)
-    }
-    
-    log_info("Starting network visualization generation")
-    
-    # Create output directory
-    viz_dir <- file.path(daily_output_dir, "network")
-    dir.create(viz_dir, showWarnings = FALSE, recursive = TRUE)
-    
-    # Get the graph
-    graph <- coordination_results$coord_graph
-    
-    # Add URL attribute to nodes
-    V(graph)$url <- paste0("https://tiktok.com/@", V(graph)$name)
-    
-    # Add additional node attributes
-    V(graph)$title <- sprintf(
-      "<p><b>Account:</b> @%s<br><b>Degree:</b> %d<br><b>Component:</b> %d</p>",
-      V(graph)$name,
-      degree(graph),
-      components(graph)$membership
+    network_data <- visNetwork::toVisNetworkData(graph)
+  }, error = function(e) {
+    stop(paste("Failed to convert graph to visNetwork format:", e$message))
+  })
+  
+  # Enhance nodes with size and component information
+  network_data$nodes <- network_data$nodes %>%
+    dplyr::left_join(node_data, by = "id") %>%
+    dplyr::mutate(
+      size = degree * node_size_multiplier + node_size_base,
+      shape = "dot",
+      shadow = TRUE
     )
-    
-    # Convert to visNetwork format
-    log_info("Converting graph to visNetwork format")
-    data <- toVisNetworkData(graph)
-    
-    # Create base nodes data frame with component info
-    data$nodes <- data$nodes %>%
-      mutate(
-        size = degree(graph) * 3 + 10,
-        component_id = as.numeric(components(graph)$membership)
+  
+  # Add cluster labels if available
+  if (exists("cluster_labels") && is.data.frame(get("cluster_labels"))) {
+    label_data <- get("cluster_labels") %>%
+      dplyr::mutate(
+        component = as.numeric(component),
+        group_label = sprintf("Network %d - %s", component, label)
       )
     
-    # Add labels if available
-    if(exists("cluster_labels") && is.data.frame(cluster_labels) && nrow(cluster_labels) > 0) {
-      # Create a lookup table for labels
-      label_lookup <- cluster_labels %>%
-        mutate(
-          component_id = as.numeric(component),
-          group_label = sprintf("Network %d - %s", component_id, label)
-        ) %>%
-        select(component_id, group_label)
-      
-      # Join with nodes
-      data$nodes <- data$nodes %>%
-        left_join(label_lookup, by = "component_id") %>%
-        mutate(
-          group = coalesce(group_label, sprintf("Network %d", component_id))
-        )
-    } else {
-      data$nodes <- data$nodes %>%
-        mutate(
-          group = sprintf("Network %d", component_id)
-        )
-    }
-    
-    # Add remaining node properties
-    data$nodes <- data$nodes %>%
-      mutate(
-        shape = "dot",
-        shadow = TRUE
+    network_data$nodes <- network_data$nodes %>%
+      dplyr::left_join(
+        label_data %>% dplyr::select(component, group_label),
+        by = "component"
+      ) %>%
+      dplyr::mutate(
+        group = dplyr::coalesce(group_label, sprintf("Network %d", component))
       )
-    
-    # Add edge properties
-    data$edges <- data$edges %>%
-      mutate(
-        width = if("weight" %in% names(.)) weight * 2 else 1,
-        smooth = TRUE
-      )
-    
-    # Create custom CSS for the dropdown
-    dropdown_css <- paste0(
-      "<style>",
-      ".vis-network-configuration {",
-      "  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;",
-      "  font-size: 1rem;",
-      "  color: #212529;",
-      "}",
-      ".vis-network-configuration select {",
-      "  font-family: inherit;",
-      "  font-size: inherit;",
-      "  color: inherit;",
-      "  padding: 0.375rem 0.75rem;",
-      "  border: 1px solid #ced4da;",
-      "  border-radius: 0.25rem;",
-      "  background-color: #fff;",
-      "}",
-      "</style>"
+  } else {
+    network_data$nodes$group <- sprintf("Network %d", network_data$nodes$component)
+  }
+  
+  # Process edges with weights
+  network_data$edges <- network_data$edges %>%
+    dplyr::mutate(
+      width = dplyr::if_else("weight" %in% names(.), 
+                            weight * edge_width_multiplier, 
+                            1),
+      smooth = TRUE,
+      color = list(color = "#666666", highlight = "#3388ff")
     )
-    
-    # Create the network visualization
-    network <- visNetwork(
-      nodes = data$nodes,
-      edges = data$edges,
-      width = "100%",
-      height = "800px"
+  
+  # Custom CSS for better styling
+  custom_css <- paste0(
+    "<style>",
+    ".vis-network { border: 1px solid #ddd; border-radius: 4px; }",
+    ".node-tooltip { padding: 10px; max-width: 300px; }",
+    ".node-tooltip p { margin: 5px 0; }",
+    ".vis-network-configuration { padding: 10px; background: #f8f9fa; border-radius: 4px; }",
+    ".vis-network-configuration select { max-width: 100%; }",
+    "</style>"
+  )
+  
+  # Create network visualization with enhanced configuration
+  network <- visNetwork::visNetwork(
+    nodes = network_data$nodes,
+    edges = network_data$edges,
+    width = "100%",
+    height = height
+  ) %>%
+    visNetwork::visLayout(randomSeed = seed) %>%
+    visNetwork::visOptions(
+      highlightNearest = list(
+        enabled = TRUE,
+        degree = 1,
+        hover = TRUE,
+        algorithm = "hierarchical"
+      ),
+      selectedBy = list(
+        variable = "group",
+        main = "Select Network Group",
+        style = "width: 250px; height: 35px;"
+      ),
+      manipulation = FALSE
     ) %>%
-      visLayout(randomSeed = 123) %>%
-      visOptions(
-        highlightNearest = list(
-          enabled = TRUE,
-          degree = 1,
-          hover = TRUE
-        ),
-        selectedBy = list(
-          variable = "group",
-          main = "Select Network",
-          style = "width: 200px; height: 30px; background-color: white;"
-        ),
-        nodesIdSelection = FALSE,
-        manipulation = FALSE
-      ) %>%
-      visPhysics(
-        stabilization = list(
-          enabled = TRUE,
-          iterations = 100
-        )
-      ) %>%
-      visEvents(
-        click = "function(params) {
+    visNetwork::visPhysics(
+      stabilization = list(
+        enabled = TRUE,
+        iterations = 200,
+        fit = TRUE
+      ),
+      barnesHut = list(
+        gravitationalConstant = -2000,
+        centralGravity = 0.1,
+        springLength = 150
+      )
+    ) %>%
+    visNetwork::visEvents(
+      click = sprintf("
+        function(params) {
           if (params.nodes.length > 0) {
             var nodeId = params.nodes[0];
             var nodeData = this.body.data.nodes.get(nodeId);
-            var url = nodeData.url;
-            window.open(url, '_blank');
+            if (nodeData.url) {
+              window.open(nodeData.url, '_blank');
+            }
           }
-        }"
-      ) %>%
-      visInteraction(
-        navigationButtons = TRUE,
-        keyboard = TRUE
-      ) %>%
-      htmlwidgets::onRender(paste0("
-        function(el,x) {
-          // Add custom CSS
-          el.innerHTML += '", dropdown_css, "';
         }
-      "))
-    
-    # Save the network visualization
-    log_info("Saving network visualization")
+      ")
+    ) %>%
+    visNetwork::visInteraction(
+      navigationButtons = TRUE,
+      keyboard = TRUE,
+      tooltipDelay = 100,
+      hover = TRUE
+    )
+  
+  # Add custom CSS
+  network <- htmlwidgets::onRender(
+    network,
+    sprintf("function(el, x) { el.innerHTML += '%s'; }", custom_css)
+  )
+  
+  # Save visualization with error handling
+  tryCatch({
     html_file <- file.path(viz_dir, "coordination_network.html")
-    
-    network %>%
-      visSave(
-        file = html_file,
-        background = "white"
-      )
-    
-    log_info(sprintf(
-      "Network visualization complete. Network has %d nodes and %d edges",
-      gorder(graph),
-      gsize(graph)
-    ))
-    
-    return(network)
-    
+    visNetwork::visSave(network, file = html_file, background = "white")
+    message(sprintf("Network visualization saved to: %s", html_file))
   }, error = function(e) {
-    log_error(sprintf("Error generating network visualization: %s", conditionMessage(e)))
-    return(NULL)
+    warning(paste("Failed to save network visualization:", e$message))
   })
+  
+  # Log network statistics
+  message(sprintf(
+    "Network statistics:\n- Nodes: %d\n- Edges: %d\n- Components: %d",
+    igraph::gorder(graph),
+    igraph::gsize(graph),
+    max(igraph::components(graph)$membership)
+  ))
+  
+  return(network)
 }
-
-# Execute network visualization if we have coordination results
-if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
-  log_info("Starting network visualization generation")
-  network_viz <- generate_network_visualization(coordination_results)
-} else {
-  log_warn("No coordination results available for network visualization")
-  network_viz <- NULL
-}
-
 ```
 
-## Interactive Graph Visualization
+```{r generate_visualization, results='asis'}
+# Generate the visualization and store it in the global environment
+network_viz <- local({
+  tryCatch({
+    if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
+      generate_network_visualization(coordination_results)
+    } else {
+      warning("No coordination results available for network visualization")
+      NULL
+    }
+  }, error = function(e) {
+    warning(paste("Failed to generate network visualization:", e$message))
+    NULL
+  })
+})
 
-Explore the interactive chart. Node click to visit the TikTok account.
+# Save the network_viz object to make it available across chunks
+assign("network_viz", network_viz, envir = .GlobalEnv)
+```
 
-```{r interactive-plot, include=TRUE, echo=FALSE, fig.cap="Interactive visualization of coordinated account detected today. Click on a node to visit the respective TikTok account."}
+```{r display_visualization}
+#| label: fig-network
+#| fig-cap: "Interactive visualization of coordinated accounts detected today. Click on a node to visit the respective TikTok account."
 
-# Check if network visualization is available and display it
 if (!is.null(network_viz)) {
   network_viz
 } else {
-  message("No network visualization available for today's analysis.")
+  cat("No network visualization available for today's analysis.")
 }
-
 ```
 
 ## Detailed Tables
