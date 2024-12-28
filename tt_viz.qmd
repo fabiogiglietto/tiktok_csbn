@@ -4,7 +4,7 @@ author: "Fabio Giglietto"
 date: "`r Sys.Date()`"
 format: 
   html:
-    css: assets/styles.css
+    css: styles.css
     code-fold: true
     toc: true
     number-sections: true

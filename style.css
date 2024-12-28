@@ -1,0 +1,10 @@
+/* Override the grid layout for #quarto-content to fix the large row issue */
+#quarto-content {
+  grid-template-rows: none !important;
+  grid-auto-rows: min-content !important;
+}
+
+.dt-head-left, 
+.dt-body-left {
+  white-space: normal !important; 
+}
