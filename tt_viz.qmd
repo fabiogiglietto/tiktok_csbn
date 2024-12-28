@@ -15,22 +15,24 @@ params:
   min_participation: 2
   edge_weight: 0.5
   days_back: 15
+  ai_model: "chatgpt-4o-latest"
 ---
 
 # Introduction
 
-This document serves as a proof of concept, developed within the framework of the [Vera.ai Horizon EU project](https://www.veraai.eu/). It presents a comprehensive methodology for tracking and analyzing coordinated sharing activities on TikTok, employing [`traktok`](https://github.com/JBGruber/traktok) for data collection via the TikTok Research API and [`CooRTweet`](https://github.com/nicolarighetti/CooRTweet) for the analysis of coordinated behavior patterns.
+This document serves as a proof of concept, developed within the framework of the [vera.ai Horizon EU project](https://www.veraai.eu/). It presents a comprehensive methodology for tracking and analyzing coordinated sharing activities on TikTok, employing [`traktok`](https://github.com/JBGruber/traktok) for data collection via the TikTok Research API and [`CooRTweet`](https://github.com/nicolarighetti/CooRTweet) for the analysis of coordinated behavior patterns.
 
 **Initial Discovery:** The analysis initiates by focusing on content tagged with the #moskow hashtag. This first step successfully identifies a preliminary group of accounts involved in coordinated sharing activities in the aftermath of the attack in Moscow. This discovery lays the groundwork for an extensive examination of coordinated dynamics across social media platforms.
 
-On April 19, 2024, we received a list of 513 problematic accounts from a trusted partner within the Vera AI consortium. Accounts that were mentioned at least twice on this list have been added to our pool of monitored accounts.
+On April 19, 2024, we received a list of 513 problematic accounts from a trusted partner within the <i>vera ai</i> consortium. Accounts that were mentioned at least twice on this list have been added to our pool of monitored accounts.
 
 ```{r write_description, results='asis', echo=FALSE}
 cat(sprintf(
-"**Daily Monitoring and Analysis:** Subsequent to the initial identification, the methodology transitions into a phase of daily monitoring. In this phase, the script consistently retrieves videos posted by the previously identified accounts, with the goal of detecting both ongoing and emerging instances of coordinated behavior. As new accounts manifesting coordinated behavior (time_window = %d seconds, min_participation = %d posts, edge_weight = %.1f) are discovered, they are incorporated into the daily monitoring routine.", 
+"**Daily Monitoring and Analysis:** Subsequent to the initial identification, the methodology transitions into a phase of daily monitoring. In this phase, the script consistently retrieves videos posted by the previously identified accounts, with the goal of detecting both ongoing and emerging instances of coordinated behavior. As new accounts manifesting coordinated behavior (time_window = %d seconds, min_participation = %d posts, edge_weight = %.1f) are discovered, they are incorporated into the daily monitoring routine. For each identified network of coordinated accounts, AI-generated labels are automatically created using the %s model by analyzing the content patterns, themes, and characteristics of the posts shared within each network, providing a concise description of the common elements that unite these accounts in their coordinated behavior.", 
 params$time_window,
 params$min_participation,
-params$edge_weight
+params$edge_weight,
+params$ai_model
 ))
 ```
 
@@ -618,11 +620,9 @@ if (exists("all_videos") && is.data.frame(all_videos) && nrow(all_videos) > 0) {
 ```
 
 ```{r label_clusters, include=FALSE, message=FALSE}
+
 # Function to generate cluster labels using OpenAI API
 generate_cluster_labels <- function(coordination_results, all_videos) {
-  # Check if required packages are installed
-  if (!require("httr")) install.packages("httr")
-  if (!require("jsonlite")) install.packages("jsonlite")
   
   # Check for API credentials
   if (Sys.getenv("OPENAI_VERAAI_API_KEY") == "" || Sys.getenv("OPENAI_VERAAI_ORG_ID") == "") {
@@ -687,7 +687,7 @@ Label:", content)
             "OpenAI-Organization" = Sys.getenv("OPENAI_VERAAI_ORG_ID")
           ),
           body = list(
-            model = "chatgpt-4o-latest",
+            model = params$ai_model,
             messages = list(
               list(role = "system", content = system_prompt),
               list(role = "user", content = user_prompt)
@@ -1084,23 +1084,6 @@ generate_error_summary <- function(global_error_list) {
   return("")
 }
 
-# In the generate_summary function, modify the results printing part:
-if (length(global_error_list) > 0) {
-    summary_parts$warning <- sprintf(
-      "\n\n%s",
-      generate_error_summary(global_error_list)
-    )
-}
-
-# In the generate_summary function, modify the results printing part to:
-# Change this part in your generate_summary function
-if (length(global_error_list) > 0) {
-    summary_parts$warning <- sprintf(
-      "\n\n%s",
-      generate_error_summary(global_error_list)
-    )
-}
-
 # Execute summary generation
 if (exists("coord_users") && exists("startdate") && exists("enddate")) {
   log_info("Generating execution summary")
@@ -1118,8 +1101,6 @@ if (exists("coord_users") && exists("startdate") && exists("enddate")) {
   # Print summary to console
   cat("\nExecution Summary:\n")
   cat(summary_result$summary)
-  cat("\n")
-  cat(summary_result$error_summary)
   cat("\n")
 } else {
   log_warn("Missing required variables for summary generation")
