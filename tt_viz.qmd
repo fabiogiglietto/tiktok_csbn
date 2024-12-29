@@ -896,17 +896,34 @@ if (exists("coordination_results") &&
 if (length(global_error_list) > 0) {
   error_log_path <- file.path(daily_output_dir, "error_log.csv")
   
-  error_df <- do.call(rbind, lapply(global_error_list, function(x) {
+  # Create error data frame with proper error handling
+  error_df <- tryCatch({
+    do.call(rbind, lapply(global_error_list, function(x) {
+      # Ensure all required fields exist with defaults
+      data.frame(
+        timestamp = as.Date(Sys.time()),
+        type = if(!is.null(x$type)) x$type else "unknown",
+        message = if(!is.null(x$message)) x$message else "no message",
+        stringsAsFactors = FALSE
+      )
+    }))
+  }, error = function(e) {
+    # If there's an error creating the data frame, create an empty one with correct structure
     data.frame(
-      timestamp = as.Date(Sys.time()),
-      type = x$type,
-      message = x$message,
+      timestamp = as.Date(character()),
+      type = character(),
+      message = character(),
       stringsAsFactors = FALSE
     )
-  }))
+  })
   
-  write_csv(error_df, error_log_path)
-  log_info("Saved error log to file")
+  # Only write if we have data
+  if (nrow(error_df) > 0) {
+    write_csv(error_df, error_log_path)
+    log_info("Saved error log to file")
+  } else {
+    log_warn("No valid errors to log")
+  }
 }
 
 ```
