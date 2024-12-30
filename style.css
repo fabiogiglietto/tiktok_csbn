@@ -1,4 +1,3 @@
-<style>
 /* Vera.ai Brand Styles */
 @import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;700&display=swap');
 
@@ -13,7 +12,31 @@ body {
   color: var(--vera-dark);
 }
 
-/* Table Styles */
+/* Fix Quarto Layout */
+#quarto-content {
+  grid-template-rows: none !important;
+  grid-auto-rows: min-content !important;
+}
+
+/* Table Cell Wrapping */
+.dt-head-left, 
+.dt-body-left {
+  white-space: normal !important;
+  color: var(--vera-dark);
+  padding: 8px !important;
+}
+
+/* Network Tooltip */
+.network-tooltip {
+  font-family: 'Comfortaa', sans-serif;
+  background-color: var(--vera-white);
+  border: 1px solid var(--vera-green);
+  border-radius: 4px;
+  padding: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* DataTables Styling */
 .dataTables_wrapper {
   font-family: 'Comfortaa', sans-serif !important;
 }
@@ -42,7 +65,7 @@ body {
   border: none;
 }
 
-/* Chart Styles */
+/* Chart Styling */
 .recharts-default-tooltip {
   background-color: var(--vera-white) !important;
   border: 1px solid var(--vera-green) !important;
@@ -50,64 +73,31 @@ body {
   font-family: 'Comfortaa', sans-serif;
 }
 
-/* Network Tooltip Styles */
-.network-tooltip {
-  font-family: 'Comfortaa', sans-serif;
-  background-color: var(--vera-white);
-  border: 1px solid var(--vera-green);
-  border-radius: 4px;
-  padding: 12px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.network-tooltip a {
-  color: var(--vera-green);
-  text-decoration: none;
-}
-
-.network-tooltip a:hover {
-  text-decoration: underline;
-}
-
-/* Network Visualization Styles */
+/* Network Visualization */
 .vis-network {
   background-color: var(--vera-white);
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.vis-network .vis-navigation {
-  font-family: 'Comfortaa', sans-serif;
-}
-
-/* Layout Fixes */
-#quarto-content {
-  grid-template-rows: none !important;
-  grid-auto-rows: min-content !important;
-  font-family: 'Comfortaa', sans-serif;
-}
-
-/* Table Cell Wrapping */
-.dt-head-left, 
-.dt-body-left {
-  white-space: normal !important;
-  color: var(--vera-dark);
-  padding: 8px !important;
-}
-
-/* DataTables Cell Links */
-.dt-head-left a, 
-.dt-body-left a {
+/* Links */
+a {
   color: var(--vera-green);
   text-decoration: none;
 }
 
-.dt-head-left a:hover, 
-.dt-body-left a:hover {
+a:hover {
   text-decoration: underline;
 }
 
-/* Card Styles */
+/* Headers */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Comfortaa', sans-serif;
+  font-weight: 700;
+  color: var(--vera-dark);
+}
+
+/* Cards and Sections */
 .card {
   background: var(--vera-white);
   border-radius: 8px;
@@ -116,27 +106,15 @@ body {
   margin-bottom: 24px;
 }
 
-.card-title {
-  color: var(--vera-dark);
-  font-family: 'Comfortaa', sans-serif;
-  font-weight: 700;
-  font-size: 1.5rem;
-  margin-bottom: 16px;
-}
-
-/* Button Styles */
-.vera-button {
+/* Button Styling */
+.btn-primary {
   background-color: var(--vera-green);
+  border-color: var(--vera-green);
   color: var(--vera-white);
-  border: none;
-  border-radius: 4px;
-  padding: 8px 16px;
   font-family: 'Comfortaa', sans-serif;
-  cursor: pointer;
-  transition: background-color 0.2s;
 }
 
-.vera-button:hover {
+.btn-primary:hover {
   background-color: var(--vera-dark);
+  border-color: var(--vera-dark);
 }
-</style>
