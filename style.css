@@ -1,3 +1,99 @@
+<style>
+/* Vera.ai Brand Styles */
+@import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;700&display=swap');
+
+:root {
+  --vera-green: #00926c;
+  --vera-dark: #3d3d3c;
+  --vera-white: #ffffff;
+}
+
+body {
+  font-family: 'Comfortaa', sans-serif;
+  color: var(--vera-dark);
+}
+
+/* Table Styles */
+.dataTables_wrapper {
+  font-family: 'Comfortaa', sans-serif !important;
+}
+
+.dataTables_wrapper .dataTables_filter input {
+  border: 1px solid var(--vera-green);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.dataTables_wrapper .dataTables_length select {
+  border: 1px solid var(--vera-green);
+  border-radius: 4px;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button.current {
+  background: var(--vera-green) !important;
+  color: var(--vera-white) !important;
+  border: none;
+  border-radius: 4px;
+}
+
+.dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+  background: var(--vera-dark) !important;
+  color: var(--vera-white) !important;
+  border: none;
+}
+
+/* Chart Styles */
+.recharts-default-tooltip {
+  background-color: var(--vera-white) !important;
+  border: 1px solid var(--vera-green) !important;
+  border-radius: 4px;
+  font-family: 'Comfortaa', sans-serif;
+}
+
+/* Network Visualization Styles */
+.vis-network {
+  background-color: var(--vera-white);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.vis-network .vis-navigation {
+  font-family: 'Comfortaa', sans-serif;
+}
+
+/* Card Styles */
+.card {
+  background: var(--vera-white);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.card-title {
+  color: var(--vera-dark);
+  font-family: 'Comfortaa', sans-serif;
+  font-weight: 700;
+  font-size: 1.5rem;
+  margin-bottom: 16px;
+}
+
+/* Button Styles */
+.vera-button {
+  background-color: var(--vera-green);
+  color: var(--vera-white);
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-family: 'Comfortaa', sans-serif;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.vera-button:hover {
+  background-color: var(--vera-dark);
+}
+
 /* Override the grid layout for #quarto-content to fix the large row issue */
 #quarto-content {
   grid-template-rows: none !important;
@@ -8,3 +104,5 @@
 .dt-body-left {
   white-space: normal !important; 
 }
+
+</style>

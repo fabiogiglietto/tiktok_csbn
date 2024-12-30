@@ -1142,6 +1142,8 @@ ggplot(historical_data$logs, aes(x = Timestamp)) +
   scale_color_manual(values = c("Total Accounts" = "blue", "New Accounts" = "red"))
 ```
 
+## Interactive Graph Visualization
+
 ```{r generate_network_function, include=FALSE, message=FALSE}
 
 generate_network_visualization <- function(coordination_results,
