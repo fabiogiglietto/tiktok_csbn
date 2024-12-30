@@ -50,6 +50,25 @@ body {
   font-family: 'Comfortaa', sans-serif;
 }
 
+/* Network Tooltip Styles */
+.network-tooltip {
+  font-family: 'Comfortaa', sans-serif;
+  background-color: var(--vera-white);
+  border: 1px solid var(--vera-green);
+  border-radius: 4px;
+  padding: 12px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.network-tooltip a {
+  color: var(--vera-green);
+  text-decoration: none;
+}
+
+.network-tooltip a:hover {
+  text-decoration: underline;
+}
+
 /* Network Visualization Styles */
 .vis-network {
   background-color: var(--vera-white);
@@ -59,6 +78,33 @@ body {
 
 .vis-network .vis-navigation {
   font-family: 'Comfortaa', sans-serif;
+}
+
+/* Layout Fixes */
+#quarto-content {
+  grid-template-rows: none !important;
+  grid-auto-rows: min-content !important;
+  font-family: 'Comfortaa', sans-serif;
+}
+
+/* Table Cell Wrapping */
+.dt-head-left, 
+.dt-body-left {
+  white-space: normal !important;
+  color: var(--vera-dark);
+  padding: 8px !important;
+}
+
+/* DataTables Cell Links */
+.dt-head-left a, 
+.dt-body-left a {
+  color: var(--vera-green);
+  text-decoration: none;
+}
+
+.dt-head-left a:hover, 
+.dt-body-left a:hover {
+  text-decoration: underline;
 }
 
 /* Card Styles */
@@ -93,16 +139,4 @@ body {
 .vera-button:hover {
   background-color: var(--vera-dark);
 }
-
-/* Override the grid layout for #quarto-content to fix the large row issue */
-#quarto-content {
-  grid-template-rows: none !important;
-  grid-auto-rows: min-content !important;
-}
-
-.dt-head-left, 
-.dt-body-left {
-  white-space: normal !important; 
-}
-
 </style>
