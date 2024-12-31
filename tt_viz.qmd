@@ -941,13 +941,13 @@ tryCatch({
 })
 
 # Function to update account logs and save results
-# Modify save_output to use daily directories
 update_account_logs <- function(coordination_results) {
   today_date <- format(Sys.Date(), "%Y-%m-%d")
   
-  # Define file paths using daily directory
+  # Define file paths
+  daily_accounts_file <- file.path(daily_output_dir, "tiktok_coordinated_accounts_ids.csv")
+  global_accounts_file <- file.path(params$base_dir, "lists", "tiktok_coordinated_accounts_ids.csv")
   log_file_path <- file.path(daily_output_dir, "new_accounts_log.csv")
-  accounts_file_path <- file.path(daily_output_dir, "tiktok_coordinated_accounts_ids.csv")
   
   # Save daily snapshot
   if (exists("all_videos") && !is.null(all_videos)) {
@@ -957,10 +957,9 @@ update_account_logs <- function(coordination_results) {
   tryCatch({
     # Create output directory if it doesn't exist
     dir.create(dirname(log_file_path), showWarnings = FALSE, recursive = TRUE)
-    dir.create(dirname(accounts_file_path), showWarnings = FALSE, recursive = TRUE)
     
     # Read existing log file if it exists
-    existing_log <- if(file.exists(log_file_path)) {
+    existing_log <- if (file.exists(log_file_path)) {
       read_csv(log_file_path, show_col_types = FALSE)
     } else {
       log_info("Creating new accounts log file")
@@ -980,25 +979,29 @@ update_account_logs <- function(coordination_results) {
     
     # Append the new entry to the log file
     write_csv(
-      new_entry,
-      log_file_path,
-      append = file.exists(log_file_path)
+      bind_rows(existing_log, new_entry),
+      log_file_path
     )
     
     log_info(sprintf("Added new log entry: %d new accounts, %d total accounts", 
-                    new_entry$New_Accounts_Count, 
-                    new_entry$Total_Accounts))
+                     new_entry$New_Accounts_Count, 
+                     new_entry$Total_Accounts))
     
     # Update the coordinated accounts list
     if (length(coordination_results$updated_list) > 0) {
-      # Save updated list
+      # Save updated list in both the daily folder and the global folder
       write_csv(
         data.frame(x = coordination_results$updated_list),
-        accounts_file_path
+        daily_accounts_file
       )
       
-      log_info(sprintf("Successfully updated coordinated accounts list with %d accounts", 
-                      length(coordination_results$updated_list)))
+      write_csv(
+        data.frame(x = coordination_results$updated_list),
+        global_accounts_file
+      )
+      
+      log_info(sprintf("Successfully updated coordinated accounts list with %d accounts in both locations", 
+                       length(coordination_results$updated_list)))
     } else {
       log_warn("No accounts to update in the coordinated accounts list")
     }
@@ -1014,6 +1017,7 @@ update_account_logs <- function(coordination_results) {
     return(FALSE)
   })
 }
+
 
 # Execute if we have coordination results
 if (exists("coordination_results") && 
