@@ -1848,9 +1848,20 @@ Giglietto, F., Marino, G., Mincigrucci, R., & Stanziano, A. (2023). A Workflow t
   current_date <- format(Sys.Date(), "%Y-%m-%d")
   daily_zip_name <- sprintf("coordination_results_%s.zip", current_date)
   zip_file <- file.path(daily_output_dir, daily_zip_name)
-  files_to_zip <- list.files(pattern = "\\.(csv|graphml|md)$")  # Removed html from pattern
-  if (length(files_to_zip) > 0) {
-    utils::zip(zip_file, files = files_to_zip)
+  
+  # Explicitly list only the files we want to include
+  files_to_zip <- c(
+    "README.md",
+    "coordinated_accounts.csv",
+    "network_clusters.csv",
+    "coordinated_posts.csv",
+    "coordination_network.graphml"
+  )
+  
+  # Only include files that actually exist
+  existing_files <- files_to_zip[file.exists(files_to_zip)]
+  if (length(existing_files) > 0) {
+    utils::zip(zip_file, files = existing_files)
   }
   
   # Restore working directory
@@ -1886,6 +1897,7 @@ if (!is.null(zip_result$file)) {
   
   htmltools::HTML(download_html)
 }
+
 ```
 
 # About
