@@ -1435,49 +1435,6 @@ generate_network_visualization <- function(coordination_results,
         dragNodes = TRUE,
         dragView = TRUE,
         zoomView = TRUE
-      ) %>%
-      visNetwork::visNodes(
-        scaling = list(
-          min = 20,
-          max = 50,
-          label = list(
-            enabled = TRUE,
-            min = 14,
-            max = 24
-          )
-        ),
-        font = list(
-          size = 14,
-          color = "#334155",
-          face = "Comfortaa"
-        ),
-        shadow = list(
-          enabled = TRUE,
-          size = 10,
-          x = 5,
-          y = 5
-        ),
-        color = list(
-          background = "#60A5FA",
-          border = "#3B82F6",
-          highlight = list(
-            background = "#3B82F6",
-            border = "#2563EB"
-          ),
-          hover = list(
-            background = "#3B82F6",
-            border = "#2563EB"
-          )
-        )
-      ) %>%
-      visNetwork::visEdges(
-        smooth = TRUE,
-        color = list(
-          color = "#94A3B8",
-          highlight = "#64748B",
-          hover = "#64748B"
-        ),
-        width = 2
       )
     
     # Add container and CSS
@@ -1521,9 +1478,9 @@ network_viz <- local({
   tryCatch({
     if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
       generate_network_visualization(coordination_results,                                  
-                                     node_size_multiplier = 2,
+                                     node_size_multiplier = 1.1,
                                      node_size_base = 5,
-                                     edge_width_multiplier = 1.5)
+                                     edge_width_multiplier = 1.1)
     } else {
       warning("No coordination results available for network visualization")
       NULL
