@@ -1431,7 +1431,53 @@ generate_network_visualization <- function(coordination_results,
       ) %>%
       visNetwork::visInteraction(
         navigationButtons = TRUE,
-        keyboard = TRUE
+        keyboard = TRUE,
+        dragNodes = TRUE,
+        dragView = TRUE,
+        zoomView = TRUE
+      )%>%
+      visNetwork::visNodes(
+        scaling = list(
+          min = 20,
+          max = 50,
+          label = list(
+            enabled = TRUE,
+            min = 14,
+            max = 24
+          )
+        ),
+        font = list(
+          size = 14,
+          color = "#334155",
+          face = "Comfortaa"
+        ),
+        shadow = list(
+          enabled = TRUE,
+          size = 10,
+          x = 5,
+          y = 5
+        ),
+        color = list(
+          background = "#60A5FA",
+          border = "#3B82F6",
+          highlight = list(
+            background = "#3B82F6",
+            border = "#2563EB"
+          ),
+          hover = list(
+            background = "#3B82F6",
+            border = "#2563EB"
+          )
+        )
+      ) %>%
+      visNetwork::visEdges(
+        smooth = TRUE,
+        color = list(
+          color = "#94A3B8",
+          highlight = "#64748B",
+          hover = "#64748B"
+        ),
+        width = 2
       )
     
     # Add container and CSS
