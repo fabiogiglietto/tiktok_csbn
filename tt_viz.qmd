@@ -1728,37 +1728,138 @@ posts_table
 
 # Function to prepare download files 
 prepare_download_files <- function() {
- temp_dir <- tempdir()
- current_wd <- getwd()
- 
- # Change to temp dir for flat zip structure
- setwd(temp_dir)
- 
- # Save tables as CSV
- write.csv(accounts_table$x$data, "coordinated_accounts.csv", row.names = FALSE)
- write.csv(clusters_table$x$data, "network_clusters.csv", row.names = FALSE)
- write.csv(posts_table$x$data, "coordinated_posts.csv", row.names = FALSE)
- 
- # Export network graph
- if (!is.null(coordination_results$coord_graph)) {
-   igraph::write_graph(coordination_results$coord_graph, "coordination_network.graphml", format = "graphml")
- }
- 
- # Create zip file with date
- current_date <- format(Sys.Date(), "%Y-%m-%d")
- daily_zip_name <- sprintf("coordination_results_%s.zip", current_date)
- zip_file <- file.path(daily_output_dir, daily_zip_name)
- files_to_zip <- list.files(pattern = "\\.(csv|graphml)$")
- if (length(files_to_zip) > 0) {
-   utils::zip(zip_file, files = files_to_zip)
- }
- 
- # Restore working directory
- setwd(current_wd)
- return(list(
-   file = if (file.exists(zip_file)) zip_file else NULL,
-   filename = daily_zip_name
- ))
+  temp_dir <- tempdir()
+  current_wd <- getwd()
+  
+  # Change to temp dir for flat zip structure
+  setwd(temp_dir)
+  
+  # Save tables as CSV
+  write.csv(accounts_table$x$data, "coordinated_accounts.csv", row.names = FALSE)
+  write.csv(clusters_table$x$data, "network_clusters.csv", row.names = FALSE)
+  write.csv(posts_table$x$data, "coordinated_posts.csv", row.names = FALSE)
+  
+  # Export network graph
+  if (!is.null(coordination_results$coord_graph)) {
+    igraph::write_graph(coordination_results$coord_graph, "coordination_network.graphml", format = "graphml")
+  }
+  
+  # Create README with dynamic parameters
+  readme_template <- '# TikTok Coordination Analysis Results Guide
+
+This package contains the results of coordinated behavior analysis on TikTok performed on %s. 
+For the latest daily analysis, visit: https://fabiogiglietto.github.io/tiktok_csbn/tt_viz.html
+
+Below you\'ll find detailed explanations of the data fields in each table.
+
+## Data Files
+
+The package includes the following files:
+- `coordinated_posts.csv`: Data about posts that show coordinated sharing patterns
+- `coordinated_accounts.csv`: Information about accounts involved in coordination
+- `network_clusters.csv`: Analysis of the identified coordinated networks
+- `coordination_network.graphml`: Network graph file that can be opened with tools like Gephi
+- `coordination_network.html`: Interactive visualization of the coordinated networks
+
+## Table Fields Description
+
+### coordinated_posts.csv
+| Field | Description |
+|-------|-------------|
+| Post URL | Direct link to the TikTok post |
+| Network | Numerical identifier of the coordinated network the post author belongs to |
+| Author | Username of the TikTok account that shared the post |
+| Timestamp | Date and time when the post was created |
+| Number of Accounts | Number of accounts that shared identical or near-identical content |
+| Views | Total number of views the post received |
+| Likes | Total number of likes the post received |
+| Comments | Total number of comments on the post |
+| Shares | Total number of times the post was shared |
+| Description | First 150 characters of the post\'s text description |
+
+### coordinated_accounts.csv
+| Field | Description |
+|-------|-------------|
+| Account | Username of the TikTok account |
+| Network | Numerical identifier of the coordinated network the account belongs to |
+| Unique Shares | Number of unique pieces of content shared by this account that were also shared by other accounts |
+| Avg Time Between Shares (sec) | Average time difference between when this account and other accounts shared the same content |
+| Edge Symmetry Score | Measure of reciprocity in coordinated behavior (0-1, where 1 indicates perfect symmetry) |
+| Degree | Number of direct connections to other accounts in the coordination network |
+| Strength | Weighted measure of connections, accounting for frequency of coordination |
+| Betweenness | Measure of the account\'s role in bridging different parts of the network (normalized 0-1) |
+| Avg Views | Average number of views per post |
+| Avg Likes | Average number of likes per post |
+| Avg Comments | Average number of comments per post |
+| Avg Shares | Average number of shares per post |
+
+### network_clusters.csv
+| Field | Description |
+|-------|-------------|
+| Network | Numerical identifier of the coordinated network |
+| Number of Accounts | Total number of accounts in this network |
+| Network Density | Proportion of potential connections that are actual connections (0-1) |
+| Network Diameter | Maximum number of steps needed to connect any two accounts in the network |
+| Clustering Coefficient | Measure of how tightly clustered the accounts are (0-1) |
+| Avg Views | Average number of views per post across all accounts in the network |
+| Avg Likes | Average number of likes per post across all accounts in the network |
+| Avg Comments | Average number of comments per post across all accounts in the network |
+| Avg Shares | Average number of shares per post across all accounts in the network |
+| Member Accounts | Comma-separated list of all usernames in this network |
+
+## Analysis Parameters
+
+The coordination detection was performed with the following parameters:
+- Time Window: %d seconds
+- Minimum Participation: %d posts
+- Edge Weight Threshold: %.1f
+- Days Analyzed: %d
+
+## Notes
+
+- All timestamps are in UTC
+- Network IDs are consistent across all files
+- The betweenness centrality is normalized to allow comparison between networks of different sizes
+- View, like, comment, and share counts are captured at the time of data collection and may not reflect current values
+
+## References
+
+For more information about the methodology and tools used, please refer to:
+
+Righetti N., Balluff P. (2023). CooRTweet: Coordinated Networks Detection on Social Media. R package version 2.1.0. https://CRAN.R-project.org/package=CooRTweet
+
+Giglietto, F., Marino, G., Mincigrucci, R., & Stanziano, A. (2023). A Workflow to Detect, Monitor, and Update Lists of Coordinated Social Media Accounts Across Time: The Case of the 2022 Italian Election. Social Media + Society, 9(3).'
+
+  # Insert actual parameter values into the template
+  # Format the current date
+  current_date <- format(Sys.Date(), "%B %d, %Y")
+  
+  # Insert all parameters into the template
+  readme_content <- sprintf(readme_template, 
+                          current_date,
+                          params$time_window, 
+                          params$min_participation, 
+                          params$edge_weight,
+                          params$days_back)
+  
+  # Save README file
+  writeLines(readme_content, "README.md")
+  
+  # Create zip file with date
+  current_date <- format(Sys.Date(), "%Y-%m-%d")
+  daily_zip_name <- sprintf("coordination_results_%s.zip", current_date)
+  zip_file <- file.path(daily_output_dir, daily_zip_name)
+  files_to_zip <- list.files(pattern = "\\.(csv|graphml|html|md)$")
+  if (length(files_to_zip) > 0) {
+    utils::zip(zip_file, files = files_to_zip)
+  }
+  
+  # Restore working directory
+  setwd(current_wd)
+  return(list(
+    file = if (file.exists(zip_file)) zip_file else NULL,
+    filename = daily_zip_name
+  ))
 }
 
 # Create the zip file
@@ -1766,25 +1867,26 @@ zip_result <- prepare_download_files()
 
 # Create download button HTML
 if (!is.null(zip_result$file)) {
- download_url <- file.path("daily", format(Sys.Date(), "%Y-%m-%d"), zip_result$filename)
- download_html <- sprintf('
-   <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-     <h3>Download Results</h3>
-     <p>Download a comprehensive package of today\'s coordination analysis results, including:</p>
-     <ul style="margin-bottom: 15px;">
-       <li>Network visualization (HTML format)</li>
-       <li>Coordinated accounts table (CSV format)</li>
-       <li>Network clusters analysis (CSV format)</li>
-       <li>Coordinated posts data (CSV format)</li>
-       <li>Network graph (GraphML format)</li>
-     </ul>
-     <a href="%s" download class="btn btn-primary" style="display: inline-block; padding: 8px 16px; background-color: #0d6efd; color: white; text-decoration: none; border-radius: 4px; border: none;">
-       Download Results Package
-     </a>
-   </div>
- ', download_url)
- 
- htmltools::HTML(download_html)
+  download_url <- file.path("daily", format(Sys.Date(), "%Y-%m-%d"), zip_result$filename)
+  download_html <- sprintf('
+    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <h3>Download Results</h3>
+      <p>Download a comprehensive package of today\'s coordination analysis results, including:</p>
+      <ul style="margin-bottom: 15px;">
+        <li>Network visualization (HTML format)</li>
+        <li>Coordinated accounts table (CSV format)</li>
+        <li>Network clusters analysis (CSV format)</li>
+        <li>Coordinated posts data (CSV format)</li>
+        <li>Network graph (GraphML format)</li>
+        <li>README file with detailed field descriptions</li>
+      </ul>
+      <a href="%s" download class="btn btn-primary" style="display: inline-block; padding: 8px 16px; background-color: #0d6efd; color: white; text-decoration: none; border-radius: 4px; border: none;">
+        Download Results Package
+      </a>
+    </div>
+  ', download_url)
+  
+  htmltools::HTML(download_html)
 }
 
 ```
