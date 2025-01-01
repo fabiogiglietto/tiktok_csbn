@@ -1463,7 +1463,10 @@ generate_network_visualization <- function(coordination_results,
 network_viz <- local({
   tryCatch({
     if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
-      generate_network_visualization(coordination_results)
+      generate_network_visualization(coordination_results,                                  
+                                     node_size_multiplier = 2,
+                                     node_size_base = 5,
+                                     edge_width_multiplier = 1.5)
     } else {
       warning("No coordination results available for network visualization")
       NULL
