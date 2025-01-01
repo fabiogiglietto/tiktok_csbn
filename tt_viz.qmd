@@ -1372,9 +1372,7 @@ generate_network_visualization <- function(coordination_results,
     data$edges <- data$edges %>%
       dplyr::mutate(
         width = if("weight" %in% names(.)) weight * edge_width_multiplier else 1,
-        color = "#94A3B8",
-        smooth = list(enabled = TRUE, type = "continuous"),
-        physics = TRUE
+        color = "#94A3B8"
       )
     
     # Create minimalist CSS that won't interfere
