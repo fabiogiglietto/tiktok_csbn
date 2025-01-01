@@ -1435,7 +1435,7 @@ generate_network_visualization <- function(coordination_results,
         dragNodes = TRUE,
         dragView = TRUE,
         zoomView = TRUE
-      )%>%
+      ) %>%
       visNetwork::visNodes(
         scaling = list(
           min = 20,
