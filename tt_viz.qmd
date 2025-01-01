@@ -1652,7 +1652,11 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
 }
 
 create_posts_table <- function(summary_groups, all_videos, coord_graph) {
-  comp <- components(coord_graph)
+  # Get component membership for each account first
+  components_df <- data.frame(
+    author_name = V(coord_graph)$name,
+    component = components(coord_graph)$membership
+  )
   
   posts_table <- summary_groups %>%
     left_join(
@@ -1662,9 +1666,13 @@ create_posts_table <- function(summary_groups, all_videos, coord_graph) {
       ),
       by = c("object_id" = "video_description")
     ) %>%
+    # Join with components data
+    left_join(components_df, by = "author_name") %>%
     mutate(
-      component = comp$membership[match(author_name, V(coord_graph)$name)],
-      network_id = map_chr(component, ~get_network_label(.x, get("cluster_labels", envir = .GlobalEnv))),
+      network_id = ifelse(!is.na(component), 
+                         sapply(component, get_network_label, 
+                               cluster_labels = get("cluster_labels", envir = .GlobalEnv)),
+                         "Network NA"),
       video_link = map_chr(video_url, ~create_url_link(.x, "video")),
       Description = paste0(substr(object_id, 1, 150), "...")
     ) %>%
