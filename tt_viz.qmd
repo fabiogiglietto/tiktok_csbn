@@ -1288,12 +1288,10 @@ ggplot(historical_data$logs, aes(x = Timestamp)) +
 
 ```{r generate_network_function, include=FALSE, message=FALSE}
 
+# Function to detect coordination patterns
 generate_network_visualization <- function(coordination_results,
                                         height = "800px",
-                                        seed = 123,
-                                        node_size_multiplier = 3,
-                                        node_size_base = 10,
-                                        edge_width_multiplier = 2) {
+                                        seed = 123) {
   
   if (!requireNamespace("htmltools", quietly = TRUE)) {
     stop("Package 'htmltools' is required")
@@ -1315,26 +1313,27 @@ generate_network_visualization <- function(coordination_results,
       stop("Invalid graph object provided")
     }
     
-    # Convert to visNetwork format first
+    # Convert to visNetwork format
     data <- visNetwork::toVisNetworkData(graph)
     
-    # Basic node properties
+    # Enhanced node properties
     data$nodes$label <- data$nodes$id  # Ensure labels are set
     data$nodes$value <- igraph::degree(graph)
     data$nodes$title <- sprintf(
-      "<div class='network-tooltip'>@%s<br>Connections: %d</div>",
+      "<div style='padding: 8px; background: white; border: 1px solid #ddd; border-radius: 4px;'>
+       <strong>@%s</strong><br>Connections: %d</div>",
       data$nodes$id,
       data$nodes$value
     )
-    data$nodes$url <- paste0("https://tiktok.com/@", data$nodes$id)
+    data$nodes$shadow <- TRUE
+    data$nodes$shape <- "dot"
     
-    # Calculate component membership
+    # Calculate component membership and set colors
     comp <- igraph::components(graph)$membership
-    data$nodes$component <- comp
+    data$nodes$group <- comp
     
-    # Add cluster labels if available
+    # Get cluster labels if available
     if(exists("cluster_labels") && is.data.frame(get("cluster_labels")) && nrow(get("cluster_labels")) > 0) {
-      # Create a lookup table for labels
       label_lookup <- get("cluster_labels") %>%
         dplyr::mutate(
           component_id = as.numeric(component),
@@ -1342,101 +1341,112 @@ generate_network_visualization <- function(coordination_results,
         ) %>%
         dplyr::select(component_id, group_label)
       
-      # Join with nodes
-      data$nodes <- data$nodes %>%
-        dplyr::left_join(label_lookup, by = c("component" = "component_id")) %>%
-        dplyr::mutate(
-          size = value * node_size_multiplier + node_size_base,
-          color = "#97C2FC",
-          shape = "dot",
-          shadow = TRUE,
-          group = dplyr::coalesce(group_label, sprintf("Network %d", component))
-        )
+      # Join with nodes data
+      data$nodes$group <- label_lookup$group_label[match(comp, label_lookup$component_id)]
     } else {
-      # If no labels available, use default numbering
-      data$nodes <- data$nodes %>%
-        dplyr::mutate(
-          size = value * node_size_multiplier + node_size_base,
-          color = "#97C2FC",
-          shape = "dot",
-          shadow = TRUE,
-          group = sprintf("Network %d", component)
-        )
+      data$nodes$group <- paste("Network", comp)
     }
     
-    # Add visual properties to edges
+    # Enhanced edge properties
     data$edges <- data$edges %>%
       dplyr::mutate(
-        width = if("weight" %in% names(.)) weight * edge_width_multiplier else 1,
-        color = "#666666",
-        smooth = FALSE
+        width = if("weight" %in% names(.)) weight * 2 else 1,
+        color = "#94A3B8",
+        smooth = list(enabled = TRUE, type = "continuous"),
+        physics = TRUE
       )
-    
-    # Create minimalist CSS that won't interfere
-    custom_css <- paste0(
-      "<style>",
-      "#network-viz-container { position: relative; }",
-      "#network-viz-container .vis-network { position: relative; }",
-      "#network-viz-container .network-tooltip { padding: 8px; background: white; border: 1px solid #ddd; border-radius: 4px; }",
-      "#network-viz-container .vis-network-configuration { position: absolute; top: 10px; right: 10px; z-index: 100; background: white; padding: 8px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }",
-      "#network-viz-container .vis-network-configuration select { width: 200px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; }",
-      "</style>"
-    )
     
     # Create the network visualization
     network <- visNetwork::visNetwork(
       nodes = data$nodes,
       edges = data$edges,
       width = "100%",
-      height = height
+      height = height,
+      main = list(
+        text = "Coordinated Account Network",
+        style = "font-family: 'Comfortaa', sans-serif; font-size: 16px; font-weight: bold;"
+      )
     ) %>%
       visNetwork::visLayout(randomSeed = seed) %>%
       visNetwork::visOptions(
-        highlightNearest = list(enabled = TRUE, degree = 1, hover = TRUE),
+        highlightNearest = list(
+          enabled = TRUE,
+          degree = 1,
+          hover = TRUE
+        ),
         selectedBy = list(
           variable = "group",
           main = "Select Network",
-          style = "width: 200px; height: 30px; background-color: white;"
+          style = "width: 200px; height: 30px; margin: 8px; border: 1px solid #ddd; border-radius: 4px;"
         ),
-        nodesIdSelection = FALSE,
-        manipulation = FALSE
+        nodesIdSelection = FALSE
       ) %>%
       visNetwork::visPhysics(
+        solver = "forceAtlas2Based",
+        forceAtlas2Based = list(
+          gravitationalConstant = -100,
+          centralGravity = 0.01,
+          springLength = 200,
+          springConstant = 0.08,
+          damping = 0.4,
+          avoidOverlap = 0.5
+        ),
         stabilization = list(
           enabled = TRUE,
-          iterations = 100
+          iterations = 1000,
+          updateInterval = 100
         )
-      ) %>%
-      visNetwork::visEvents(
-        click = "function(params) {
-          if (params.nodes.length > 0) {
-            var nodeId = params.nodes[0];
-            var nodeData = this.body.data.nodes.get(nodeId);
-            if (nodeData.url) {
-              window.open(nodeData.url, '_blank');
-            }
-          }
-        }"
       ) %>%
       visNetwork::visInteraction(
         navigationButtons = TRUE,
-        keyboard = TRUE
+        keyboard = TRUE,
+        dragNodes = TRUE,
+        dragView = TRUE,
+        zoomView = TRUE
+      ) %>%
+      visNetwork::visNodes(
+        scaling = list(
+          min = 20,
+          max = 50,
+          label = list(
+            enabled = TRUE,
+            min = 14,
+            max = 24
+          )
+        ),
+        font = list(
+          size = 14,
+          color = "#334155",
+          face = "Comfortaa"
+        ),
+        shadow = list(
+          enabled = TRUE,
+          size = 10,
+          x = 5,
+          y = 5
+        ),
+        color = list(
+          background = "#60A5FA",
+          border = "#3B82F6",
+          highlight = list(
+            background = "#3B82F6",
+            border = "#2563EB"
+          ),
+          hover = list(
+            background = "#3B82F6",
+            border = "#2563EB"
+          )
+        )
+      ) %>%
+      visNetwork::visEdges(
+        smooth = TRUE,
+        color = list(
+          color = "#94A3B8",
+          highlight = "#64748B",
+          hover = "#64748B"
+        ),
+        width = 2
       )
-    
-    # Add container and CSS
-    network <- htmlwidgets::onRender(
-      network,
-      sprintf(
-        "function(el) {
-          const container = document.createElement('div');
-          container.id = 'network-viz-container';
-          el.parentNode.insertBefore(container, el);
-          container.appendChild(el);
-          document.head.insertAdjacentHTML('beforeend', '%s');
-        }",
-        custom_css
-      )
-    )
     
     # Save visualization
     html_file <- file.path(viz_dir, "coordination_network.html")
