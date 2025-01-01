@@ -1492,15 +1492,12 @@ if (!is.null(network_viz)) {
 ## Detailed Tables
 
 ```{r setup_tables, include=FALSE, eval=TRUE}
-
-# Utility functions
+# Helper function to create TikTok profile URL
 create_url_link <- function(username, type = "profile") {
   if (type == "profile") {
     sprintf('<a href="https://tiktok.com/@%s" target="_blank">@%s</a>', username, username)
   } else if (type == "video") {
     sprintf('<a href="%s" target="_blank" class="btn btn-sm" style="background-color: #00926c; color: white; text-decoration: none; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;">View Post</a>', username)
-  } else {
-    sprintf('<a href="%s" target="_blank">%s</a>', username, username)
   }
 }
 
@@ -1527,16 +1524,19 @@ create_datatable_base <- function(data, pageLength = 10, fontSize = "9px",
   )
 }
 
-# Table creation functions
+# 1. Coordinated Posts Table
 create_posts_table <- function(summary_groups, all_videos, coord_graph) {
-  # Get component membership for each account
+  # Get the list of coordinated accounts from the graph
+  coordinated_accounts <- V(coord_graph)$name
+  
+  # Get component membership for coordinated accounts
   comp <- components(coord_graph)
   account_components <- data.frame(
-    author_name = V(coord_graph)$name,
+    author_name = coordinated_accounts,
     network = comp$membership
   )
   
-  # Create posts table
+  # Create posts table, filtering for coordinated accounts only
   posts_df <- summary_groups %>%
     left_join(
       select(all_videos, 
@@ -1545,9 +1545,11 @@ create_posts_table <- function(summary_groups, all_videos, coord_graph) {
       ),
       by = c("object_id" = "video_description")
     ) %>%
+    # Only keep posts from coordinated accounts
+    filter(author_name %in% coordinated_accounts) %>%
+    # Join with component information
     left_join(account_components, by = "author_name") %>%
     mutate(
-      network = ifelse(!is.na(network), as.character(network), "NA"),
       video_link = map_chr(video_url, ~create_url_link(.x, "video")),
       Description = paste0(substr(object_id, 1, 150), "...")
     ) %>%
@@ -1565,9 +1567,10 @@ create_posts_table <- function(summary_groups, all_videos, coord_graph) {
     ) %>%
     distinct()
 
-  create_datatable_base(posts_df, orderCol = 4)
+  return(create_datatable_base(posts_df, orderCol = 4))
 }
 
+# 2. Coordinated Accounts Table
 create_accounts_table <- function(summary_accounts, coord_graph, all_videos) {
   # Get network metrics
   network_metrics <- list(
@@ -1594,7 +1597,6 @@ create_accounts_table <- function(summary_accounts, coord_graph, all_videos) {
       .groups = 'drop'
     )
   
-  # Create accounts table
   accounts_df <- summary_accounts %>%
     mutate(
       account_link = map_chr(account_id, ~create_url_link(.x, "profile")),
@@ -1618,9 +1620,10 @@ create_accounts_table <- function(summary_accounts, coord_graph, all_videos) {
       `Avg Shares` = avg_shares
     )
   
-  create_datatable_base(accounts_df, pageLength = 25, orderCol = 6)
+  return(create_datatable_base(accounts_df, pageLength = 25, orderCol = 6))
 }
 
+# 3. Coordinated Clusters Table
 create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
   comp <- components(coord_graph)
   
@@ -1652,7 +1655,6 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
       .groups = 'drop'
     )
   
-  # Create clusters table
   clusters_df <- cluster_metrics %>%
     left_join(engagement_metrics, by = "network") %>%
     mutate(across(where(is.numeric), ~round(.x, 3))) %>%
@@ -1669,7 +1671,7 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
       `Member Accounts` = accounts
     )
   
-  create_datatable_base(clusters_df, fontSize = "12px") %>%
+  return(create_datatable_base(clusters_df, fontSize = "12px") %>%
     formatStyle(
       columns = 2:9,
       className = 'dt-right'
@@ -1677,7 +1679,7 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
     formatStyle(
       'Network',
       width = '300px'
-    )
+    ))
 }
 
 # Create all tables
@@ -1700,7 +1702,6 @@ if (exists("coordination_results") && exists("all_videos")) {
     coordination_results$coord_graph
   )
 }
-
 ```
 
 ```{r display_tables, echo=FALSE, results='asis'}
