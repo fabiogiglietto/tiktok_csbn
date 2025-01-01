@@ -1497,6 +1497,8 @@ if (!is.null(network_viz)) {
 create_url_link <- function(username, type = "profile") {
   if (type == "profile") {
     sprintf('<a href="https://tiktok.com/@%s" target="_blank">@%s</a>', username, username)
+  } else if (type == "video") {
+    sprintf('<a href="%s" target="_blank" class="btn btn-sm" style="background-color: #00926c; color: white; text-decoration: none; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;">View Post</a>', username)
   } else {
     sprintf('<a href="%s" target="_blank">%s</a>', username, username)
   }
