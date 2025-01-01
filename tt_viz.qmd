@@ -1504,17 +1504,7 @@ create_url_link <- function(username, type = "profile") {
   }
 }
 
-get_network_label <- function(component, cluster_labels = NULL) {
-  network_id <- sprintf("Network %d", component)
-  if (!is.null(cluster_labels) && component %in% cluster_labels$component) {
-    label <- cluster_labels$label[cluster_labels$component == component]
-    if (!is.na(label) && label != "") {
-      return(sprintf("%s: %s", network_id, label))
-    }
-  }
-  return(network_id)
-}
-
+# Create base datatable with common options
 create_datatable_base <- function(data, pageLength = 10, fontSize = "9px", 
                                 orderCol = NULL, scrollX = TRUE) {
   options <- list(
@@ -1527,7 +1517,7 @@ create_datatable_base <- function(data, pageLength = 10, fontSize = "9px",
   )
   
   if (!is.null(orderCol)) {
-    options$order <- list(list(orderCol - 1, 'desc'))  # -1 because JS is 0-based
+    options$order <- list(list(orderCol - 1, 'desc'))
   }
   
   datatable(data,
@@ -1537,31 +1527,55 @@ create_datatable_base <- function(data, pageLength = 10, fontSize = "9px",
   )
 }
 
-get_network_metrics <- function(coord_graph) {
-  list(
-    degree = degree(coord_graph),
-    strength = strength(coord_graph),
-    betweenness = betweenness(coord_graph, normalized = TRUE),
-    components = components(coord_graph)
+# Table creation functions
+create_posts_table <- function(summary_groups, all_videos, coord_graph) {
+  # Get component membership for each account
+  comp <- components(coord_graph)
+  account_components <- data.frame(
+    author_name = V(coord_graph)$name,
+    network = comp$membership
   )
+  
+  # Create posts table
+  posts_df <- summary_groups %>%
+    left_join(
+      select(all_videos, 
+        video_description, video_url, author_name, create_time,
+        view_count, like_count, comment_count, share_count
+      ),
+      by = c("object_id" = "video_description")
+    ) %>%
+    left_join(account_components, by = "author_name") %>%
+    mutate(
+      network = ifelse(!is.na(network), as.character(network), "NA"),
+      video_link = map_chr(video_url, ~create_url_link(.x, "video")),
+      Description = paste0(substr(object_id, 1, 150), "...")
+    ) %>%
+    select(
+      `Post URL` = video_link,
+      Network = network,
+      Author = author_name,
+      Timestamp = create_time,
+      `Number of Accounts` = num_accounts,
+      Views = view_count,
+      Likes = like_count,
+      Comments = comment_count,
+      Shares = share_count,
+      Description = object_id
+    ) %>%
+    distinct()
+
+  create_datatable_base(posts_df, orderCol = 4)
 }
 
-get_engagement_metrics <- function(data, group_by_col) {
-  data %>%
-    group_by(!!sym(group_by_col)) %>%
-    summarize(
-      avg_views = mean(view_count, na.rm = TRUE),
-      avg_likes = mean(like_count, na.rm = TRUE),
-      avg_comments = mean(comment_count, na.rm = TRUE),
-      avg_shares = mean(share_count, na.rm = TRUE),
-      .groups = 'drop'
-    )
-}
-
-# Main table creation functions
 create_accounts_table <- function(summary_accounts, coord_graph, all_videos) {
   # Get network metrics
-  network_metrics <- get_network_metrics(coord_graph)
+  network_metrics <- list(
+    degree = degree(coord_graph),
+    strength = strength(coord_graph),
+    betweenness = betweenness(coord_graph, normalized = TRUE)
+  )
+  
   metrics_df <- data.frame(
     account_id = names(network_metrics$degree),
     degree = as.numeric(network_metrics$degree),
@@ -1570,20 +1584,28 @@ create_accounts_table <- function(summary_accounts, coord_graph, all_videos) {
   )
   
   # Get engagement metrics
-  engagement_metrics <- get_engagement_metrics(all_videos, "author_name")
+  engagement_metrics <- all_videos %>%
+    group_by(author_name) %>%
+    summarize(
+      avg_views = mean(view_count, na.rm = TRUE),
+      avg_likes = mean(like_count, na.rm = TRUE),
+      avg_comments = mean(comment_count, na.rm = TRUE),
+      avg_shares = mean(share_count, na.rm = TRUE),
+      .groups = 'drop'
+    )
   
-  # Create final table
-  accounts_table <- summary_accounts %>%
+  # Create accounts table
+  accounts_df <- summary_accounts %>%
     mutate(
       account_link = map_chr(account_id, ~create_url_link(.x, "profile")),
-      component = network_metrics$components$membership[match(account_id, V(coord_graph)$name)]
+      network = components(coord_graph)$membership[match(account_id, V(coord_graph)$name)]
     ) %>%
     left_join(metrics_df, by = "account_id") %>%
     left_join(engagement_metrics, by = c("account_id" = "author_name")) %>%
     mutate(across(where(is.numeric), ~round(.x, 3))) %>%
     select(
       Account = account_link,
-      Network = component,
+      Network = network,
       `Unique Shares` = unique_shares_count,
       `Avg Time Between Shares (sec)` = avg_time_delta,
       `Edge Symmetry Score` = avg_edge_symmetry_score,
@@ -1596,7 +1618,7 @@ create_accounts_table <- function(summary_accounts, coord_graph, all_videos) {
       `Avg Shares` = avg_shares
     )
   
-  create_datatable_base(accounts_table, pageLength = 25, orderCol = 6)
+  create_datatable_base(accounts_df, pageLength = 25, orderCol = 6)
 }
 
 create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
@@ -1606,7 +1628,7 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
   cluster_metrics <- map_dfr(1:comp$no, function(i) {
     subg <- induced_subgraph(coord_graph, which(comp$membership == i))
     tibble(
-      component = i,
+      network = i,
       size = sum(comp$membership == i),
       density = edge_density(subg),
       diameter = if(vcount(subg) < 2) 0 else diameter(subg),
@@ -1618,19 +1640,24 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
   # Get engagement metrics by component
   engagement_metrics <- all_videos %>%
     mutate(
-      component = comp$membership[match(author_name, V(coord_graph)$name)]
+      network = comp$membership[match(author_name, V(coord_graph)$name)]
     ) %>%
-    get_engagement_metrics("component")
+    filter(!is.na(network)) %>%
+    group_by(network) %>%
+    summarize(
+      avg_views = mean(view_count, na.rm = TRUE),
+      avg_likes = mean(like_count, na.rm = TRUE),
+      avg_comments = mean(comment_count, na.rm = TRUE),
+      avg_shares = mean(share_count, na.rm = TRUE),
+      .groups = 'drop'
+    )
   
-  # Create final table
-  clusters <- cluster_metrics %>%
-    left_join(engagement_metrics, by = "component") %>%
-    mutate(
-      Network = map_chr(component, ~get_network_label(.x, get("cluster_labels", envir = .GlobalEnv))),
-      across(where(is.numeric), ~round(.x, 3))
-    ) %>%
+  # Create clusters table
+  clusters_df <- cluster_metrics %>%
+    left_join(engagement_metrics, by = "network") %>%
+    mutate(across(where(is.numeric), ~round(.x, 3))) %>%
     select(
-      Network,
+      Network = network,
       `Number of Accounts` = size,
       `Network Density` = density,
       `Network Diameter` = diameter,
@@ -1642,7 +1669,7 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
       `Member Accounts` = accounts
     )
   
-  create_datatable_base(clusters, fontSize = "12px") %>%
+  create_datatable_base(clusters_df, fontSize = "12px") %>%
     formatStyle(
       columns = 2:9,
       className = 'dt-right'
@@ -1651,48 +1678,6 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
       'Network',
       width = '300px'
     )
-}
-
-create_posts_table <- function(summary_groups, all_videos, coord_graph) {
-  # Get component membership for each account first
-  components_df <- data.frame(
-    author_name = V(coord_graph)$name,
-    component = components(coord_graph)$membership
-  )
-  
-  posts_table <- summary_groups %>%
-    left_join(
-      select(all_videos, 
-        video_description, video_url, author_name, create_time,
-        view_count, like_count, comment_count, share_count
-      ),
-      by = c("object_id" = "video_description")
-    ) %>%
-    # Join with components data
-    left_join(components_df, by = "author_name") %>%
-    mutate(
-      network_id = ifelse(!is.na(component), 
-                         sapply(component, get_network_label, 
-                               cluster_labels = get("cluster_labels", envir = .GlobalEnv)),
-                         "Network NA"),
-      video_link = map_chr(video_url, ~create_url_link(.x, "video")),
-      Description = paste0(substr(object_id, 1, 150), "...")
-    ) %>%
-    select(
-      `Post URL` = video_link,
-      Network = network_id,
-      Author = author_name,
-      Timestamp = create_time,
-      `Number of Accounts` = num_accounts,
-      Views = view_count,
-      Likes = like_count,
-      Comments = comment_count,
-      Shares = share_count,
-      Description
-    ) %>%
-    distinct()
-  
-  create_datatable_base(posts_table, orderCol = 4)
 }
 
 # Create all tables
