@@ -1759,7 +1759,6 @@ The package includes the following files:
 - `coordinated_accounts.csv`: Information about accounts involved in coordination
 - `network_clusters.csv`: Analysis of the identified coordinated networks
 - `coordination_network.graphml`: Network graph file that can be opened with tools like Gephi
-- `coordination_network.html`: Interactive visualization of the coordinated networks
 
 ## Table Fields Description
 
@@ -1849,7 +1848,7 @@ Giglietto, F., Marino, G., Mincigrucci, R., & Stanziano, A. (2023). A Workflow t
   current_date <- format(Sys.Date(), "%Y-%m-%d")
   daily_zip_name <- sprintf("coordination_results_%s.zip", current_date)
   zip_file <- file.path(daily_output_dir, daily_zip_name)
-  files_to_zip <- list.files(pattern = "\\.(csv|graphml|html|md)$")
+  files_to_zip <- list.files(pattern = "\\.(csv|graphml|md)$")  # Removed html from pattern
   if (length(files_to_zip) > 0) {
     utils::zip(zip_file, files = files_to_zip)
   }
@@ -1873,14 +1872,13 @@ if (!is.null(zip_result$file)) {
       <h3>Download Results</h3>
       <p>Download a comprehensive package of today\'s coordination analysis results, including:</p>
       <ul style="margin-bottom: 15px;">
-        <li>Network visualization (HTML format)</li>
         <li>Coordinated accounts table (CSV format)</li>
         <li>Network clusters analysis (CSV format)</li>
         <li>Coordinated posts data (CSV format)</li>
         <li>Network graph (GraphML format)</li>
         <li>README file with detailed field descriptions</li>
       </ul>
-      <a href="%s" download class="btn btn-primary" style="display: inline-block; padding: 8px 16px; background-color: #0d6efd; color: white; text-decoration: none; border-radius: 4px; border: none;">
+      <a href="%s" download class="btn btn-primary" style="display: inline-block; padding: 8px 16px; background-color: #00926c; color: white; text-decoration: none; border-radius: 4px; border: none; font-family: \'Comfortaa\', sans-serif;">
         Download Results Package
       </a>
     </div>
@@ -1888,7 +1886,6 @@ if (!is.null(zip_result$file)) {
   
   htmltools::HTML(download_html)
 }
-
 ```
 
 # About
