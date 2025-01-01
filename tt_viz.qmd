@@ -1299,6 +1299,13 @@ generate_network_visualization <- function(coordination_results,
     stop("Package 'htmltools' is required")
   }
   
+  # Define vera.ai brand colors
+  vera_colors <- list(
+    green = "#00926c",
+    dark = "#3d3d3c",
+    white = "#ffffff"
+  )
+  
   tryCatch({
     if (is.null(coordination_results) || is.null(coordination_results$coord_graph)) {
       warning("No valid coordination graph available for visualization")
@@ -1315,19 +1322,20 @@ generate_network_visualization <- function(coordination_results,
       stop("Invalid graph object provided")
     }
     
-    # Convert to visNetwork format first
+    # Convert to visNetwork format
     data <- visNetwork::toVisNetworkData(graph)
     
-    # Basic node properties
-    data$nodes$label <- data$nodes$id  # Ensure labels are set
+    # Enhanced node properties
+    data$nodes$label <- data$nodes$id
     data$nodes$value <- igraph::degree(graph)
     data$nodes$title <- sprintf(
-      "<div style='padding: 8px; background: white; border: 1px solid #ddd; border-radius: 4px;'>
+      "<div style='font-family: Comfortaa, sans-serif; padding: 8px; background: white; border: 1px solid %s; border-radius: 4px; color: %s;'>
        <strong>@%s</strong><br>Connections: %d</div>",
+      vera_colors$green,
+      vera_colors$dark,
       data$nodes$id,
       data$nodes$value
     )
-    
     data$nodes$shadow <- TRUE
     data$nodes$shape <- "dot"
     data$nodes$url <- paste0("https://tiktok.com/@", data$nodes$id)
@@ -1338,7 +1346,6 @@ generate_network_visualization <- function(coordination_results,
     
     # Add cluster labels if available
     if(exists("cluster_labels") && is.data.frame(get("cluster_labels")) && nrow(get("cluster_labels")) > 0) {
-      # Create a lookup table for labels
       label_lookup <- get("cluster_labels") %>%
         dplyr::mutate(
           component_id = as.numeric(component),
@@ -1346,48 +1353,51 @@ generate_network_visualization <- function(coordination_results,
         ) %>%
         dplyr::select(component_id, group_label)
       
-      # Join with nodes
       data$nodes <- data$nodes %>%
         dplyr::left_join(label_lookup, by = c("component" = "component_id")) %>%
         dplyr::mutate(
           size = value * node_size_multiplier + node_size_base,
-          color = "#97C2FC",
           shape = "dot",
           shadow = TRUE,
           group = dplyr::coalesce(group_label, sprintf("Network %d", component))
         )
     } else {
-      # If no labels available, use default numbering
-      data$nodes <- data$nodes %>%
-        dplyr::mutate(
-          size = value * node_size_multiplier + node_size_base,
-          color = "#97C2FC",
-          shape = "dot",
-          shadow = TRUE,
-          group = sprintf("Network %d", component)
-        )
+      data$nodes$group <- sprintf("Network %d", comp)
     }
     
     # Add visual properties to edges
     data$edges <- data$edges %>%
       dplyr::mutate(
         width = if("weight" %in% names(.)) weight * edge_width_multiplier else 1,
-        color = "#94A3B8",
+        color = vera_colors$dark,
         physics = TRUE
       )
     
-    # Create minimalist CSS that won't interfere
+    # Custom CSS for vera.ai branding
     custom_css <- paste0(
-      "<style>",
-      "#network-viz-container { position: relative; }",
-      "#network-viz-container .vis-network { position: relative; }",
-      "#network-viz-container .network-tooltip { padding: 8px; background: white; border: 1px solid #ddd; border-radius: 4px; }",
-      "#network-viz-container .vis-network-configuration { position: absolute; top: 10px; right: 10px; z-index: 100; background: white; padding: 8px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }",
-      "#network-viz-container .vis-network-configuration select { width: 200px; padding: 4px; border: 1px solid #ddd; border-radius: 4px; }",
-      "</style>"
+      "<style>
+        @import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;700&display=swap');
+        #network-viz-container { 
+          font-family: 'Comfortaa', sans-serif;
+          color: ", vera_colors$dark, ";
+        }
+        #network-viz-container .vis-network { position: relative; }
+        #network-viz-container .network-tooltip { 
+          padding: 8px; 
+          background: white; 
+          border: 1px solid ", vera_colors$green, "; 
+          border-radius: 4px; 
+        }
+        #network-viz-container select { 
+          font-family: 'Comfortaa', sans-serif;
+          border: 1px solid ", vera_colors$green, ";
+          border-radius: 4px;
+          padding: 4px 8px;
+        }
+      </style>"
     )
     
-    # Create the network visualization
+    # Create network visualization
     network <- visNetwork::visNetwork(
       nodes = data$nodes,
       edges = data$edges,
@@ -1395,7 +1405,7 @@ generate_network_visualization <- function(coordination_results,
       height = height,
       main = list(
         text = "Coordinated Account Network",
-        style = "font-family: 'Comfortaa', sans-serif; font-size: 16px; font-weight: bold;"
+        style = paste0("font-family: 'Comfortaa', sans-serif; color: ", vera_colors$dark, "; font-size: 16px; font-weight: bold;")
       )
     ) %>%
       visNetwork::visLayout(randomSeed = seed) %>%
@@ -1408,7 +1418,7 @@ generate_network_visualization <- function(coordination_results,
         selectedBy = list(
           variable = "group",
           main = "Select Network",
-          style = "width: 200px; height: 30px; margin: 8px; border: 1px solid #ddd; border-radius: 4px;"
+          style = paste0("font-family: 'Comfortaa', sans-serif; width: 200px; height: 30px; margin: 8px; border: 1px solid ", vera_colors$green, "; border-radius: 4px;")
         ),
         nodesIdSelection = FALSE
       ) %>%
@@ -1418,25 +1428,39 @@ generate_network_visualization <- function(coordination_results,
           iterations = 100
         )
       ) %>%
-      visNetwork::visEvents(
-        click = "function(params) {
-          if (params.nodes.length > 0) {
-            var nodeId = params.nodes[0];
-            var nodeData = this.body.data.nodes.get(nodeId);
-            if (nodeData.url) {
-              window.open(nodeData.url, '_blank');
-            }
-          }
-        }"
+      visNetwork::visNodes(
+        color = list(
+          background = vera_colors$green,
+          border = vera_colors$dark,
+          highlight = list(
+            background = "#00b485",  # Slightly lighter green for highlight
+            border = vera_colors$dark
+          ),
+          hover = list(
+            background = "#00b485",
+            border = vera_colors$dark
+          )
+        ),
+        font = list(
+          face = "Comfortaa",
+          color = vera_colors$dark
+        ),
+        shadow = TRUE
+      ) %>%
+      visNetwork::visEdges(
+        color = list(
+          color = vera_colors$dark,
+          highlight = vera_colors$green,
+          hover = vera_colors$green
+        ),
+        smooth = list(enabled = TRUE, type = "dynamic")
       ) %>%
       visNetwork::visInteraction(
+        hover = TRUE,
         navigationButtons = TRUE,
-        keyboard = TRUE,
-        dragNodes = TRUE,
-        dragView = TRUE,
-        zoomView = TRUE
+        keyboard = TRUE
       )
-    
+
     # Add container and CSS
     network <- htmlwidgets::onRender(
       network,
@@ -1469,8 +1493,6 @@ generate_network_visualization <- function(coordination_results,
     return(NULL)
   })
 }
-
-```
 
 ```{r generate_visualization, include=FALSE, message=FALSE}
 # Generate the visualization and store it in the global environment
