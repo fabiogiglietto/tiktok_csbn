@@ -1211,27 +1211,25 @@ generate_summary <- function(
 generate_error_summary <- function(global_error_list) {
   # Only generate error summary if there are errors
   if (length(global_error_list) > 0) {
-    # Create warning box
+    # Create warning box with proper newlines and spacing
     warning_box <- sprintf(
-      "::: {.callout-warning}\nWarning: %d errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.\n:::\n\n",
+      "::: {.callout-warning}\n\nWarning: %d errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.\n\n:::\n\n",
       length(global_error_list)
     )
     
-    # Get error types and counts
+    # Rest of the code remains the same
     error_types <- table(sapply(global_error_list, function(x) x$type))
     
-    # Create collapsible error details
     error_parts <- c(
       '<details>',
       '<summary>Error Details</summary>',
-      '\n',  # Important blank line after summary
+      '\n',
       sprintf("**Total errors encountered:** %d\n", length(global_error_list)),
       "### Errors by type:\n",
       paste(capture.output(print(error_types)), collapse="\n"),
       "\n### Sample Errors:\n"
     )
     
-    # Add sample errors
     sample_size <- min(5, length(global_error_list))
     sample_errors <- sample(global_error_list, sample_size)
     error_samples <- sapply(sample_errors, function(error) {
@@ -1240,7 +1238,6 @@ generate_error_summary <- function(global_error_list) {
     
     error_details <- c(error_parts, error_samples, '</details>')
     
-    # Combine warning box and error details
     return(paste(c(warning_box, error_details), collapse = "\n"))
   }
   
@@ -1496,224 +1493,184 @@ if (!is.null(network_viz)) {
 
 ```{r setup_tables, include=FALSE, eval=TRUE}
 
-# Helper function to create TikTok profile URL
-create_tiktok_url <- function(username) {
-  sprintf('<a href="https://tiktok.com/@%s" target="_blank">@%s</a>', username, username)
+# Utility functions
+create_url_link <- function(username, type = "profile") {
+  if (type == "profile") {
+    sprintf('<a href="https://tiktok.com/@%s" target="_blank">@%s</a>', username, username)
+  } else {
+    sprintf('<a href="%s" target="_blank">%s</a>', username, username)
+  }
 }
 
-# 1. Coordinated Accounts Table
-create_accounts_table <- function(summary_accounts, coord_graph, all_videos) {
-  # Calculate network metrics for each account
-  degree_scores <- degree(coord_graph)
-  strength_scores <- strength(coord_graph)
-  betweenness_scores <- betweenness(coord_graph, normalized = TRUE)
-  
-  network_metrics <- data.frame(
-    account_id = names(degree_scores),
-    degree = as.numeric(degree_scores),
-    strength = as.numeric(strength_scores),
-    betweenness = as.numeric(betweenness_scores)
+get_network_label <- function(component, cluster_labels = NULL) {
+  network_id <- sprintf("Network %d", component)
+  if (!is.null(cluster_labels) && component %in% cluster_labels$component) {
+    label <- cluster_labels$label[cluster_labels$component == component]
+    if (!is.na(label) && label != "") {
+      return(sprintf("%s: %s", network_id, label))
+    }
+  }
+  return(network_id)
+}
+
+create_datatable_base <- function(data, pageLength = 10, fontSize = "9px", 
+                                orderCol = NULL, scrollX = TRUE) {
+  options <- list(
+    pageLength = pageLength,
+    scrollX = scrollX,
+    initComplete = JS(sprintf(
+      "function(settings, json) { $(this.api().table().container()).css({'font-size': '%s'}); }",
+      fontSize
+    ))
   )
   
-  # Calculate average engagement metrics per account
-  engagement_metrics <- all_videos %>%
-    group_by(author_name) %>%
+  if (!is.null(orderCol)) {
+    options$order <- list(list(orderCol - 1, 'desc'))  # -1 because JS is 0-based
+  }
+  
+  datatable(data,
+    options = options,
+    escape = FALSE,
+    rownames = FALSE
+  )
+}
+
+get_network_metrics <- function(coord_graph) {
+  list(
+    degree = degree(coord_graph),
+    strength = strength(coord_graph),
+    betweenness = betweenness(coord_graph, normalized = TRUE),
+    components = components(coord_graph)
+  )
+}
+
+get_engagement_metrics <- function(data, group_by_col) {
+  data %>%
+    group_by(!!sym(group_by_col)) %>%
     summarize(
       avg_views = mean(view_count, na.rm = TRUE),
       avg_likes = mean(like_count, na.rm = TRUE),
       avg_comments = mean(comment_count, na.rm = TRUE),
-      avg_shares = mean(share_count, na.rm = TRUE)
+      avg_shares = mean(share_count, na.rm = TRUE),
+      .groups = 'drop'
     )
-  
-  # Get component membership for each account
-  components_df <- data.frame(
-    account_id = V(coord_graph)$name,
-    component = components(coord_graph)$membership
+}
+
+# Main table creation functions
+create_accounts_table <- function(summary_accounts, coord_graph, all_videos) {
+  # Get network metrics
+  network_metrics <- get_network_metrics(coord_graph)
+  metrics_df <- data.frame(
+    account_id = names(network_metrics$degree),
+    degree = as.numeric(network_metrics$degree),
+    strength = as.numeric(network_metrics$strength),
+    betweenness = as.numeric(network_metrics$betweenness)
   )
   
+  # Get engagement metrics
+  engagement_metrics <- get_engagement_metrics(all_videos, "author_name")
+  
+  # Create final table
   accounts_table <- summary_accounts %>%
     mutate(
-      account_link = sapply(account_id, create_tiktok_url)
+      account_link = map_chr(account_id, ~create_url_link(.x, "profile")),
+      component = network_metrics$components$membership[match(account_id, V(coord_graph)$name)]
     ) %>%
-    left_join(network_metrics, by = "account_id") %>%
-    left_join(components_df, by = "account_id") %>%
+    left_join(metrics_df, by = "account_id") %>%
     left_join(engagement_metrics, by = c("account_id" = "author_name")) %>%
-    mutate(
-      avg_time_delta = round(avg_time_delta, 2),
-      avg_edge_symmetry_score = round(avg_edge_symmetry_score, 3),
-      betweenness = round(betweenness, 3),
-      avg_views = round(avg_views, 0),
-      avg_likes = round(avg_likes, 0),
-      avg_comments = round(avg_comments, 0),
-      avg_shares = round(avg_shares, 0)
-    ) %>%
+    mutate(across(where(is.numeric), ~round(.x, 3))) %>%
     select(
       Account = account_link,
       Network = component,
       `Unique Shares` = unique_shares_count,
       `Avg Time Between Shares (sec)` = avg_time_delta,
       `Edge Symmetry Score` = avg_edge_symmetry_score,
-      `Degree` = degree,
-      `Strength` = strength,
-      `Betweenness` = betweenness,
+      Degree = degree,
+      Strength = strength,
+      Betweenness = betweenness,
       `Avg Views` = avg_views,
       `Avg Likes` = avg_likes,
       `Avg Comments` = avg_comments,
       `Avg Shares` = avg_shares
     )
   
-  datatable(accounts_table, 
-    options = list(
-      pageLength = 25, 
-      scrollX = TRUE,
-      order = list(list(5, 'desc')),
-      initComplete = JS(
-        "function(settings, json) {",
-        "  $(this.api().table().container()).css({'font-size': '9px'});",
-        "}")
-    ),
-    escape = FALSE,
-    rownames = FALSE
-  )
+  create_datatable_base(accounts_table, pageLength = 25, orderCol = 6)
 }
 
-# 2. Coordinated Networks/Clusters Table
 create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
-  # Get components
   comp <- components(coord_graph)
   
-  # Calculate cluster-level metrics
-  clusters <- data.frame(
-    component = 1:comp$no,
-    size = tabulate(comp$membership),
-    density = sapply(1:comp$no, function(i) {
-      subg <- induced_subgraph(coord_graph, which(comp$membership == i))
-      edge_density(subg)
-    }),
-    diameter = sapply(1:comp$no, function(i) {
-      subg <- induced_subgraph(coord_graph, which(comp$membership == i))
-      if(vcount(subg) < 2) return(0)
-      diameter(subg)
-    }),
-    transitivity = sapply(1:comp$no, function(i) {
-      subg <- induced_subgraph(coord_graph, which(comp$membership == i))
-      transitivity(subg, type = "global")
-    })
-  )
-  
-  # Calculate average engagement metrics per component
-  engagement_metrics <- all_videos %>%
-    left_join(
-      data.frame(
-        author_name = V(coord_graph)$name,
-        component = components(coord_graph)$membership
-      ),
-      by = "author_name"
-    ) %>%
-    group_by(component) %>%
-    summarize(
-      avg_views = mean(view_count, na.rm = TRUE),
-      avg_likes = mean(like_count, na.rm = TRUE),
-      avg_comments = mean(comment_count, na.rm = TRUE),
-      avg_shares = mean(share_count, na.rm = TRUE)
+  # Calculate cluster metrics
+  cluster_metrics <- map_dfr(1:comp$no, function(i) {
+    subg <- induced_subgraph(coord_graph, which(comp$membership == i))
+    tibble(
+      component = i,
+      size = sum(comp$membership == i),
+      density = edge_density(subg),
+      diameter = if(vcount(subg) < 2) 0 else diameter(subg),
+      transitivity = transitivity(subg, type = "global"),
+      accounts = paste(V(coord_graph)$name[comp$membership == i], collapse = ", ")
     )
+  })
   
-  # Prepare base clusters data frame
-  clusters <- clusters %>%
+  # Get engagement metrics by component
+  engagement_metrics <- all_videos %>%
     mutate(
-      accounts = sapply(1:comp$no, function(i) {
-        paste(V(coord_graph)$name[comp$membership == i], collapse = ", ")
-      })
+      component = comp$membership[match(author_name, V(coord_graph)$name)]
     ) %>%
-    left_join(engagement_metrics, by = "component")
+    get_engagement_metrics("component")
   
-  # Add labels if available
-  if(exists("cluster_labels") && is.data.frame(cluster_labels) && nrow(cluster_labels) > 0) {
-    clusters <- clusters %>%
-      left_join(cluster_labels, by = "component")
-  } else {
-    clusters$label <- NA_character_
-  }
-  
-  # Format final table
-  clusters <- clusters %>%
+  # Create final table
+  clusters <- cluster_metrics %>%
+    left_join(engagement_metrics, by = "component") %>%
     mutate(
-      network_id = sprintf("Network %d", component),
-      network_label = ifelse(!is.na(label) & label != "", 
-                           sprintf("%s: %s", network_id, label),
-                           network_id)
+      Network = map_chr(component, ~get_network_label(.x, get("cluster_labels", envir = .GlobalEnv))),
+      across(where(is.numeric), ~round(.x, 3))
     ) %>%
     select(
-      Network = network_label,
-      "Number of Accounts" = size,
-      "Network Density" = density,
-      "Network Diameter" = diameter,
-      "Clustering Coefficient" = transitivity,
-      "Avg Views" = avg_views,
-      "Avg Likes" = avg_likes,
-      "Avg Comments" = avg_comments,
-      "Avg Shares" = avg_shares,
-      "Member Accounts" = accounts
-    ) %>%
-    mutate(across(where(is.numeric), round, 3))
-
-  # Create the datatable
-  DT::datatable(
-    clusters,
-    escape = FALSE,
-    rownames = FALSE,
-    options = list(
-      pageLength = 10,
-      scrollX = TRUE,
-      initComplete = JS(
-        "function(settings, json) {",
-        "$(this.api().table().container()).css({'font-size': '12px'});",
-        "}"
-      ),
-      columnDefs = list(
-        list(className = 'dt-right', targets = 1:8),
-        list(width = '300px', targets = 0),
-        list(targets = 9, render = JS(
-          "function(data, type, row, meta) {",
-          "return type === 'display' && data.length > 60 ?",
-          "'<span title=\"' + data + '\">' + data.substr(0, 60) + '...</span>' : data;",
-          "}"
-        ))
-      )
+      Network,
+      `Number of Accounts` = size,
+      `Network Density` = density,
+      `Network Diameter` = diameter,
+      `Clustering Coefficient` = transitivity,
+      `Avg Views` = avg_views,
+      `Avg Likes` = avg_likes,
+      `Avg Comments` = avg_comments,
+      `Avg Shares` = avg_shares,
+      `Member Accounts` = accounts
     )
-  )
+  
+  create_datatable_base(clusters, fontSize = "12px") %>%
+    formatStyle(
+      columns = 2:9,
+      className = 'dt-right'
+    ) %>%
+    formatStyle(
+      'Network',
+      width = '300px'
+    )
 }
 
-# 3. Coordinated Posts Table
-create_posts_table <- function(summary_groups, all_videos) {
-  # Helper function to create video link
-  create_video_link <- function(url) {
-    if (!is.na(url)) {
-      sprintf('<a href="%s" target="_blank">%s</a>', url, url)
-    } else {
-      NA_character_
-    }
-  }
+create_posts_table <- function(summary_groups, all_videos, coord_graph) {
+  comp <- components(coord_graph)
   
   posts_table <- summary_groups %>%
     left_join(
       select(all_videos, 
-             video_description, 
-             video_url, 
-             author_name, 
-             create_time,
-             view_count,
-             like_count,
-             comment_count,
-             share_count
+        video_description, video_url, author_name, create_time,
+        view_count, like_count, comment_count, share_count
       ),
       by = c("object_id" = "video_description")
     ) %>%
     mutate(
-      video_link = sapply(video_url, create_video_link)
+      component = comp$membership[match(author_name, V(coord_graph)$name)],
+      network_id = map_chr(component, ~get_network_label(.x, get("cluster_labels", envir = .GlobalEnv))),
+      video_link = map_chr(video_url, ~create_url_link(.x, "video")),
+      Description = paste0(substr(object_id, 1, 150), "...")
     ) %>%
     select(
       `Post URL` = video_link,
+      Network = network_id,
       Author = author_name,
       Timestamp = create_time,
       `Number of Accounts` = num_accounts,
@@ -1721,30 +1678,14 @@ create_posts_table <- function(summary_groups, all_videos) {
       Likes = like_count,
       Comments = comment_count,
       Shares = share_count,
-      Description = object_id
+      Description
     ) %>%
-    distinct() %>%
-    mutate(
-      Description = substr(Description, 1, 150),
-      Description = paste0(Description, "...")
-    )
+    distinct()
   
-  datatable(posts_table,
-    options = list(
-      pageLength = 10,
-      scrollX = TRUE,
-      order = list(list(3, 'desc')),
-      initComplete = JS(
-        "function(settings, json) {",
-        "  $(this.api().table().container()).css({'font-size': '9px'});",
-        "}")
-    ),
-    escape = FALSE,
-    rownames = FALSE
-  )
+  create_datatable_base(posts_table, orderCol = 4)
 }
 
-# Update the main code section where tables are created:
+# Create all tables
 if (exists("coordination_results") && exists("all_videos")) {
   accounts_table <- create_accounts_table(
     coordination_results$summary_accounts, 
@@ -1760,7 +1701,8 @@ if (exists("coordination_results") && exists("all_videos")) {
   
   posts_table <- create_posts_table(
     coordination_results$summary_groups, 
-    all_videos
+    all_videos,
+    coordination_results$coord_graph
   )
 }
 
