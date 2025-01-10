@@ -1,8 +1,8 @@
-We attempted to retrieve videos from **2,959 monitored accounts**, during the period from December 25, 2024 to January 09, 2025. We successfully retrieved **1,112 recent videos**. Using available data, we accessed a total of **3,908 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **16 accounts** spread across **3 components**, and it also uncovered **0 new accounts** exhibiting coordinated behavior. 
+We attempted to retrieve videos from **2,978 monitored accounts**, during the period from December 26, 2024 to January 10, 2025. We successfully retrieved **1,749 recent videos**. Using available data, we accessed a total of **10,641 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **54 accounts** spread across **15 components**, and it also uncovered **19 new accounts** exhibiting coordinated behavior. 
 
  ::: {.callout-warning}
 
-Warning: 206 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+Warning: 233 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
 
 :::
 
@@ -11,37 +11,39 @@ Warning: 206 errors were encountered during execution. Results may be incomplete
 <summary>Error Details</summary>
 
 
-**Total errors encountered:** 206
+**Total errors encountered:** 233
 
 ### Errors by type:
 
 
             chunk_error description_query_error             empty_chunk 
-                     30                     172                       4 
+                     24                     156                       4 
+       pagination_error 
+                     49 
 
 ### Sample Errors:
 
+- **Type:** pagination_error, **Message:** HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7458105981714158638 is invalid or expired
+• log_id: 20250110022139C7DF11995B5C09284FEA
 - **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
 • status: daily_quota_limit_exceeded
 • message: The API daily quota limit exceeded. Please try again later
-• log_id: 202501090732059ABACBDFF4CD48304C6A
+• log_id: 20250110022807217106B1F5E84A2E4072
 - **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
 • status: daily_quota_limit_exceeded
 • message: The API daily quota limit exceeded. Please try again later
-• log_id: 2025010907325874EFFB879B6166308422
-- **Type:** description_query_error, **Message:** HTTP 504 Gateway Timeout.
+• log_id: 20250110022557845CE5FEC6C92527E41B
+- **Type:** chunk_error, **Message:** HTTP 504 Gateway Timeout.
 • status: Error
 • message: An error occurred while processing your request.
 
-Reference #221.9d84655f.1736390778.39749e18
+Reference #221.8684655f.1736471293.6f08949b
 
-https://errors.edgesuite.net/221.9d84655f.1736390778.39749e18
+https://errors.edgesuite.net/221.8684655f.1736471293.6f08949b
 - **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
 • status: daily_quota_limit_exceeded
 • message: The API daily quota limit exceeded. Please try again later
-• log_id: 2025010907312273B64C8443FA263AE22A
-- **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
-• status: daily_quota_limit_exceeded
-• message: The API daily quota limit exceeded. Please try again later
-• log_id: 202501090733365C8A887D5362CF308A85
+• log_id: 20250110022639465BCC91D1AFB9252272
 </details>
