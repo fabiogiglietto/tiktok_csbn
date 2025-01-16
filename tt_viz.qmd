@@ -805,60 +805,59 @@ generate_cluster_labels <- function(coordination_results, all_videos) {
     paste(content_parts, collapse = "\n\n")
   }
   
-  # Function to get label from OpenAI
-  get_cluster_label <- function(content, retries = 3) {
-    system_prompt <- "You are a researcher analyzing coordinated behavior on TikTok. 
+# Function to get label from OpenAI
+get_cluster_label <- function(content, retries = 3) {
+  system_prompt <- "You are a researcher analyzing coordinated behavior on TikTok. 
 Your task is to generate a concise (maximum 10 words), descriptive label in English that 
 captures the main theme or characteristic of the content shared by a cluster of TikTok accounts.
 Focus on the primary topic, political alignment (if evident), or content style that unifies these accounts.
 The label should be factual and neutral in tone."
     
-    user_prompt <- sprintf("Analyze the following content from a cluster of TikTok accounts and 
+  user_prompt <- sprintf("Analyze the following content from a cluster of TikTok accounts and 
 generate a concise label that describes their shared characteristics:
 
 %s
 
 Label:", content)
     
-    for (attempt in 1:retries) {
-      tryCatch({
-        response <- httr::POST(
-          url = "https://api.openai.com/v1/chat/completions",
-          httr::add_headers(
-            "Content-Type" = "application/json",
-            "Authorization" = paste("Bearer", Sys.getenv("OPENAI_VERAAI_API_KEY")),
-            "OpenAI-Organization" = Sys.getenv("OPENAI_VERAAI_ORG_ID")
+  for (attempt in 1:retries) {
+    tryCatch({
+      response <- httr::POST(
+        url = "https://api.openai.com/v1/chat/completions",
+        httr::add_headers(
+          "Content-Type" = "application/json",
+          "Authorization" = paste("Bearer", Sys.getenv("OPENAI_VERAAI_API_KEY")),
+          "OpenAI-Organization" = Sys.getenv("OPENAI_VERAAI_ORG_ID")
+        ),
+        body = list(
+          model = params$ai_model,
+          messages = list(
+            list(role = "system", content = system_prompt),
+            list(role = "user", content = user_prompt)
           ),
-          body = list(
-            model = params$ai_model,
-            messages = list(
-              list(role = "system", content = system_prompt),
-              list(role = "user", content = user_prompt)
-            ),
-            temperature = 0,
-            max_tokens = 50
-          ),
-          encode = "json"
-        )
+          temperature = 0,
+          max_tokens = 50
+        ),
+        encode = "json"
+      )
         
-        if (httr::status_code(response) == 200) {
-          content <- httr::content(response)
-          return(content$choices[[1]]$message$content)
-        } else {
-          log_warn(sprintf("Attempt %d failed with status code %d: %s", 
-                         attempt, 
-                         httr::status_code(response),
-                         httr::content(response, "text")))
-        }
-      }, error = function(e) {
-        log_warn(sprintf("Attempt %d failed: %s", attempt, conditionMessage(e)))
-      })
+      if (httr::status_code(response) == 200) {
+        content <- httr::content(response)
+        return(content$choices[[1]]$message$content)
+      } else {
+        status_code <- httr::status_code(response)
+        log_warn(sprintf("API request attempt %d failed (status: %d)", 
+                       attempt, status_code))
+      }
+    }, error = function(e) {
+      log_warn(sprintf("Attempt %d failed: %s", attempt, conditionMessage(e)))
+    })
       
-      if (attempt < retries) Sys.sleep(2^attempt)
-    }
-    
-    return("Failed to generate label")
+    if (attempt < retries) Sys.sleep(2^attempt)
   }
+    
+  return("Failed to generate label")
+}
   
   # Get number of components
   num_components <- components(coordination_results$coord_graph)$no
