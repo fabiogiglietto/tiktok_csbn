@@ -159,6 +159,8 @@ params:
   edge_weight: 0.5
   days_back: 15
   ai_model: "chatgpt-4o-latest"
+  openai_key: "default"
+  openai_org: "default"
 ---
 
 # Introduction
@@ -764,14 +766,36 @@ if (exists("all_videos") && is.data.frame(all_videos) && nrow(all_videos) > 0) {
 
 ```{r label_clusters, include=FALSE, message=FALSE}
 
+# Function to get OpenAI credentials
+get_openai_credentials <- function(custom_key = NULL, custom_org = NULL) {
+  if (!is.null(custom_key) && custom_key != "default") {
+    return(list(
+      api_key = custom_key,
+      org_id = if (!is.null(custom_org) && custom_org != "default") custom_org else Sys.getenv("OPENAI_VERAAI_ORG_ID")
+    ))
+  }
+  return(list(
+    api_key = Sys.getenv("OPENAI_VERAAI_API_KEY"),
+    org_id = Sys.getenv("OPENAI_VERAAI_ORG_ID")
+  ))
+}
+
 # Function to generate cluster labels using OpenAI API
 generate_cluster_labels <- function(coordination_results, all_videos) {
+  # Get credentials using the custom key if provided
+  credentials <- get_openai_credentials(params$openai_key, params$openai_org)
   
   # Check for API credentials
-  if (Sys.getenv("OPENAI_VERAAI_API_KEY") == "" || Sys.getenv("OPENAI_VERAAI_ORG_ID") == "") {
-    log_warn("OpenAI VERAAI credentials not set")
+  if (credentials$api_key == "" || credentials$org_id == "") {
+    log_warn("OpenAI credentials not set")
     return(NULL)
   }
+  
+  credentials <- get_openai_credentials(params$openai_key, params$openai_org)
+  log_info(sprintf("Using API key: %s...", substr(credentials$api_key, 1, 5)))
+  log_info(sprintf("Using org ID: %s", credentials$org_id))
+  log_info(sprintf("Model: %s", params$ai_model))
+  log_info(sprintf("Request URL: %s", "https://api.openai.com/v1/chat/completions"))
   
   # Function to get cluster content
   get_cluster_content <- function(cluster_id, max_videos = 20) {
@@ -805,59 +829,59 @@ generate_cluster_labels <- function(coordination_results, all_videos) {
     paste(content_parts, collapse = "\n\n")
   }
   
-# Function to get label from OpenAI
-get_cluster_label <- function(content, retries = 3) {
-  system_prompt <- "You are a researcher analyzing coordinated behavior on TikTok. 
+  # Function to get label from OpenAI
+  get_cluster_label <- function(content, retries = 3) {
+    system_prompt <- "You are a researcher analyzing coordinated behavior on TikTok. 
 Your task is to generate a concise (maximum 10 words), descriptive label in English that 
 captures the main theme or characteristic of the content shared by a cluster of TikTok accounts.
 Focus on the primary topic, political alignment (if evident), or content style that unifies these accounts.
 The label should be factual and neutral in tone."
     
-  user_prompt <- sprintf("Analyze the following content from a cluster of TikTok accounts and 
+    user_prompt <- sprintf("Analyze the following content from a cluster of TikTok accounts and 
 generate a concise label that describes their shared characteristics:
 
 %s
 
 Label:", content)
     
-  for (attempt in 1:retries) {
-    tryCatch({
-      response <- httr::POST(
-        url = "https://api.openai.com/v1/chat/completions",
-        httr::add_headers(
-          "Content-Type" = "application/json",
-          "Authorization" = paste("Bearer", Sys.getenv("OPENAI_VERAAI_API_KEY")),
-          "OpenAI-Organization" = Sys.getenv("OPENAI_VERAAI_ORG_ID")
-        ),
-        body = list(
-          model = params$ai_model,
-          messages = list(
-            list(role = "system", content = system_prompt),
-            list(role = "user", content = user_prompt)
+    for (attempt in 1:retries) {
+      tryCatch({
+        response <- httr::POST(
+          url = "https://api.openai.com/v1/chat/completions",
+          httr::add_headers(
+            "Content-Type" = "application/json",
+            "Authorization" = paste("Bearer", credentials$api_key),
+            "OpenAI-Organization" = credentials$org_id
           ),
-          temperature = 0,
-          max_tokens = 50
-        ),
-        encode = "json"
-      )
+          body = list(
+            model = params$ai_model,
+            messages = list(
+              list(role = "system", content = system_prompt),
+              list(role = "user", content = user_prompt)
+            ),
+            temperature = 0,
+            max_tokens = 50
+          ),
+          encode = "json"
+        )
         
-      if (httr::status_code(response) == 200) {
-        content <- httr::content(response)
-        return(content$choices[[1]]$message$content)
-      } else {
-        status_code <- httr::status_code(response)
-        log_warn(sprintf("API request attempt %d failed (status: %d)", 
-                       attempt, status_code))
-      }
-    }, error = function(e) {
-      log_warn(sprintf("Attempt %d failed: %s", attempt, conditionMessage(e)))
-    })
+        if (httr::status_code(response) == 200) {
+          content <- httr::content(response)
+          return(content$choices[[1]]$message$content)
+        } else {
+          status_code <- httr::status_code(response)
+          log_warn(sprintf("API request attempt %d failed (status: %d)", 
+                         attempt, status_code))
+        }
+      }, error = function(e) {
+        log_warn(sprintf("Attempt %d failed: %s", attempt, conditionMessage(e)))
+      })
       
-    if (attempt < retries) Sys.sleep(2^attempt)
-  }
+      if (attempt < retries) Sys.sleep(2^attempt)
+    }
     
-  return("Failed to generate label")
-}
+    return("Failed to generate label")
+  }
   
   # Get number of components
   num_components <- components(coordination_results$coord_graph)$no
@@ -905,9 +929,10 @@ Label:", content)
 # Generate labels if we have coordination results
 if (exists("coordination_results") && 
     !is.null(coordination_results$coord_graph) && 
-    Sys.getenv("OPENAI_VERAAI_API_KEY") != "" &&
-    Sys.getenv("OPENAI_VERAAI_ORG_ID") != "") {
-    
+    (
+      (params$openai_key != "default" && params$openai_org != "default") ||
+      (Sys.getenv("OPENAI_VERAAI_API_KEY") != "" && Sys.getenv("OPENAI_VERAAI_ORG_ID") != "")
+    )) {
   log_info("Starting cluster labeling")
   cluster_labels <- generate_cluster_labels(coordination_results, all_videos)
   
