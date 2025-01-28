@@ -1,0 +1,127 @@
+timestamp,type,message
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464733933591565358 is invalid or expired
+• log_id: 20250128000129CAB83317B3AE9D6E1FB0"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464749487223739434 is invalid or expired
+• log_id: 20250128000143CAB83317B3AE9D6E238D"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464749487223772202 is invalid or expired
+• log_id: 20250128000150CAB83317B3AE9D6E25DF"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Invalid count or cursor
+• log_id: 20250128000219CAB83317B3AE9D6E2F0A"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464749799321900075 is invalid or expired
+• log_id: 20250128000227CAB83317B3AE9D6E315D"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464749799321981995 is invalid or expired
+• log_id: 20250128000233CAB83317B3AE9D6E32D5"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464749799322047531 is invalid or expired
+• log_id: 20250128000239CAB83317B3AE9D6E33DF"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464749799322113067 is invalid or expired
+• log_id: 20250128000245F7E806DB34AA47703187"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464749799322178603 is invalid or expired
+• log_id: 202501280002515E47B66090EEB86E8F26"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464749987239334954 is invalid or expired
+• log_id: 2025012800025976A1E438578D4E703B53"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464749987239416874 is invalid or expired
+• log_id: 20250128000306F7E806DB34AA4770373A"
+2025-01-28,empty_chunk,no message
+2025-01-28,empty_chunk,no message
+2025-01-28,empty_chunk,no message
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464750576950219819 is invalid or expired
+• log_id: 20250128000519B26D4DE33C4CD5703D17"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464750576950285355 is invalid or expired
+• log_id: 20250128000526339E85F49E0B1A6EE136"
+2025-01-28,empty_chunk,no message
+2025-01-28,empty_chunk,no message
+2025-01-28,empty_chunk,no message
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464750661020718122 is invalid or expired
+• log_id: 202501280005516A410A035EDAA46EDF40"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464750661020767274 is invalid or expired
+• log_id: 202501280005570CB8004C652D946E3BE0"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464751505271264298 is invalid or expired
+• log_id: 2025012800085880232FE1F425196E97BD"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464751866136794154 is invalid or expired
+• log_id: 202501280010510A5920F348946F703A5F"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464752455864210475 is invalid or expired
+• log_id: 202501280012553403E4D8CD73996F02C2"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464752455864243243 is invalid or expired
+• log_id: 20250128001301169F40C78281AA651205"
+2025-01-28,description_query_error,"HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Server Internal Error
+• log_id: 20250128001516585FAD00D4009F709F11"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464752764896449578 is invalid or expired
+• log_id: 2025012800155203050E616AAE347EF52D"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464753316975842350 is invalid or expired
+• log_id: 2025012800161003050E616AAE347EFA88"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464753670886954027 is invalid or expired
+• log_id: 2025012800170083DB970110984F6E2FF7"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464753823494050862 is invalid or expired
+• log_id: 202501280017576C2CE25FF71ECE6FB894"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464753960076071982 is invalid or expired
+• log_id: 20250128001850021CC4E87D36AD7113E3"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464754100077417515 is invalid or expired
+• log_id: 20250128001912DF7558E877ACA171B900"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464754418098115626 is invalid or expired
+• log_id: 202501280020411E37859AE7741E6F71F5"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464755831263777838 is invalid or expired
+• log_id: 2025012800254154E5DF08C75CE272D8E2"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464755831263843374 is invalid or expired
+• log_id: 2025012800254874229E39D7F6186FF039"
+2025-01-28,pagination_error,"HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7464755831264171054 is invalid or expired
+• log_id: 202501280026110688BA71CD651771312D"
