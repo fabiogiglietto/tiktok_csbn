@@ -1,8 +1,8 @@
-We attempted to retrieve videos from **3,084 monitored accounts**, during the period from January 17, 2025 to February 01, 2025. We successfully retrieved **3,017 recent videos**. Using available data, we accessed a total of **6,092 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **36 accounts** spread across **11 components**, and it also uncovered **7 new accounts** exhibiting coordinated behavior. 
+We attempted to retrieve videos from **3,084 monitored accounts**, during the period from January 18, 2025 to February 02, 2025. We successfully retrieved **2,896 recent videos**. Using available data, we accessed a total of **5,519 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **30 accounts** spread across **8 components**, and it also uncovered **0 new accounts** exhibiting coordinated behavior. 
 
  ::: {.callout-warning}
 
-Warning: 108 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+Warning: 93 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
 
 :::
 
@@ -11,36 +11,34 @@ Warning: 108 errors were encountered during execution. Results may be incomplete
 <summary>Error Details</summary>
 
 
-**Total errors encountered:** 108
+**Total errors encountered:** 93
 
 ### Errors by type:
 
 
-            chunk_error description_query_error             empty_chunk 
-                      1                      55                       4 
-       pagination_error 
-                     48 
+description_query_error             empty_chunk        pagination_error 
+                     35                       4                      54 
 
 ### Sample Errors:
 
 - **Type:** pagination_error, **Message:** HTTP 400 Bad Request.
 • status: invalid_params
-• message: Search Id 7466235013383083054 is invalid or expired
-• log_id: 20250201000816E72C7A787DC7DFB6EBA1
+• message: Search Id 7466605369163322410 is invalid or expired
+• log_id: 20250202000302EA20511CB013A2DD292F
 - **Type:** pagination_error, **Message:** HTTP 400 Bad Request.
 • status: invalid_params
-• message: Search Id 7466239795983832110 is invalid or expired
-• log_id: 20250201002412D7C4C96E1B8F9FCC2EB3
+• message: Search Id 7466604856854484014 is invalid or expired
+• log_id: 20250202000127E5B48F0C08CB71F6916F
 - **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
 • status: daily_quota_limit_exceeded
 • message: The API daily quota limit exceeded. Please try again later
-• log_id: 202502010038175E8A0A572E6AADB86E13
+• log_id: 20250202003522CB01CC8B5248B3F76130
 - **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
 • status: daily_quota_limit_exceeded
 • message: The API daily quota limit exceeded. Please try again later
-• log_id: 20250201003755F3AE964CAE2240CA7F59
+• log_id: 20250202003508A043170DB20171F98179
 - **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
 • status: daily_quota_limit_exceeded
 • message: The API daily quota limit exceeded. Please try again later
-• log_id: 202502010036285B92F24270B163B6AECA
+• log_id: 20250202003453785B5C61DEBB02E03BED
 </details>
