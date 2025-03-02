@@ -479,7 +479,18 @@ if (exists("coord_users")) {
 
 # Function to get videos for a specific description
 get_videos_by_description <- function(desc, start_date, end_date) {
-  log_info("Starting query for a description")
+  # Sanitize description for logging by escaping curly braces
+  # This prevents glue parser errors while keeping the description content in logs
+  log_safe_desc <- gsub("\\{", "{{", gsub("\\}", "}}", desc))
+  
+  # Truncate for display if too long
+  log_display_desc <- if(nchar(log_safe_desc) > 100) {
+    paste0(substr(log_safe_desc, 1, 100), "...")
+  } else {
+    log_safe_desc
+  }
+  
+  log_info(sprintf("Querying for description: %s", log_display_desc))
   
   tryCatch({
     # First try with max_pages = 1 to ensure we get at least the first page
@@ -495,14 +506,8 @@ get_videos_by_description <- function(desc, start_date, end_date) {
         max_pages = 1
       )
     
-    # Log using video_id instead of description
-    if (is.data.frame(chunk_result) && nrow(chunk_result) > 0) {
-      sample_video_id <- chunk_result$video_id[1]
-      log_info(sprintf("Retrieved first page with %d results (sample video_id: %s)", 
-                      nrow(chunk_result), sample_video_id))
-    } else {
-      log_info(sprintf("Retrieved first page with 0 results"))
-    }
+    log_info(sprintf("Retrieved first page with %d results for description: %s", 
+                    nrow(chunk_result), log_display_desc))
     
     # Try to get more pages, but catch pagination errors
     tryCatch({
@@ -529,7 +534,7 @@ get_videos_by_description <- function(desc, start_date, end_date) {
         log_warn("Pagination failed with 400 error - keeping first page results")
         global_error_list <<- c(global_error_list, list(list(
           type = "pagination_error",
-          query_type = "description",
+          description = log_safe_desc,
           message = e$message
         )))
       } else {
@@ -540,9 +545,11 @@ get_videos_by_description <- function(desc, start_date, end_date) {
     return(chunk_result)
     
   }, error = function(e) {
-    log_error(sprintf("Error querying description: %s", conditionMessage(e)))
+    log_error(sprintf("Error querying description '%s': %s", 
+                     log_display_desc, conditionMessage(e)))
     global_error_list <<- c(global_error_list, list(list(
       type = "description_query_error",
+      description = log_safe_desc,
       message = e$message
     )))
     return(data.frame())
@@ -552,92 +559,92 @@ get_videos_by_description <- function(desc, start_date, end_date) {
 # Main function to fetch all videos with matching descriptions
 fetch_all_videos <- function(recent_videos, start_date, end_date) {
  
-  # Get unique descriptions that are long enough to be meaningful
-  unique_descriptions <- unique(recent_videos$video_description[nchar(recent_videos$video_description) >= 80])
-  
-  # Log the total count without including any descriptions
-  log_info(sprintf("Found %d unique descriptions to query", length(unique_descriptions)))
-  
-  # Initialize progress bar
-  pb <- progress_bar$new(
-    format = "[:bar] :percent :etas",
-    total = length(unique_descriptions),
-    clear = FALSE
-  )
-  
-  # Initialize results
-  all_results <- data.frame()
-  
-  # Process each description
-  for (desc in unique_descriptions) {
-    # Get videos for this description
-    videos <- get_videos_by_description(desc, start_date, end_date)
-    
-    # Add results if any
-    if (is.data.frame(videos) && nrow(videos) > 0) {
-      all_results <- bind_rows(all_results, videos)
-      
-      # Use video_ids for logging instead of descriptions
-      sample_ids <- if(nrow(videos) > 3) {
-        paste(videos$video_id[1:3], collapse=", ")
-      } else {
-        paste(videos$video_id, collapse=", ")
-      }
-      
-      log_info(sprintf("Added %d videos (sample video_ids: %s)", 
-                     nrow(videos), sample_ids))
-    }
-    
-    # Update progress bar
-    pb$tick()
-    
-    # Add delay between requests
-    Sys.sleep(2)
-  }
-  
-  # Process the combined data
-  if (nrow(all_results) > 0) {
-    final_results <- all_results %>%
-      mutate(
-        region_code = toupper(region_code),
-        video_url = paste0("https://www.tiktok.com/@", author_name, "/video/", video_id)
-      ) %>%
-      filter(!is.na(video_description) & video_description != "") %>%
-      distinct()
-    
-    # Log summary
-    log_info(sprintf("\nCollection completed:"))
-    log_info(sprintf("Total videos collected: %d", nrow(final_results)))
-    log_info(sprintf("Unique users: %d", n_distinct(final_results$author_name)))
-    log_info(sprintf("Unique descriptions: %d", n_distinct(final_results$video_description)))
-    
-    # Create output directory if it doesn't exist
-    output_dir <- file.path(params$base_dir, "output")
-    dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
-    
-    # Save results
-    output_file <- file.path(output_dir, "latest_snapshot.csv")
-    daily_output_file <- file.path(daily_output_dir, "daily_snapshot.csv")
-    write_csv(final_results, output_file)
-    write_csv(final_results, daily_output_file)
-    log_info(sprintf("Results saved to %s", output_file))
-    
-    return(final_results)
-  } else {
-    log_warn("No results found")
-    return(data.frame())
-  }
+ # Get unique descriptions that are long enough to be meaningful
+ unique_descriptions <- unique(recent_videos$video_description[nchar(recent_videos$video_description) >= 80])
+ 
+ # Safely log the count without any description content that might have braces
+ log_info(sprintf("Found %d unique descriptions to query", length(unique_descriptions)))
+ 
+ # Initialize progress bar
+ pb <- progress_bar$new(
+   format = "[:bar] :percent :etas",
+   total = length(unique_descriptions),
+   clear = FALSE
+ )
+ 
+ # Initialize results
+ all_results <- data.frame()
+ 
+ # Process each description
+ for (desc in unique_descriptions) {
+   # Get videos for this description
+   videos <- get_videos_by_description(desc, start_date, end_date)
+   
+   # Add results if any
+   if (is.data.frame(videos) && nrow(videos) > 0) {
+     all_results <- bind_rows(all_results, videos)
+     
+     # Sanitize description for logging
+     log_safe_desc <- gsub("\\{", "{{", gsub("\\}", "}}", desc))
+     log_display_desc <- if(nchar(log_safe_desc) > 50) {
+       paste0(substr(log_safe_desc, 1, 50), "...")
+     } else {
+       log_safe_desc
+     }
+     
+     log_info(sprintf("Added %d videos for description: %s", nrow(videos), log_display_desc))
+   }
+   
+   # Update progress bar
+   pb$tick()
+   
+   # Add delay between requests
+   Sys.sleep(2)
+ }
+ 
+ # Process the combined data
+ if (nrow(all_results) > 0) {
+   final_results <- all_results %>%
+     mutate(
+       region_code = toupper(region_code),
+       video_url = paste0("https://www.tiktok.com/@", author_name, "/video/", video_id)
+     ) %>%
+     filter(!is.na(video_description) & video_description != "") %>%
+     distinct()
+   
+   # Log summary
+   log_info(sprintf("\nCollection completed:"))
+   log_info(sprintf("Total videos collected: %d", nrow(final_results)))
+   log_info(sprintf("Unique users: %d", n_distinct(final_results$author_name)))
+   log_info(sprintf("Unique descriptions: %d", n_distinct(final_results$video_description)))
+   
+   # Create output directory if it doesn't exist
+   output_dir <- file.path(params$base_dir, "output")
+   dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
+   
+   # Save results
+   output_file <- file.path(output_dir, "latest_snapshot.csv")
+   daily_output_file <- file.path(daily_output_dir, "daily_snapshot.csv")
+   write_csv(final_results, output_file)
+   write_csv(final_results, daily_output_file)
+   log_info(sprintf("Results saved to %s", output_file))
+   
+   return(final_results)
+ } else {
+   log_warn("No results found")
+   return(data.frame())
+ }
 }
 
 # Execute if we have recent_videos
 if (exists("recent_videos") && is.data.frame(recent_videos) && nrow(recent_videos) > 0) {
-  log_info("Starting to fetch all videos with matching descriptions")
-  all_videos <- fetch_all_videos(recent_videos, startdate, enddate)
-  
-  # Assign to global environment
-  assign("all_videos", all_videos, envir = .GlobalEnv)
+ log_info("Starting to fetch all videos with matching descriptions")
+ all_videos <- fetch_all_videos(recent_videos, startdate, enddate)
+ 
+ # Assign to global environment
+ assign("all_videos", all_videos, envir = .GlobalEnv)
 } else {
-  log_warn("No recent_videos found or empty dataset")
+ log_warn("No recent_videos found or empty dataset")
 }
 
 ```
