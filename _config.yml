@@ -9,7 +9,11 @@ defaults:
     values:
       render_with_liquid: false
 
-# Exclude directories with network visualizations from Jekyll processing
+# Exclude directories and files from Jekyll processing
 exclude:
   - "daily/*/network"
-  - "**/*_network.html"
+  - "daily/*/network/coordination_network.html"
+  - "**/coordination_network.html"
+  - ".git"
+  - ".github"
+  - "**/.DS_Store"
