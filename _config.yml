@@ -8,3 +8,8 @@ defaults:
       path: "**/*.html"
     values:
       render_with_liquid: false
+
+# Exclude directories with network visualizations from Jekyll processing
+exclude:
+  - "daily/*/network"
+  - "**/*_network.html"
