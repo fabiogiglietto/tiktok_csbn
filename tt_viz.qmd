@@ -478,69 +478,81 @@ if (exists("coord_users")) {
 
 # Function to get videos for a specific description
 get_videos_by_description <- function(desc, start_date, end_date) {
- log_info(sprintf("Querying for description: %s", desc))
- 
- tryCatch({
-   # First try with max_pages = 1 to ensure we get at least the first page
-   chunk_result <- query() |>
-     query_and(
-       field_name = "keyword",
-       operation = "EQ",
-       field_values = list(desc)  # Wrap in list to ensure proper handling
-     ) |>
-     tt_search_api(
-       start_date = start_date,
-       end_date = end_date,
-       max_pages = 1
-     )
-   
-   log_info(sprintf("Retrieved first page with %d results for description: %s", 
-                   nrow(chunk_result), desc))
-   
-   # Try to get more pages, but catch pagination errors
-   tryCatch({
-     full_results <- query() |>
-       query_and(
-         field_name = "keyword",
-         operation = "EQ",
-         field_values = list(desc)  # Wrap in list here too
-       ) |>
-       tt_search_api(
-         start_date = start_date,
-         end_date = end_date,
-         max_pages = 100
-       )
-     
-     # If pagination succeeded, use the full results
-     if (is.data.frame(full_results) && nrow(full_results) > 0) {
-       chunk_result <- full_results
-       log_info(sprintf("Successfully retrieved all pages with %d total results", 
-                       nrow(chunk_result)))
-     }
-   }, error = function(e) {
-     if (grepl("400|invalid_params|Search Id.*invalid or expired", e$message)) {
-       log_warn("Pagination failed with 400 error - keeping first page results")
-       global_error_list <<- c(global_error_list, list(list(
-         type = "pagination_error",
-         description = desc,
-         message = e$message
-       )))
-     } else {
-       log_error(sprintf("Unexpected error during pagination: %s", conditionMessage(e)))
-     }
-   })
-   
-   return(chunk_result)
-   
- }, error = function(e) {
-   log_error(sprintf("Error querying description '%s': %s", desc, conditionMessage(e)))
-   global_error_list <<- c(global_error_list, list(list(
-     type = "description_query_error",
-     description = desc,
-     message = e$message
-   )))
-   return(data.frame())
- })
+  # Sanitize description for logging by escaping curly braces
+  # This prevents glue parser errors while keeping the description content in logs
+  log_safe_desc <- gsub("\\{", "{{", gsub("\\}", "}}", desc))
+  
+  # Truncate for display if too long
+  log_display_desc <- if(nchar(log_safe_desc) > 100) {
+    paste0(substr(log_safe_desc, 1, 100), "...")
+  } else {
+    log_safe_desc
+  }
+  
+  log_info(sprintf("Querying for description: %s", log_display_desc))
+  
+  tryCatch({
+    # First try with max_pages = 1 to ensure we get at least the first page
+    chunk_result <- query() |>
+      query_and(
+        field_name = "keyword",
+        operation = "EQ",
+        field_values = list(desc)  # Wrap in list to ensure proper handling
+      ) |>
+      tt_search_api(
+        start_date = start_date,
+        end_date = end_date,
+        max_pages = 1
+      )
+    
+    log_info(sprintf("Retrieved first page with %d results for description: %s", 
+                    nrow(chunk_result), log_display_desc))
+    
+    # Try to get more pages, but catch pagination errors
+    tryCatch({
+      full_results <- query() |>
+        query_and(
+          field_name = "keyword",
+          operation = "EQ",
+          field_values = list(desc)  # Wrap in list here too
+        ) |>
+        tt_search_api(
+          start_date = start_date,
+          end_date = end_date,
+          max_pages = 100
+        )
+      
+      # If pagination succeeded, use the full results
+      if (is.data.frame(full_results) && nrow(full_results) > 0) {
+        chunk_result <- full_results
+        log_info(sprintf("Successfully retrieved all pages with %d total results", 
+                        nrow(chunk_result)))
+      }
+    }, error = function(e) {
+      if (grepl("400|invalid_params|Search Id.*invalid or expired", e$message)) {
+        log_warn("Pagination failed with 400 error - keeping first page results")
+        global_error_list <<- c(global_error_list, list(list(
+          type = "pagination_error",
+          description = log_safe_desc,
+          message = e$message
+        )))
+      } else {
+        log_error(sprintf("Unexpected error during pagination: %s", conditionMessage(e)))
+      }
+    })
+    
+    return(chunk_result)
+    
+  }, error = function(e) {
+    log_error(sprintf("Error querying description '%s': %s", 
+                     log_display_desc, conditionMessage(e)))
+    global_error_list <<- c(global_error_list, list(list(
+      type = "description_query_error",
+      description = log_safe_desc,
+      message = e$message
+    )))
+    return(data.frame())
+  })
 }
 
 # Main function to fetch all videos with matching descriptions
@@ -549,6 +561,7 @@ fetch_all_videos <- function(recent_videos, start_date, end_date) {
  # Get unique descriptions that are long enough to be meaningful
  unique_descriptions <- unique(recent_videos$video_description[nchar(recent_videos$video_description) >= 80])
  
+ # Safely log the count without any description content that might have braces
  log_info(sprintf("Found %d unique descriptions to query", length(unique_descriptions)))
  
  # Initialize progress bar
@@ -569,7 +582,16 @@ fetch_all_videos <- function(recent_videos, start_date, end_date) {
    # Add results if any
    if (is.data.frame(videos) && nrow(videos) > 0) {
      all_results <- bind_rows(all_results, videos)
-     log_info(sprintf("Added %d videos for description: %s", nrow(videos), substr(desc, 1, 50)))
+     
+     # Sanitize description for logging
+     log_safe_desc <- gsub("\\{", "{{", gsub("\\}", "}}", desc))
+     log_display_desc <- if(nchar(log_safe_desc) > 50) {
+       paste0(substr(log_safe_desc, 1, 50), "...")
+     } else {
+       log_safe_desc
+     }
+     
+     log_info(sprintf("Added %d videos for description: %s", nrow(videos), log_display_desc))
    }
    
    # Update progress bar
