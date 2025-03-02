@@ -1,0 +1,26 @@
+# Create a _config.yml file to disable Liquid processing for specific files
+# This is a simple solution that tells Jekyll not to process certain files with Liquid
+
+# Save this as _config.yml in your GitHub repository root
+# or in the gh-pages branch if you're using that
+
+# Disable Liquid processing for specific files
+exclude:
+  - vendor
+  - Gemfile
+  - Gemfile.lock
+
+# Configure Jekyll processing
+defaults:
+  - scope:
+      path: "tt_viz.qmd"
+    values:
+      render_with_liquid: false
+  - scope:
+      path: "tt_viz.html"
+    values:
+      render_with_liquid: false
+
+# General site settings
+title: TikTok Coordinated Detection Project
+description: Analysis of coordinated activities on TikTok
