@@ -187,7 +187,6 @@ This approach ensures continuous updates on the number of newly discovered coord
 By delineating these processes, the proof of concept underscores the potential for advanced analytical tools to reveal and understand the complex phenomena of coordinated social media behavior within the context of significant societal events.
 
 ```{r setup, include=FALSE, message=FALSE}
-
 # Set working directory
 setwd(params$base_dir)
 
@@ -238,7 +237,21 @@ request_access_token <- function() {
   })
 }
 
-# Main setup function
+# Add new function to create daily directory
+create_daily_output_dir <- function() {
+  today_date <- format(Sys.Date(), "%Y-%m-%d")
+  daily_dir <- file.path(params$base_dir, "output", "daily", today_date)
+  dir.create(daily_dir, showWarnings = FALSE, recursive = TRUE)
+  
+  # Create subdirectories for different types of output
+  dir.create(file.path(daily_dir, "coordination"), showWarnings = FALSE)
+  dir.create(file.path(daily_dir, "network"), showWarnings = FALSE)
+  dir.create(file.path(daily_dir, "summary"), showWarnings = FALSE)
+  
+  return(daily_dir)
+}
+
+# Main setup function - ONLY ONE DEFINITION
 setup <- function() {
   credentials <- get_tiktok_credentials()
   
@@ -276,7 +289,8 @@ setup <- function() {
   
   coord_users <- unique(account_ids$x)
   enddate <- Sys.Date()
-  startdate <- enddate - 15
+  # Use the days_back parameter instead of hardcoded value
+  startdate <- enddate - params$days_back
   
   # Create a list of values to return but don't include params
   setup_values <- list(
@@ -293,32 +307,17 @@ setup <- function() {
   }
 }
 
-# Add new function to create daily directory
-create_daily_output_dir <- function() {
-  today_date <- format(Sys.Date(), "%Y-%m-%d")
-  daily_dir <- file.path(params$base_dir, "output", "daily", today_date)
-  dir.create(daily_dir, showWarnings = FALSE, recursive = TRUE)
-  
-  # Create subdirectories for different types of output
-  dir.create(file.path(daily_dir, "coordination"), showWarnings = FALSE)
-  dir.create(file.path(daily_dir, "network"), showWarnings = FALSE)
-  dir.create(file.path(daily_dir, "summary"), showWarnings = FALSE)
-  
-  return(daily_dir)
-}
-
 # Create daily directory
 daily_output_dir <- create_daily_output_dir()
 
-# Run setup directly
+# Run setup directly - THIS LINE IS CRUCIAL
 setup()
-
 ```
 
 ```{r fetch_recent_videos, include=FALSE, message=FALSE, eval=!params$load_from_snapshot}
 
-# Function to get videos using traktok package
-get_recent_videos <- function(usernames, start_date, end_date, chunk_size = 50) {
+# Function to get videos using traktok package with a single request per chunk approach
+get_recent_videos <- function(usernames, start_date, end_date, chunk_size = 50, max_pages = 10) {
   # Split usernames into chunks
   username_chunks <- split(usernames, ceiling(seq_along(usernames) / chunk_size))
   total_chunks <- length(username_chunks)
@@ -326,7 +325,6 @@ get_recent_videos <- function(usernames, start_date, end_date, chunk_size = 50) 
   # Initialize results
   all_results <- data.frame()
   failure_count <- 0
-  incomplete_count <- 0
   
   # Create progress bar
   pb <- progress_bar$new(
@@ -335,7 +333,7 @@ get_recent_videos <- function(usernames, start_date, end_date, chunk_size = 50) 
     clear = FALSE
   )
   
-  # Process each chunk
+  # Process each chunk with a single request approach
   for (i in seq_along(username_chunks)) {
     log_info(sprintf("Processing chunk %d of %d", i, total_chunks))
     
@@ -343,7 +341,7 @@ get_recent_videos <- function(usernames, start_date, end_date, chunk_size = 50) 
     chunk <- as.character(unlist(username_chunks[i]))
     
     tryCatch({
-      # First try with max_pages = 1 to ensure we get at least the first page
+      # Make a single request with the specified max_pages
       chunk_result <- query() |>
         query_and(
           field_name = "username",
@@ -353,52 +351,20 @@ get_recent_videos <- function(usernames, start_date, end_date, chunk_size = 50) 
         tt_search_api(
           start_date = start_date,
           end_date = end_date,
-          max_pages = 1
+          max_pages = max_pages,
+          verbose = TRUE,
+          fields = "all"
         )
       
-      log_info(sprintf("Retrieved first page with %d results for chunk %d", 
-                      nrow(chunk_result), i))
-      
-      # Try to get more pages, but catch pagination errors
-      tryCatch({
-        full_results <- query() |>
-          query_and(
-            field_name = "username",
-            operation = "IN",
-            field_values = chunk
-          ) |>
-          tt_search_api(
-            start_date = start_date,
-            end_date = end_date,
-            max_pages = 100
-          )
-        
-        # If pagination succeeded, use the full results
-        if (is.data.frame(full_results) && nrow(full_results) > 0) {
-          chunk_result <- full_results
-          log_info(sprintf("Successfully retrieved all pages with %d total results", 
-                          nrow(chunk_result)))
-        }
-      }, error = function(e) {
-        if (grepl("400|invalid_params|Search Id.*invalid or expired", e$message)) {
-          log_warn("Pagination failed with 400 error - keeping first page results")
-          incomplete_count <- incomplete_count + 1
-          global_error_list <<- c(global_error_list, list(list(
-            type = "pagination_error",
-            chunk = i,
-            message = e$message
-          )))
-        } else {
-          log_error(sprintf("Unexpected error during pagination: %s", conditionMessage(e)))
-        }
-      })
-      
-      # Add results to main dataframe
+      # Log success
       if (is.data.frame(chunk_result) && nrow(chunk_result) > 0) {
+        log_info(sprintf("Successfully retrieved %d videos from chunk %d", 
+                       nrow(chunk_result), i))
+        
+        # Add results to main dataframe
         all_results <- bind_rows(all_results, chunk_result)
-        log_info(sprintf("Added %d videos from chunk %d to final results", 
-                        nrow(chunk_result), i))
       } else {
+        log_info(sprintf("No videos found for chunk %d", i))
         failure_count <- failure_count + 1
         global_error_list <<- c(global_error_list, list(list(
           type = "empty_chunk",
@@ -406,7 +372,6 @@ get_recent_videos <- function(usernames, start_date, end_date, chunk_size = 50) 
           usernames = chunk
         )))
       }
-      
     }, error = function(e) {
       log_error(sprintf("Error in chunk %d: %s", i, conditionMessage(e)))
       log_error(sprintf("Usernames in failed chunk: %s", paste(chunk, collapse = ", ")))
@@ -422,13 +387,13 @@ get_recent_videos <- function(usernames, start_date, end_date, chunk_size = 50) 
     # Update progress bar
     pb$tick()
     
-    # Add a small delay between chunks
+    # Add a small delay between chunks to avoid rate limits
     Sys.sleep(2)
   }
   
   # Final summary
-  summary_msg <- sprintf("\nCollection completed:\n- Total videos: %d\n- Failed chunks: %d/%d\n- Incomplete chunks: %d/%d",
-                        nrow(all_results), failure_count, total_chunks, incomplete_count, total_chunks)
+  summary_msg <- sprintf("\nCollection completed:\n- Total videos: %d\n- Failed chunks: %d/%d",
+                       nrow(all_results), failure_count, total_chunks)
   log_info(summary_msg)
   
   if (nrow(all_results) > 0) {
@@ -443,7 +408,6 @@ get_recent_videos <- function(usernames, start_date, end_date, chunk_size = 50) 
     summary = list(
       total_videos = nrow(all_results),
       failed_chunks = failure_count,
-      incomplete_chunks = incomplete_count,
       total_chunks = total_chunks
     )
   ))
@@ -456,7 +420,8 @@ fetch_recent_videos <- function() {
     recent_videos_result <- get_recent_videos(
       usernames = coord_users,
       start_date = startdate,
-      end_date = enddate
+      end_date = enddate,
+      max_pages = 10  # Fixed to 10 pages as requested
     )
     recent_videos <- recent_videos_result$data
     log_info(sprintf("Video collection completed with %d videos", nrow(recent_videos)))
@@ -477,9 +442,174 @@ if (exists("coord_users")) {
 
 ```{r fetch_all_videos, include=FALSE, message=FALSE, eval=!params$load_from_snapshot}
 
-# Function to get videos for a specific description
+# Function to batch process descriptions and get videos
+batch_fetch_videos <- function(descriptions, start_date, end_date, batch_size = 5, max_pages = 10) {
+  log_info("Starting batched description queries with batch size %d", batch_size)
+  
+  # Split descriptions into batches
+  batches <- split(descriptions, ceiling(seq_along(descriptions)/batch_size))
+  
+  log_info("Created %d batches from %d unique descriptions", length(batches), length(descriptions))
+  
+  # Initialize progress bar
+  pb <- progress_bar$new(
+    format = "[:bar] :percent :etas",
+    total = length(batches),
+    clear = FALSE
+  )
+  
+  # Initialize results
+  all_results <- data.frame()
+  
+  # Process each batch
+  for (i in seq_along(batches)) {
+    current_batch <- batches[[i]]
+    batch_count <- length(current_batch)
+    
+    log_info(sprintf("Processing batch %d/%d with %d descriptions", 
+                    i, length(batches), batch_count))
+    
+    if (batch_count == 0) next
+    
+    # Try batch query if more than one description
+    if (batch_count > 1) {
+      tryCatch({
+        # Build OR conditions for each description
+        query_obj <- query()
+        
+        # Add OR conditions for each description
+        or_conditions <- list()
+        for (desc in current_batch) {
+          or_conditions <- c(or_conditions, list(
+            list(
+              field_name = "keyword",
+              operation = "EQ",
+              field_values = list(desc)
+            )
+          ))
+        }
+        
+        # Set the OR conditions in the query
+        query_obj$query$or <- or_conditions
+        
+        # Execute batch query - first try with one page
+        log_info(sprintf("Executing batch query for %d descriptions", batch_count))
+        batch_first_page <- tt_search_api(
+          query_obj,
+          start_date = start_date,
+          end_date = end_date,
+          max_pages = 1,
+          verbose = TRUE
+        )
+        
+        # If first page successful, try to get more pages
+        if (is.data.frame(batch_first_page) && nrow(batch_first_page) > 0) {
+          log_info(sprintf("Batch query first page returned %d videos", nrow(batch_first_page)))
+          
+          # Try to get more pages
+          batch_results <- batch_first_page  # Default to first page results
+          
+          tryCatch({
+            # Try to get more pages
+            full_results <- tt_search_api(
+              query_obj,
+              start_date = start_date,
+              end_date = end_date,
+              max_pages = max_pages,
+              verbose = TRUE
+            )
+            
+            # If successful, use full results
+            if (is.data.frame(full_results) && nrow(full_results) > 0) {
+              batch_results <- full_results
+              log_info(sprintf("Successfully retrieved all pages with %d total videos", 
+                              nrow(batch_results)))
+            }
+          }, error = function(e) {
+            if (grepl("400|invalid_params|Search Id.*invalid or expired", e$message)) {
+              log_warn("Pagination failed with 400 error - keeping first page results")
+              global_error_list <<- c(global_error_list, list(list(
+                type = "batch_pagination_error",
+                batch = i,
+                message = e$message
+              )))
+            } else {
+              log_error(sprintf("Unexpected error during batch pagination: %s", conditionMessage(e)))
+            }
+          })
+          
+          # Add batch results to all results
+          all_results <- bind_rows(all_results, batch_results)
+          
+          # Log success with sample video IDs
+          sample_ids <- if(nrow(batch_results) > 3) {
+            paste(batch_results$video_id[1:3], collapse=", ")
+          } else if(nrow(batch_results) > 0) {
+            paste(batch_results$video_id, collapse=", ")
+          } else {
+            "none"
+          }
+          
+          log_info(sprintf("Added %d videos from batch (sample video_ids: %s)", 
+                          nrow(batch_results), sample_ids))
+        } else {
+          log_info("Batch query returned no results")
+        }
+      }, error = function(e) {
+        log_warn(sprintf("Batch query failed: %s - falling back to individual queries", 
+                        conditionMessage(e)))
+        global_error_list <<- c(global_error_list, list(list(
+          type = "batch_query_error",
+          batch = i,
+          message = e$message
+        )))
+        # No need for explicit fallback - we'll process all descriptions that didn't return results below
+      })
+    }
+    
+    # For any descriptions that didn't return results in the batch query, process individually
+    # Use a set to track which descriptions have been found in all_results
+    found_descriptions <- unique(all_results$video_description)
+    
+    for (desc in current_batch) {
+      # Only query if this description isn't already in our results
+      if (!desc %in% found_descriptions) {
+        log_info(sprintf("Individual query for: %s...", substr(desc, 1, 30)))
+        videos <- get_videos_by_description(desc, start_date, end_date)
+        
+        # Add results if any
+        if (is.data.frame(videos) && nrow(videos) > 0) {
+          all_results <- bind_rows(all_results, videos)
+          
+          # Use video_ids for logging instead of descriptions
+          sample_ids <- if(nrow(videos) > 3) {
+            paste(videos$video_id[1:3], collapse=", ")
+          } else {
+            paste(videos$video_id, collapse=", ")
+          }
+          
+          log_info(sprintf("Added %d videos from individual query (sample video_ids: %s)", 
+                          nrow(videos), sample_ids))
+        }
+        
+        # Add small delay between individual requests
+        Sys.sleep(0.5)
+      }
+    }
+    
+    # Update progress bar
+    pb$tick()
+    
+    # Pause between batches
+    Sys.sleep(1)
+  }
+  
+  return(all_results)
+}
+
+# Keep the existing get_videos_by_description function for individual queries
 get_videos_by_description <- function(desc, start_date, end_date) {
-  log_info("Starting query for a description")
+  log_info(sprintf("Starting individual query for description: %s...", substr(desc, 1, 30)))
   
   tryCatch({
     # First try with max_pages = 1 to ensure we get at least the first page
@@ -487,7 +617,7 @@ get_videos_by_description <- function(desc, start_date, end_date) {
       query_and(
         field_name = "keyword",
         operation = "EQ",
-        field_values = list(desc)  # Wrap in list to ensure proper handling
+        field_values = list(desc)
       ) |>
       tt_search_api(
         start_date = start_date,
@@ -510,12 +640,12 @@ get_videos_by_description <- function(desc, start_date, end_date) {
         query_and(
           field_name = "keyword",
           operation = "EQ",
-          field_values = list(desc)  # Wrap in list here too
+          field_values = list(desc)
         ) |>
         tt_search_api(
           start_date = start_date,
           end_date = end_date,
-          max_pages = 100
+          max_pages = 10  # Reduced from 100 to be more conservative
         )
       
       # If pagination succeeded, use the full results
@@ -551,49 +681,20 @@ get_videos_by_description <- function(desc, start_date, end_date) {
 
 # Main function to fetch all videos with matching descriptions
 fetch_all_videos <- function(recent_videos, start_date, end_date) {
- 
   # Get unique descriptions that are long enough to be meaningful
   unique_descriptions <- unique(recent_videos$video_description[nchar(recent_videos$video_description) >= 80])
   
   # Log the total count without including any descriptions
   log_info(sprintf("Found %d unique descriptions to query", length(unique_descriptions)))
   
-  # Initialize progress bar
-  pb <- progress_bar$new(
-    format = "[:bar] :percent :etas",
-    total = length(unique_descriptions),
-    clear = FALSE
+  # Process descriptions in batches
+  all_results <- batch_fetch_videos(
+    unique_descriptions, 
+    start_date, 
+    end_date,
+    batch_size = 5,
+    max_pages = 10
   )
-  
-  # Initialize results
-  all_results <- data.frame()
-  
-  # Process each description
-  for (desc in unique_descriptions) {
-    # Get videos for this description
-    videos <- get_videos_by_description(desc, start_date, end_date)
-    
-    # Add results if any
-    if (is.data.frame(videos) && nrow(videos) > 0) {
-      all_results <- bind_rows(all_results, videos)
-      
-      # Use video_ids for logging instead of descriptions
-      sample_ids <- if(nrow(videos) > 3) {
-        paste(videos$video_id[1:3], collapse=", ")
-      } else {
-        paste(videos$video_id, collapse=", ")
-      }
-      
-      log_info(sprintf("Added %d videos (sample video_ids: %s)", 
-                     nrow(videos), sample_ids))
-    }
-    
-    # Update progress bar
-    pb$tick()
-    
-    # Add delay between requests
-    Sys.sleep(2)
-  }
   
   # Process the combined data
   if (nrow(all_results) > 0) {
