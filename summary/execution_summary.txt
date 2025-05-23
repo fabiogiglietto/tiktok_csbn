@@ -1,8 +1,8 @@
-We attempted to retrieve videos from **3,743 monitored accounts**, during the period from May 15, 2025 to May 22, 2025. We successfully retrieved **11,092 recent videos**. Using available data, we accessed a total of **10,976 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **50 accounts** spread across **16 components**, and it also uncovered **14 new accounts** exhibiting coordinated behavior. 
+We attempted to retrieve videos from **3,746 monitored accounts**, during the period from May 16, 2025 to May 23, 2025. We successfully retrieved **9,804 recent videos**. Using available data, we accessed a total of **8,624 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **10 accounts** spread across **4 components**, and it also uncovered **3 new accounts** exhibiting coordinated behavior. 
 
  ::: {.callout-warning}
 
-Warning: 624 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+Warning: 527 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
 
 :::
 
@@ -11,34 +11,36 @@ Warning: 624 errors were encountered during execution. Results may be incomplete
 <summary>Error Details</summary>
 
 
-**Total errors encountered:** 624
+**Total errors encountered:** 527
 
 ### Errors by type:
 
 
-      batch_query_error description_query_error             empty_chunk 
-                    157                     436                      31 
+      batch_query_error             chunk_error description_query_error 
+                    141                       3                     351 
+            empty_chunk 
+                     32 
 
 ### Sample Errors:
 
-- **Type:** batch_query_error, **Message:** HTTP 400 Bad Request.
-• status: invalid_params
-• message: `query` must have one of [`and_conditions`, `or_conditions`, `not_conditions`]
-• log_id: 2025052200163917EF1DB2E7C3F5037601
 - **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
 • status: daily_quota_limit_exceeded
 • message: The API daily quota limit exceeded. Please try again later
-• log_id: 20250522003354D8C10E9EF1AB4C04FEEF
+• log_id: 20250523003002CD92334A4EC8BC049D30
+- **Type:** chunk_error, **Message:** HTTP 429 Too Many Requests.
+• status: rate_limit_exceeded
+• message: The API rate limit exceeded. Please try again later.
+• log_id: 20250523000842879CA5743FF5780391BC
+- **Type:** batch_query_error, **Message:** HTTP 429 Too Many Requests.
+• status: daily_quota_limit_exceeded
+• message: The API daily quota limit exceeded. Please try again later
+• log_id: 2025052300312406453852163A1905286E
 - **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
 • status: daily_quota_limit_exceeded
 • message: The API daily quota limit exceeded. Please try again later
-• log_id: 20250522003535A279294117160305D64C
-- **Type:** batch_query_error, **Message:** HTTP 400 Bad Request.
-• status: invalid_params
-• message: `query` must have one of [`and_conditions`, `or_conditions`, `not_conditions`]
-• log_id: 20250522001803574881CD053A64049D34
+• log_id: 20250523003153F64CB63DD8E346045B8D
 - **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
 • status: daily_quota_limit_exceeded
 • message: The API daily quota limit exceeded. Please try again later
-• log_id: 202505220029041B1ABF347999C404B60D
+• log_id: 2025052300263895FD60A4B593B704640E
 </details>
