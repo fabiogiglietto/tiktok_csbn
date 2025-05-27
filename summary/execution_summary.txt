@@ -1,8 +1,8 @@
-We attempted to retrieve videos from **3,774 monitored accounts**, during the period from May 19, 2025 to May 26, 2025. We successfully retrieved **11,915 recent videos**. Using available data, we accessed a total of **8,819 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **13 accounts** spread across **5 components**, and it also uncovered **4 new accounts** exhibiting coordinated behavior. 
+We attempted to retrieve videos from **3,777 monitored accounts**, during the period from May 20, 2025 to May 27, 2025. We successfully retrieved **12,029 recent videos**. Using available data, we accessed a total of **11,001 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **12 accounts** spread across **5 components**, and it also uncovered **3 new accounts** exhibiting coordinated behavior. 
 
  ::: {.callout-warning}
 
-Warning: 616 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+Warning: 577 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
 
 :::
 
@@ -11,34 +11,34 @@ Warning: 616 errors were encountered during execution. Results may be incomplete
 <summary>Error Details</summary>
 
 
-**Total errors encountered:** 616
+**Total errors encountered:** 577
 
 ### Errors by type:
 
 
       batch_query_error description_query_error             empty_chunk 
-                    155                     433                      28 
+                    147                     402                      28 
 
 ### Sample Errors:
 
 - **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
 • status: daily_quota_limit_exceeded
 • message: The API daily quota limit exceeded. Please try again later
-• log_id: 20250526002721C3FF1C3D2269A297B83E
+• log_id: 20250527003442E7883049216DB32C0180
 - **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
 • status: daily_quota_limit_exceeded
 • message: The API daily quota limit exceeded. Please try again later
-• log_id: 20250526003238B99B15C39E4F129697C6
-- **Type:** batch_query_error, **Message:** HTTP 400 Bad Request.
-• status: invalid_params
-• message: `query` must have one of [`and_conditions`, `or_conditions`, `not_conditions`]
-• log_id: 20250526002029906053C99CB0DA8A4CD1
+• log_id: 20250527003159C07AE658F9C4C52C278A
 - **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
 • status: daily_quota_limit_exceeded
 • message: The API daily quota limit exceeded. Please try again later
-• log_id: 20250526002704A902128CB89E7F8AB870
+• log_id: 2025052700320004B9467CC5EB97312BC8
 - **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
 • status: daily_quota_limit_exceeded
 • message: The API daily quota limit exceeded. Please try again later
-• log_id: 20250526002554C6E1ABF8A62CC1888714
+• log_id: 20250527003418D6E6DAF824C5C12C8A2B
+- **Type:** description_query_error, **Message:** HTTP 429 Too Many Requests.
+• status: daily_quota_limit_exceeded
+• message: The API daily quota limit exceeded. Please try again later
+• log_id: 20250527003215C07AE658F9C4C52C2C0A
 </details>
