@@ -1,6 +1,2 @@
 timestamp,type,message
-2025-06-01,daily_quota_exceeded,"HTTP 429 Too Many Requests.
-• status: daily_quota_limit_exceeded
-• message: The API daily quota limit exceeded. Please try again later
-• log_id: 20250601071556F4368A6AB3743B77BBBB"
-2025-06-01,chunk_error,Daily quota exceeded
+2025-06-01,coordinated_detection,"Column 1 of j's result for the first group is NULL. We rely on the column types of the first result to decide the type expected for the remaining groups (and require consistency). NULL columns are acceptable for later groups (and those are replaced with NA of appropriate type and recycled) but not for the first. Please use a typed empty vector instead, such as integer() or numeric()."

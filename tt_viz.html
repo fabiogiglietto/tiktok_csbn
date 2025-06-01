@@ -265,25 +265,23 @@ body {
 </section>
 <section id="today-results" class="level1" data-number="2">
 <h1 data-number="2"><span class="header-section-number">2</span> Today Results</h1>
-<p>Execution Summary: We attempted to retrieve videos from <strong>3,870 monitored accounts</strong>, during the period from May 25, 2025 to June 01, 2025. We were unable to retrieve any recent videos due to API issues. No videos were available for analysis. We were unable to perform coordinated detection analysis due to insufficient data.</p>
+<p>Execution Summary: We attempted to retrieve videos from <strong>3,870 monitored accounts</strong>, during the period from May 25, 2025 to June 01, 2025. We were unable to retrieve any recent videos due to API issues. Using available data, we accessed a total of <strong>2,718 videos</strong> posted on TikTok within the timeframe. We were unable to perform coordinated detection analysis due to insufficient data.</p>
 <p>::: {.callout-warning}</p>
-<p>Warning: 2 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.</p>
+<p>Warning: 1 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.</p>
 <p>:::</p>
 <details>
 <summary>
 Error Details
 </summary>
-<p><strong>Total errors encountered:</strong> 2</p>
+<p><strong>Total errors encountered:</strong> 1</p>
 <section id="errors-by-type" class="level3" data-number="2.0.1">
 <h3 data-number="2.0.1" class="anchored" data-anchor-id="errors-by-type"><span class="header-section-number">2.0.1</span> Errors by type:</h3>
-<pre><code>     chunk_error daily_quota_exceeded 
-               1                    1 </code></pre>
+<p>coordinated_detection 1</p>
 </section>
 <section id="sample-errors" class="level3" data-number="2.0.2">
 <h3 data-number="2.0.2" class="anchored" data-anchor-id="sample-errors"><span class="header-section-number">2.0.2</span> Sample Errors:</h3>
 <ul>
-<li><strong>Type:</strong> daily_quota_exceeded, <strong>Message:</strong> HTTP 429 Too Many Requests. • status: daily_quota_limit_exceeded • message: The API daily quota limit exceeded. Please try again later • log_id: 20250601071556F4368A6AB3743B77BBBB</li>
-<li><strong>Type:</strong> chunk_error, <strong>Message:</strong> Daily quota exceeded</li>
+<li><strong>Type:</strong> coordinated_detection, <strong>Message:</strong> Column 1 of j’s result for the first group is NULL. We rely on the column types of the first result to decide the type expected for the remaining groups (and require consistency). NULL columns are acceptable for later groups (and those are replaced with NA of appropriate type and recycled) but not for the first. Please use a typed empty vector instead, such as integer() or numeric().</li>
 </ul>
 </section></details>
 <div class="cell">
@@ -318,8 +316,8 @@ Error Details
 <div class="cell">
 <div class="cell-output-display">
 
-<div class="datatables html-widget html-fill-item" id="htmlwidget-957969dbca60a46e1f4a" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-957969dbca60a46e1f4a">{"x":{"filter":"none","vertical":false,"data":[["No coordination analysis was performed due to insufficient data"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","columnDefs":[{"name":"Status","targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-17edd39ff5e011603266" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-17edd39ff5e011603266">{"x":{"filter":"none","vertical":false,"data":[["No coordination analysis was performed due to insufficient data"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","columnDefs":[{"name":"Status","targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
 </div>
 </div>
 </section>
@@ -328,8 +326,8 @@ Error Details
 <div class="cell">
 <div class="cell-output-display">
 
-<div class="datatables html-widget html-fill-item" id="htmlwidget-c467866aefa90d182543" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-c467866aefa90d182543">{"x":{"filter":"none","vertical":false,"data":[["No coordination networks were detected"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","columnDefs":[{"name":"Status","targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-c6e16c3bcd248e72da21" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-c6e16c3bcd248e72da21">{"x":{"filter":"none","vertical":false,"data":[["No coordination networks were detected"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","columnDefs":[{"name":"Status","targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
 </div>
 </div>
 </section>
@@ -338,8 +336,8 @@ Error Details
 <div class="cell">
 <div class="cell-output-display">
 
-<div class="datatables html-widget html-fill-item" id="htmlwidget-80bd3559bf88ef08b9e4" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-80bd3559bf88ef08b9e4">{"x":{"filter":"none","vertical":false,"data":[["No coordinated posts were identified"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","columnDefs":[{"name":"Status","targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-436c4ff88af9dd65fcb1" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-436c4ff88af9dd65fcb1">{"x":{"filter":"none","vertical":false,"data":[["No coordinated posts were identified"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","columnDefs":[{"name":"Status","targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
 </div>
 </div>
 <div class="cell">
@@ -398,24 +396,23 @@ other attached packages:
 [21] tidyverse_2.0.0   
 
 loaded via a namespace (and not attached):
- [1] gtable_0.3.4        bslib_0.6.1         xfun_0.42          
- [4] httr2_1.1.0         htmlwidgets_1.6.4   tzdb_0.4.0         
- [7] crosstalk_1.2.1     vctrs_0.6.5         tools_4.3.3        
-[10] generics_0.1.3      curl_6.2.1          parallel_4.3.3     
-[13] pkgconfig_2.0.3     data.table_1.16.4   tidytable_0.11.2   
-[16] lifecycle_1.0.4     compiler_4.3.3      farver_2.1.1       
-[19] munsell_0.5.0       sass_0.4.8          yaml_2.3.8         
-[22] jquerylib_0.1.4     pillar_1.10.1       crayon_1.5.3       
-[25] ellipsis_0.3.2      openssl_2.3.2       cachem_1.1.0       
-[28] tidyselect_1.2.1    digest_0.6.34       stringi_1.8.4      
-[31] labeling_0.4.3      fastmap_1.2.0       grid_4.3.3         
-[34] colorspace_2.1-0    cli_3.6.4           magrittr_2.0.3     
-[37] RcppSimdJson_0.1.11 withr_3.0.2         prettyunits_1.2.0  
-[40] rappdirs_0.3.3      bit64_4.0.5         timechange_0.3.0   
-[43] rmarkdown_2.25      bit_4.0.5           askpass_1.2.1      
-[46] hms_1.1.3           evaluate_0.23       knitr_1.45         
-[49] rlang_1.1.5         Rcpp_1.0.14         glue_1.8.0         
-[52] rstudioapi_0.15.0   vroom_1.6.5         R6_2.6.1           </code></pre>
+ [1] gtable_0.3.4        xfun_0.42           bslib_0.6.1        
+ [4] htmlwidgets_1.6.4   tzdb_0.4.0          vctrs_0.6.5        
+ [7] tools_4.3.3         crosstalk_1.2.1     generics_0.1.3     
+[10] parallel_4.3.3      pkgconfig_2.0.3     data.table_1.16.4  
+[13] tidytable_0.11.2    lifecycle_1.0.4     compiler_4.3.3     
+[16] farver_2.1.1        munsell_0.5.0       sass_0.4.8         
+[19] yaml_2.3.8          pillar_1.10.1       crayon_1.5.3       
+[22] jquerylib_0.1.4     ellipsis_0.3.2      cachem_1.1.0       
+[25] tidyselect_1.2.1    digest_0.6.34       stringi_1.8.4      
+[28] labeling_0.4.3      fastmap_1.2.0       grid_4.3.3         
+[31] colorspace_2.1-0    cli_3.6.4           magrittr_2.0.3     
+[34] RcppSimdJson_0.1.11 withr_3.0.2         prettyunits_1.2.0  
+[37] bit64_4.0.5         timechange_0.3.0    rmarkdown_2.25     
+[40] bit_4.0.5           hms_1.1.3           evaluate_0.23      
+[43] knitr_1.45          rlang_1.1.5         Rcpp_1.0.14        
+[46] glue_1.8.0          rstudioapi_0.15.0   vroom_1.6.5        
+[49] R6_2.6.1           </code></pre>
 </div>
 </div>
 </section>

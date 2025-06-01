@@ -1,8 +1,8 @@
-We attempted to retrieve videos from **3,870 monitored accounts**, during the period from May 25, 2025 to June 01, 2025. We were unable to retrieve any recent videos due to API issues. No videos were available for analysis. We were unable to perform coordinated detection analysis due to insufficient data. 
+We attempted to retrieve videos from **3,870 monitored accounts**, during the period from May 25, 2025 to June 01, 2025. We were unable to retrieve any recent videos due to API issues. Using available data, we accessed a total of **2,718 videos** posted on TikTok within the timeframe. We were unable to perform coordinated detection analysis due to insufficient data. 
 
  ::: {.callout-warning}
 
-Warning: 2 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+Warning: 1 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
 
 :::
 
@@ -11,19 +11,15 @@ Warning: 2 errors were encountered during execution. Results may be incomplete. 
 <summary>Error Details</summary>
 
 
-**Total errors encountered:** 2
+**Total errors encountered:** 1
 
 ### Errors by type:
 
 
-         chunk_error daily_quota_exceeded 
-                   1                    1 
+coordinated_detection 
+                    1 
 
 ### Sample Errors:
 
-- **Type:** daily_quota_exceeded, **Message:** HTTP 429 Too Many Requests.
-• status: daily_quota_limit_exceeded
-• message: The API daily quota limit exceeded. Please try again later
-• log_id: 20250601071556F4368A6AB3743B77BBBB
-- **Type:** chunk_error, **Message:** Daily quota exceeded
+- **Type:** coordinated_detection, **Message:** Column 1 of j's result for the first group is NULL. We rely on the column types of the first result to decide the type expected for the remaining groups (and require consistency). NULL columns are acceptable for later groups (and those are replaced with NA of appropriate type and recycled) but not for the first. Please use a typed empty vector instead, such as integer() or numeric().
 </details>
