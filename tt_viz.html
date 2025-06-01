@@ -203,8 +203,6 @@ body {
   <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction"><span class="toc-section-number">1</span>  Introduction</a></li>
   <li><a href="#today-results" id="toc-today-results" class="nav-link" data-scroll-target="#today-results"><span class="toc-section-number">2</span>  Today Results</a>
   <ul class="collapse">
-  <li><a href="#errors-by-type" id="toc-errors-by-type" class="nav-link" data-scroll-target="#errors-by-type"><span class="toc-section-number">2.0.1</span>  Errors by type:</a></li>
-  <li><a href="#sample-errors" id="toc-sample-errors" class="nav-link" data-scroll-target="#sample-errors"><span class="toc-section-number">2.0.2</span>  Sample Errors:</a></li>
   <li><a href="#interactive-graph-visualization" id="toc-interactive-graph-visualization" class="nav-link" data-scroll-target="#interactive-graph-visualization"><span class="toc-section-number">2.1</span>  Interactive Graph Visualization</a></li>
   <li><a href="#detailed-tables" id="toc-detailed-tables" class="nav-link" data-scroll-target="#detailed-tables"><span class="toc-section-number">2.2</span>  Detailed Tables</a></li>
   <li><a href="#coordination-analysis-results" id="toc-coordination-analysis-results" class="nav-link" data-scroll-target="#coordination-analysis-results"><span class="toc-section-number">2.3</span>  Coordination Analysis Results</a>
@@ -266,24 +264,6 @@ body {
 <section id="today-results" class="level1" data-number="2">
 <h1 data-number="2"><span class="header-section-number">2</span> Today Results</h1>
 <p>Execution Summary: We attempted to retrieve videos from <strong>3,870 monitored accounts</strong>, during the period from May 25, 2025 to June 01, 2025. We were unable to retrieve any recent videos due to API issues. Using available data, we accessed a total of <strong>2,718 videos</strong> posted on TikTok within the timeframe. We were unable to perform coordinated detection analysis due to insufficient data.</p>
-<p>::: {.callout-warning}</p>
-<p>Warning: 1 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.</p>
-<p>:::</p>
-<details>
-<summary>
-Error Details
-</summary>
-<p><strong>Total errors encountered:</strong> 1</p>
-<section id="errors-by-type" class="level3" data-number="2.0.1">
-<h3 data-number="2.0.1" class="anchored" data-anchor-id="errors-by-type"><span class="header-section-number">2.0.1</span> Errors by type:</h3>
-<p>coordinated_detection 1</p>
-</section>
-<section id="sample-errors" class="level3" data-number="2.0.2">
-<h3 data-number="2.0.2" class="anchored" data-anchor-id="sample-errors"><span class="header-section-number">2.0.2</span> Sample Errors:</h3>
-<ul>
-<li><strong>Type:</strong> coordinated_detection, <strong>Message:</strong> Column 1 of j’s result for the first group is NULL. We rely on the column types of the first result to decide the type expected for the remaining groups (and require consistency). NULL columns are acceptable for later groups (and those are replaced with NA of appropriate type and recycled) but not for the first. Please use a typed empty vector instead, such as integer() or numeric().</li>
-</ul>
-</section></details>
 <div class="cell">
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
@@ -294,7 +274,6 @@ Error Details
 </div>
 </div>
 </div>
-</section>
 <section id="interactive-graph-visualization" class="level2" data-number="2.1">
 <h2 data-number="2.1" class="anchored" data-anchor-id="interactive-graph-visualization"><span class="header-section-number">2.1</span> Interactive Graph Visualization</h2>
 <div class="cell">
@@ -316,8 +295,8 @@ Error Details
 <div class="cell">
 <div class="cell-output-display">
 
-<div class="datatables html-widget html-fill-item" id="htmlwidget-d49aaca70fc29bfe9bf2" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-d49aaca70fc29bfe9bf2">{"x":{"filter":"none","vertical":false,"data":[["No coordination analysis was performed due to insufficient data"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","columnDefs":[{"name":"Status","targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-abc36372bc8eba6a98e9" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-abc36372bc8eba6a98e9">{"x":{"filter":"none","vertical":false,"data":[["No coordination analysis was performed due to insufficient data"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","columnDefs":[{"name":"Status","targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
 </div>
 </div>
 </section>
@@ -326,8 +305,8 @@ Error Details
 <div class="cell">
 <div class="cell-output-display">
 
-<div class="datatables html-widget html-fill-item" id="htmlwidget-377e3dd52e9cc4efeb38" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-377e3dd52e9cc4efeb38">{"x":{"filter":"none","vertical":false,"data":[["No coordination networks were detected"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","columnDefs":[{"name":"Status","targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-205dc65bb5127dccddb5" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-205dc65bb5127dccddb5">{"x":{"filter":"none","vertical":false,"data":[["No coordination networks were detected"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","columnDefs":[{"name":"Status","targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
 </div>
 </div>
 </section>
@@ -336,8 +315,8 @@ Error Details
 <div class="cell">
 <div class="cell-output-display">
 
-<div class="datatables html-widget html-fill-item" id="htmlwidget-acc0180b2ced3ae5931b" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-acc0180b2ced3ae5931b">{"x":{"filter":"none","vertical":false,"data":[["No coordinated posts were identified"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","columnDefs":[{"name":"Status","targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-f5c6823addba29e04978" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-f5c6823addba29e04978">{"x":{"filter":"none","vertical":false,"data":[["No coordinated posts were identified"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Status<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","columnDefs":[{"name":"Status","targets":0}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
 </div>
 </div>
 <div class="cell">
@@ -347,7 +326,7 @@ Error Details
 </div>
 </section>
 </section>
-
+</section>
 <section id="about" class="level1" data-number="3">
 <h1 data-number="3"><span class="header-section-number">3</span> About</h1>
 <table class="table">

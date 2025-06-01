@@ -848,7 +848,8 @@ if (exists("recent_videos") && is.data.frame(recent_videos) && nrow(recent_video
 
 ```{r coordinated_detection, include=FALSE, message=FALSE}
 
-# Enhanced coordination detection function
+# FIXED: Enhanced coordination detection function with better data validation
+# FIXED: Enhanced coordination detection function with better data validation
 detect_coordination <- function(all_videos) {
   tryCatch({
     # Check if we have sufficient data
@@ -862,62 +863,155 @@ detect_coordination <- function(all_videos) {
       return(create_empty_coordination_result())
     }
     
-    # Check for minimum data requirements
-    unique_descriptions <- length(unique(all_videos$video_description))
-    unique_authors <- length(unique(all_videos$author_name))
+    # ENHANCED: More thorough data cleaning and validation
+    log_info("Starting data validation and cleaning")
+    
+    # Clean and filter the data
+    clean_videos <- all_videos %>%
+      # Remove rows with missing essential data
+      filter(
+        !is.na(video_description),
+        !is.na(author_name),
+        !is.na(video_id),
+        !is.na(create_time),
+        nchar(trimws(video_description)) > 0,
+        nchar(trimws(author_name)) > 0,
+        nchar(trimws(video_id)) > 0
+      ) %>%
+      # Clean text fields
+      mutate(
+        video_description = trimws(video_description),
+        author_name = trimws(author_name),
+        video_id = trimws(video_id)
+      ) %>%
+      # Ensure proper data types
+      mutate(
+        create_time = as.POSIXct(create_time),
+        video_id = as.character(video_id),
+        author_name = as.character(author_name),
+        video_description = as.character(video_description)
+      ) %>%
+      # Remove duplicates
+      distinct(video_id, .keep_all = TRUE)
+    
+    log_info(sprintf("Data cleaning: %d -> %d videos", nrow(all_videos), nrow(clean_videos)))
+    
+    # Check for minimum data requirements after cleaning
+    unique_descriptions <- length(unique(clean_videos$video_description))
+    unique_authors <- length(unique(clean_videos$author_name))
     
     log_info(sprintf("Data check: %d videos, %d unique descriptions, %d unique authors", 
-                    nrow(all_videos), unique_descriptions, unique_authors))
+                    nrow(clean_videos), unique_descriptions, unique_authors))
     
     if (unique_descriptions < params$min_participation || unique_authors < params$min_participation) {
-      log_warn("Insufficient data for coordination detection")
+      log_warn("Insufficient data for coordination detection after cleaning")
       return(create_empty_coordination_result())
     }
     
-    # Prepare data with correct field mappings
-    prep_data <- CooRTweet::prep_data(
-      x = all_videos,
-      object_id = "video_description",
-      account_id = "author_name",      # Changed from username to author_name
-      content_id = "video_id",         # Already correct
-      timestamp_share = "create_time"   # Already correct
-    )
+    # ENHANCED: Additional validation for duplicate content
+    content_frequency <- clean_videos %>%
+      group_by(video_description) %>%
+      summarise(
+        account_count = n_distinct(author_name),
+        total_posts = n(),
+        .groups = 'drop'
+      ) %>%
+      filter(account_count >= params$min_participation)
     
-    log_info("Data prepared for coordination detection")
-    
-    # Detect coordinated groups
-    result <- CooRTweet::detect_groups(
-      x = prep_data,
-      time_window = params$time_window,
-      min_participation = params$min_participation,
-      remove_loops = TRUE)
-    
-    if (is.null(result) || nrow(result) == 0) {
-      log_warn("No coordinated groups detected")
+    if (nrow(content_frequency) == 0) {
+      log_warn("No content shared by minimum required accounts")
       return(create_empty_coordination_result())
     }
     
-    coord_graph <- CooRTweet::generate_coordinated_network(
-      x = result, 
-      edge_weight = params$edge_weight,
-      objects = TRUE,
-      subgraph = 1)
+    log_info(sprintf("Found %d pieces of content shared by %d+ accounts", 
+                    nrow(content_frequency), params$min_participation))
     
-    if (is.null(coord_graph) || !igraph::is_igraph(coord_graph)) {
-      log_warn("Failed to generate coordination network")
-      return(create_empty_coordination_result())
-    }
+    # Filter to only include videos with content that meets minimum participation
+    analysis_videos <- clean_videos %>%
+      filter(video_description %in% content_frequency$video_description)
     
-    log_info("Coordination network generated")
+    log_info(sprintf("Analysis dataset: %d videos from %d accounts", 
+                    nrow(analysis_videos), n_distinct(analysis_videos$author_name)))
     
-    # Calculate summary statistics if graph is valid
-    if(!is.null(coord_graph) && !is.null(result)) {
-      if(!("igraph" %in% class(coord_graph))) {
-        log_error("coord_graph is not of type igraph")
+    # FIXED: Prepare data with enhanced error handling
+    tryCatch({
+      prep_data <- CooRTweet::prep_data(
+        x = analysis_videos,
+        object_id = "video_description",
+        account_id = "author_name",
+        content_id = "video_id",
+        timestamp_share = "create_time"
+      )
+      
+      log_info("Data prepared for coordination detection")
+      
+      # Validate prep_data structure
+      if (is.null(prep_data) || nrow(prep_data) == 0) {
+        log_warn("prep_data is empty or NULL")
         return(create_empty_coordination_result())
       }
       
-      # Calculate summary statistics
+      log_info(sprintf("Prepared data: %d rows", nrow(prep_data)))
+      
+    }, error = function(e) {
+      log_error(sprintf("Error in prep_data: %s", conditionMessage(e)))
+      return(create_empty_coordination_result())
+    })
+    
+    # FIXED: Detect coordinated groups with enhanced error handling
+    tryCatch({
+      result <- CooRTweet::detect_groups(
+        x = prep_data,
+        time_window = params$time_window,
+        min_participation = params$min_participation,
+        remove_loops = TRUE
+      )
+      
+      log_info("Coordination detection completed")
+      
+      # Validate result
+      if (is.null(result) || nrow(result) == 0) {
+        log_warn("No coordinated groups detected by detect_groups")
+        return(create_empty_coordination_result())
+      }
+      
+      log_info(sprintf("Detected coordination: %d relationships", nrow(result)))
+      
+    }, error = function(e) {
+      log_error(sprintf("Error in detect_groups: %s", conditionMessage(e)))
+      return(create_empty_coordination_result())
+    })
+    
+    # FIXED: Generate network with enhanced error handling
+    tryCatch({
+      coord_graph <- CooRTweet::generate_coordinated_network(
+        x = result, 
+        edge_weight = params$edge_weight,
+        objects = TRUE,
+        subgraph = 1
+      )
+      
+      if (is.null(coord_graph) || !igraph::is_igraph(coord_graph)) {
+        log_warn("Failed to generate coordination network")
+        return(create_empty_coordination_result())
+      }
+      
+      # Check if graph has nodes and edges
+      if (igraph::vcount(coord_graph) == 0) {
+        log_warn("Generated network has no nodes")
+        return(create_empty_coordination_result())
+      }
+      
+      log_info(sprintf("Network generated: %d nodes, %d edges", 
+                      igraph::vcount(coord_graph), igraph::ecount(coord_graph)))
+      
+    }, error = function(e) {
+      log_error(sprintf("Error in generate_coordinated_network: %s", conditionMessage(e)))
+      return(create_empty_coordination_result())
+    })
+    
+    # FIXED: Calculate summary statistics with enhanced error handling
+    tryCatch({
       summary_groups <- CooRTweet::group_stats(
         coord_graph = coord_graph, 
         weight_threshold = "full"
@@ -929,36 +1023,54 @@ detect_coordination <- function(all_videos) {
         weight_threshold = "full"
       )
       
-      log_info("Successfully calculated summary statistics")
-      
-      # Get current list of coordinated accounts from summary_accounts
-      current_coordinated_accounts <- summary_accounts$account_id
-      log_info(sprintf("Found %d accounts showing coordination in current analysis", 
-                      length(current_coordinated_accounts)))
-      
-      # Get the starting list of known accounts
-      log_info(sprintf("Starting with %d known coordinated accounts", 
-                      length(coord_users)))
-      
-      # Identify truly new accounts (not in starting list)
-      new_account_ids <- data.frame(
-        account_id = setdiff(current_coordinated_accounts, coord_users)
-      )
-      
-      # Create updated list
-      updated_list <- unique(c(coord_users, new_account_ids$account_id))
-      
-      # Log the results
-      if(nrow(new_account_ids) > 0) {
-        log_info(sprintf("Found %d new coordinated accounts (not in starting list)", 
-                        nrow(new_account_ids)))
-        log_info(sprintf("Total unique accounts after update: %d", 
-                        length(updated_list)))
-      } else {
-        log_info("No new coordinated accounts found")
+      # Validate summary data
+      if (is.null(summary_groups) || is.null(summary_accounts)) {
+        log_warn("Failed to generate summary statistics")
+        return(create_empty_coordination_result())
       }
       
-      # Save results
+      if (nrow(summary_accounts) == 0) {
+        log_warn("No accounts in summary statistics")
+        return(create_empty_coordination_result())
+      }
+      
+      log_info("Successfully calculated summary statistics")
+      
+    }, error = function(e) {
+      log_error(sprintf("Error in summary statistics: %s", conditionMessage(e)))
+      return(create_empty_coordination_result())
+    })
+    
+    # Process results
+    current_coordinated_accounts <- summary_accounts$account_id
+    log_info(sprintf("Found %d accounts showing coordination in current analysis", 
+                    length(current_coordinated_accounts)))
+    
+    # Get the starting list of known accounts
+    log_info(sprintf("Starting with %d known coordinated accounts", 
+                    length(coord_users)))
+    
+    # Identify truly new accounts (not in starting list)
+    new_account_ids <- data.frame(
+      account_id = setdiff(current_coordinated_accounts, coord_users),
+      stringsAsFactors = FALSE
+    )
+    
+    # Create updated list
+    updated_list <- unique(c(coord_users, new_account_ids$account_id))
+    
+    # Log the results
+    if(nrow(new_account_ids) > 0) {
+      log_info(sprintf("Found %d new coordinated accounts (not in starting list)", 
+                      nrow(new_account_ids)))
+      log_info(sprintf("Total unique accounts after update: %d", 
+                      length(updated_list)))
+    } else {
+      log_info("No new coordinated accounts found")
+    }
+    
+    # Save results with error handling
+    tryCatch({
       dir.create("output/coordination", showWarnings = FALSE, recursive = TRUE)
       
       write_csv(summary_groups, "output/coordination/summary_groups.csv")
@@ -966,36 +1078,50 @@ detect_coordination <- function(all_videos) {
       write_csv(data.frame(account_id = updated_list), 
                 "output/coordination/updated_account_list.csv")
       
-      return(list(
-        coord_graph = coord_graph,
-        summary_groups = summary_groups,
-        summary_accounts = summary_accounts,
-        new_accounts = new_account_ids,
-        updated_list = updated_list
-      ))
-      
-    } else {
-      log_warn("coord_graph or result is NULL. Skipping summary statistics.")
-      return(create_empty_coordination_result())
-    }
+      log_info("Successfully saved coordination results")
+    }, error = function(e) {
+      log_warn(sprintf("Error saving coordination results: %s", conditionMessage(e)))
+    })
+    
+    return(list(
+      coord_graph = coord_graph,
+      summary_groups = summary_groups,
+      summary_accounts = summary_accounts,
+      new_accounts = new_account_ids,
+      updated_list = updated_list
+    ))
+    
   }, error = function(e) {
-    log_error(paste("Error in coordinated detection:", e$message))
+    log_error(paste("Error in coordinated detection:", conditionMessage(e)))
     global_error_list <<- c(global_error_list, list(list(
       type = "coordinated_detection",
-      message = e$message
+      message = conditionMessage(e)
     )))
     return(create_empty_coordination_result())
   })
 }
 
-# Helper function to create empty coordination result
+# ENHANCED: Helper function to create empty coordination result
 create_empty_coordination_result <- function() {
   return(list(
     coord_graph = NULL,
-    summary_groups = data.frame(),
-    summary_accounts = data.frame(), 
-    new_accounts = data.frame(),
-    updated_list = coord_users
+    summary_groups = data.frame(
+      object_id = character(),
+      num_accounts = numeric(),
+      stringsAsFactors = FALSE
+    ),
+    summary_accounts = data.frame(
+      account_id = character(),
+      avg_time_delta = numeric(),
+      avg_edge_symmetry_score = numeric(),
+      unique_shares_count = numeric(),
+      stringsAsFactors = FALSE
+    ), 
+    new_accounts = data.frame(
+      account_id = character(),
+      stringsAsFactors = FALSE
+    ),
+    updated_list = if(exists("coord_users")) coord_users else character()
   ))
 }
 
