@@ -180,6 +180,7 @@ params$min_participation,
 params$edge_weight,
 params$ai_model
 ))
+
 ```
 
 This approach ensures continuous updates on the number of newly discovered coordinated accounts, highlighting the fluid nature of social media coordination. Enhanced by interactive visualizations, the analysis sheds light on the shifting landscape of account activities and the intricate network of interactions among them on the TikTok platform.
@@ -187,7 +188,7 @@ This approach ensures continuous updates on the number of newly discovered coord
 By delineating these processes, the proof of concept underscores the potential for advanced analytical tools to reveal and understand the complex phenomena of coordinated social media behavior within the context of significant societal events.
 
 ```{r setup, include=FALSE, message=FALSE}
-# Set working directory using file.path instead of setwd
+# Set working directory
 setwd(params$base_dir)
 
 # Library loading
@@ -318,7 +319,7 @@ create_daily_output_dir <- function() {
   return(daily_dir)
 }
 
-# Main setup function - FIXED to avoid setwd
+# CORRECTED setup function without setwd
 setup <- function() {
   credentials <- get_tiktok_credentials()
   
@@ -379,243 +380,274 @@ setup <- function() {
 # Create daily directory
 daily_output_dir <- create_daily_output_dir()
 
-# Run setup 
+# Run setup without changing working directory
 setup()
 ```
 
-```{r fetch_recent_videos, include=FALSE, message=FALSE, eval=!params$load_from_snapshot}
+# Smart Video Reuse Mechanism for TikTok Data Collection
 
-# Function to get videos using traktok package with enhanced error handling
-get_recent_videos <- function(usernames, start_date, end_date, chunk_size = 20, max_pages = 3) {
-  if (!should_continue_processing()) {
-    log_warn("Skipping recent videos fetch due to quota limits")
-    return(list(data = data.frame(), summary = list(total_videos = 0, failed_chunks = 0, total_chunks = 0)))
-  }
+```{r smart_reuse_setup, include=FALSE, message=FALSE}
+
+# Function to calculate date overlap for video filtering
+
+# Function to get yesterday's data file path
+get_yesterday_data_path <- function() {
+  yesterday_date <- format(Sys.Date() - 1, "%Y-%m-%d")
+  yesterday_dir <- file.path(params$base_dir, "output", "daily", yesterday_date)
+  yesterday_snapshot <- file.path(yesterday_dir, "daily_snapshot.csv")
+  return(list(
+    dir = yesterday_dir,
+    snapshot = yesterday_snapshot,
+    date = yesterday_date
+  ))
+}
+
+# Function to standardize data types between yesterday's data and fresh API data
+standardize_data_types <- function(df, source_name = "data") {
+  if (nrow(df) == 0) return(df)
   
-  # Split usernames into smaller chunks
-  username_chunks <- split(usernames, ceiling(seq_along(usernames) / chunk_size))
-  total_chunks <- length(username_chunks)
-  
-  # Initialize results
-  all_results <- data.frame()
-  failure_count <- 0
-  
-  # Create progress bar
-  pb <- progress_bar$new(
-    format = "[:bar] :percent :etas",
-    total = total_chunks,
-    clear = FALSE
-  )
-  
-  # Process each chunk with enhanced error handling
-  for (i in seq_along(username_chunks)) {
-    if (!should_continue_processing()) {
-      log_warn("Stopping chunk processing due to quota limits")
-      break
-    }
-    
-    log_info(sprintf("Processing chunk %d of %d", i, total_chunks))
-    
-    # Get current chunk
-    chunk <- as.character(unlist(username_chunks[i]))
-    
-    tryCatch({
-      # Make request with safe API call
-      chunk_result <- safe_api_call(function() {
-        query() |>
-          query_and(
-            field_name = "username",
-            operation = "IN",
-            field_values = chunk
-          ) |>
-          tt_search_api(
-            start_date = start_date,
-            end_date = end_date,
-            max_pages = max_pages,
-            verbose = TRUE,
-            fields = "all"
-          )
-      })
+  df %>%
+    mutate(
+      # Ensure consistent character types for these fields
+      create_time = as.character(create_time),
+      video_id = as.character(video_id),
       
-      # Log success
-      if (is.data.frame(chunk_result) && nrow(chunk_result) > 0) {
-        log_info(sprintf("Successfully retrieved %d videos from chunk %d", 
-                       nrow(chunk_result), i))
-        
-        # Add results to main dataframe
-        all_results <- bind_rows(all_results, chunk_result)
-      } else {
-        log_info(sprintf("No videos found for chunk %d", i))
-        failure_count <- failure_count + 1
-        global_error_list <<- c(global_error_list, list(list(
-          type = "empty_chunk",
-          chunk = i,
-          usernames = chunk
-        )))
-      }
-    }, error = function(e) {
-      if (grepl("daily_quota_limit_exceeded", conditionMessage(e))) {
-        log_error("Daily quota exceeded - stopping chunk processing")
-        failure_count <<- failure_count + 1
-        break
-      } else {
-        log_error(sprintf("Error in chunk %d: %s", i, conditionMessage(e)))
-        log_error(sprintf("Usernames in failed chunk: %s", paste(chunk, collapse = ", ")))
-        failure_count <<- failure_count + 1
-        global_error_list <<- c(global_error_list, list(list(
-          type = "chunk_error",
-          chunk = i,
-          message = conditionMessage(e),
-          usernames = chunk
-        )))
-      }
-    })
-    
-    # Update progress bar
-    pb$tick()
-    
-    # Add longer delay between chunks to respect rate limits
-    Sys.sleep(3)
-  }
+      # Convert list columns to character (API returns lists, CSV loads as character)
+      effect_ids = if("effect_ids" %in% colnames(.)) {
+        if(is.list(effect_ids)) sapply(effect_ids, function(x) paste(x, collapse = ",")) else as.character(effect_ids)
+      } else NA_character_,
+      
+      music_id = if("music_id" %in% colnames(.)) {
+        if(is.list(music_id)) sapply(music_id, function(x) paste(x, collapse = ",")) else as.character(music_id)
+      } else NA_character_,
+      
+      hashtag_names = if("hashtag_names" %in% colnames(.)) {
+        if(is.list(hashtag_names)) sapply(hashtag_names, function(x) paste(x, collapse = ",")) else as.character(hashtag_names)
+      } else NA_character_,
+      
+      # Ensure numeric columns are numeric
+      view_count = if("view_count" %in% colnames(.)) as.numeric(view_count) else NA_real_,
+      like_count = if("like_count" %in% colnames(.)) as.numeric(like_count) else NA_real_,
+      comment_count = if("comment_count" %in% colnames(.)) as.numeric(comment_count) else NA_real_,
+      share_count = if("share_count" %in% colnames(.)) as.numeric(share_count) else NA_real_
+    )
+}
+calculate_date_overlap <- function(start_date, end_date, yesterday_data) {
+  # Convert dates to Date objects if they aren't already
+  start_date <- as.Date(start_date)
+  end_date <- as.Date(end_date)
   
-  # Final summary
-  summary_msg <- sprintf("Collection completed:\n- Total videos: %d\n- Failed chunks: %d/%d",
-                       nrow(all_results), failure_count, total_chunks)
-  log_info(summary_msg)
+  # Get the date range from yesterday's data
+  yesterday_videos_dates <- as.Date(yesterday_data$create_time)
+  yesterday_min_date <- min(yesterday_videos_dates, na.rm = TRUE)
+  yesterday_max_date <- max(yesterday_videos_dates, na.rm = TRUE)
   
-  if (nrow(all_results) > 0) {
-    log_info(sprintf("Unique users in results: %d", length(unique(all_results$username))))
-    log_info(sprintf("Date range: %s to %s", 
-                    min(as.Date(all_results$create_time)), 
-                    max(as.Date(all_results$create_time))))
-  }
+  # Calculate overlap period
+  overlap_start <- max(start_date, yesterday_min_date)
+  overlap_end <- min(end_date, yesterday_max_date)
+  
+  # Check if there's actual overlap
+  has_overlap <- overlap_start <= overlap_end
   
   return(list(
-    data = all_results,
-    summary = list(
-      total_videos = nrow(all_results),
-      failed_chunks = failure_count,
-      total_chunks = total_chunks
+    has_overlap = has_overlap,
+    overlap_start = if(has_overlap) overlap_start else NULL,
+    overlap_end = if(has_overlap) overlap_end else NULL,
+    new_start = if(has_overlap) max(overlap_end + 1, start_date) else start_date,
+    new_end = end_date
+  ))
+}
+
+# Function to load and filter yesterday's data
+load_yesterday_data <- function() {
+  yesterday_paths <- get_yesterday_data_path()
+  
+  if (!file.exists(yesterday_paths$snapshot)) {
+    log_info(sprintf("No yesterday data found at %s", yesterday_paths$snapshot))
+    return(NULL)
+  }
+  
+  tryCatch({
+    yesterday_data <- readr::read_csv(yesterday_paths$snapshot, 
+                                    col_types = cols(
+                                      video_id = col_character(), 
+                                      effect_ids = col_character(),
+                                      music_id = col_character(), 
+                                      hashtag_names = col_character(),
+                                      create_time = col_character()
+                                    ))
+    
+    log_info(sprintf("Successfully loaded %d videos from yesterday (%s)", 
+                    nrow(yesterday_data), yesterday_paths$date))
+    
+    return(yesterday_data)
+  }, error = function(e) {
+    log_error(sprintf("Error loading yesterday's data: %s", e$message))
+    return(NULL)
+  })
+}
+
+# Function to filter yesterday's data for current date range
+filter_reusable_videos <- function(yesterday_data, start_date, end_date) {
+  if (is.null(yesterday_data) || nrow(yesterday_data) == 0) {
+    return(list(
+      reusable_videos = data.frame(),
+      accounts_covered = character(),
+      date_overlap = list(has_overlap = FALSE)
+    ))
+  }
+  
+  # Calculate date overlap
+  date_overlap <- calculate_date_overlap(start_date, end_date, yesterday_data)
+  
+  if (!date_overlap$has_overlap) {
+    log_info("No date overlap with yesterday's data")
+    return(list(
+      reusable_videos = data.frame(),
+      accounts_covered = character(),
+      date_overlap = date_overlap
+    ))
+  }
+  
+  # Filter videos within the overlap period
+  reusable_videos <- yesterday_data %>%
+    filter(
+      as.Date(create_time) >= date_overlap$overlap_start,
+      as.Date(create_time) <= date_overlap$overlap_end
+    )
+  
+  # Standardize reusable_videos data types
+  if (nrow(reusable_videos) > 0) {
+    reusable_videos <- standardize_data_types(reusable_videos, "reusable")
+  }
+  
+  # Get accounts that are covered by reusable videos
+  accounts_covered <- unique(reusable_videos$author_name)
+  
+  log_info(sprintf("Found %d reusable videos covering %d accounts from overlap period %s to %s", 
+                  nrow(reusable_videos), 
+                  length(accounts_covered),
+                  date_overlap$overlap_start,
+                  date_overlap$overlap_end))
+  
+  return(list(
+    reusable_videos = reusable_videos,
+    accounts_covered = accounts_covered,
+    date_overlap = date_overlap
+  ))
+}
+
+# Function to determine which accounts need fresh API calls
+get_accounts_needing_update <- function(coord_users, accounts_covered, date_overlap) {
+  if (!date_overlap$has_overlap) {
+    # No overlap, need to fetch all accounts
+    return(list(
+      accounts_to_fetch = coord_users,
+      accounts_reused = character(),
+      fetch_date_range = list(start = startdate, end = enddate)
+    ))
+  }
+  
+  # Accounts that are NOT covered by yesterday's data
+  accounts_to_fetch <- setdiff(coord_users, accounts_covered)
+  accounts_reused <- intersect(coord_users, accounts_covered)
+  
+  log_info(sprintf("Accounts analysis: %d total, %d reused, %d need fresh fetch", 
+                  length(coord_users), 
+                  length(accounts_reused), 
+                  length(accounts_to_fetch)))
+  
+  return(list(
+    accounts_to_fetch = accounts_to_fetch,
+    accounts_reused = accounts_reused,
+    fetch_date_range = list(
+      start = date_overlap$new_start,
+      end = date_overlap$new_end
     )
   ))
 }
 
-# Main fetch function
-fetch_recent_videos <- function() {
-  if (!params$load_from_snapshot) {
-    log_info("Starting video collection")
-    recent_videos_result <- get_recent_videos(
-      usernames = coord_users,
-      start_date = startdate,
-      end_date = enddate,
-      chunk_size = 20,  # Conservative
-      max_pages = 3     # Conservative
-    )
-    recent_videos <- recent_videos_result$data
-    log_info(sprintf("Video collection completed with %d videos", nrow(recent_videos)))
-    return(recent_videos)
+# Main smart reuse function
+implement_smart_reuse <- function(coord_users, start_date, end_date) {
+  log_info("=== IMPLEMENTING SMART VIDEO REUSE ===")
+  
+  # Step 1: Load yesterday's data
+  yesterday_data <- load_yesterday_data()
+  
+  # Step 2: Filter reusable videos
+  reuse_analysis <- filter_reusable_videos(yesterday_data, start_date, end_date)
+  
+  # Step 3: Determine what accounts need fresh API calls
+  fetch_analysis <- get_accounts_needing_update(
+    coord_users, 
+    reuse_analysis$accounts_covered, 
+    reuse_analysis$date_overlap
+  )
+  
+  # Step 4: Log the strategy
+  if (length(fetch_analysis$accounts_to_fetch) == 0) {
+    log_info("🎉 ALL VIDEOS CAN BE REUSED! No API calls needed for recent videos.")
+  } else if (length(fetch_analysis$accounts_reused) > 0) {
+    log_info(sprintf("📊 HYBRID STRATEGY: Reusing %d accounts, fetching %d accounts", 
+                    length(fetch_analysis$accounts_reused),
+                    length(fetch_analysis$accounts_to_fetch)))
+    log_info(sprintf("📅 Fetching date range: %s to %s", 
+                    fetch_analysis$fetch_date_range$start,
+                    fetch_analysis$fetch_date_range$end))
   } else {
-    log_info("Loading from snapshot, skipping video collection")
-    return(NULL)
+    log_info("🔄 FULL FETCH: No reusable data, fetching all accounts")
   }
+  
+  return(list(
+    reusable_videos = reuse_analysis$reusable_videos,
+    accounts_to_fetch = fetch_analysis$accounts_to_fetch,
+    accounts_reused = fetch_analysis$accounts_reused,
+    fetch_date_range = fetch_analysis$fetch_date_range,
+    api_calls_saved = length(fetch_analysis$accounts_reused)
+  ))
 }
 
-# If running directly, execute fetch
-if (exists("coord_users")) {
-  recent_videos <- fetch_recent_videos()
+# Execute smart reuse analysis
+if (exists("coord_users") && exists("startdate") && exists("enddate")) {
+  smart_reuse_result <- implement_smart_reuse(coord_users, startdate, enddate)
+  
+  # Store results globally for use in fetch functions
+  assign("smart_reuse_result", smart_reuse_result, envir = .GlobalEnv)
+  
+  log_info(sprintf("=== SMART REUSE SUMMARY ==="))
+  log_info(sprintf("API calls potentially saved: %d", smart_reuse_result$api_calls_saved))
+  log_info(sprintf("Accounts to fetch: %d", length(smart_reuse_result$accounts_to_fetch)))
+  log_info(sprintf("Reusable videos: %d", nrow(smart_reuse_result$reusable_videos)))
+} else {
+  log_warn("Missing required variables for smart reuse analysis")
+  smart_reuse_result <- list(
+    reusable_videos = data.frame(),
+    accounts_to_fetch = if(exists("coord_users")) coord_users else character(),
+    accounts_reused = character(),
+    fetch_date_range = list(start = startdate, end = enddate),
+    api_calls_saved = 0
+  )
 }
 
 ```
 
-```{r fetch_all_videos, include=FALSE, message=FALSE, eval=!params$load_from_snapshot}
+```{r api_functions, include=FALSE, message=FALSE}
 
-# FIXED get_videos_by_description function with correct field_values format
-get_videos_by_description <- function(desc, start_date, end_date) {
-  log_info(sprintf("Starting individual query for description: %s...", substr(desc, 1, 30)))
-  
-  # First page with safe API call and CORRECTED field_values
-  first_page_result <- safe_api_call(function() {
-    query() |>
-      query_and(
-        field_name = "keyword",
-        operation = "EQ",
-        field_values = desc  # ✅ FIXED: Use desc directly, not list(desc) or c(desc)
-      ) |>
-      tt_search_api(
-        start_date = start_date,
-        end_date = end_date,
-        max_pages = 1
-      )
-  })
-  
-  # Log using video_id instead of description
-  if (is.data.frame(first_page_result) && nrow(first_page_result) > 0) {
-    sample_video_id <- first_page_result$video_id[1]
-    log_info(sprintf("Retrieved first page with %d results (sample video_id: %s)", 
-                    nrow(first_page_result), sample_video_id))
-  } else {
-    log_info("Retrieved first page with 0 results")
-    return(data.frame())
-  }
-  
-  # Try to get more pages with enhanced error handling
-  tryCatch({
-    full_results <- safe_api_call(function() {
-      query() |>
-        query_and(
-          field_name = "keyword",
-          operation = "EQ",
-          field_values = desc  # ✅ FIXED: Use desc directly
-        ) |>
-        tt_search_api(
-          start_date = start_date,
-          end_date = end_date,
-          max_pages = 3  # Conservative
-        )
-    })
-    
-    # If pagination succeeded, use the full results
-    if (is.data.frame(full_results) && nrow(full_results) > 0) {
-      log_info(sprintf("Successfully retrieved all pages with %d total results", 
-                      nrow(full_results)))
-      return(full_results)
-    }
-  }, error = function(e) {
-    if (grepl("400|invalid_params|Search Id.*invalid or expired", conditionMessage(e))) {
-      log_warn("Pagination failed with 400 error - keeping first page results")
-      global_error_list <<- c(global_error_list, list(list(
-        type = "pagination_error",
-        query_type = "description",
-        message = conditionMessage(e)
-      )))
-    } else if (grepl("daily_quota_limit_exceeded", conditionMessage(e))) {
-      log_error("Daily quota exceeded during pagination - keeping first page results")
-      global_error_list <<- c(global_error_list, list(list(
-        type = "daily_quota_pagination",
-        query_type = "description", 
-        message = conditionMessage(e)
-      )))
-    } else {
-      log_error(sprintf("Unexpected error during pagination: %s", conditionMessage(e)))
-    }
-  })
-  
-  return(first_page_result)
-}
+# ===== DEFINE ALL API FUNCTIONS FIRST =====
 
-# Function to batch process descriptions and get videos with FIXED field_values
+# Function to batch process descriptions and get videos
 batch_fetch_videos <- function(descriptions, start_date, end_date, batch_size = 3, max_pages = 3) {
   if (!should_continue_processing()) {
     log_warn("Skipping batch fetch due to quota limits")
     return(data.frame())
   }
   
-  log_info("Starting batched description queries with batch size %d", batch_size)
+  log_info(sprintf("Starting batched description queries with batch size %d", batch_size))
   
   # Split descriptions into batches
   batches <- split(descriptions, ceiling(seq_along(descriptions)/batch_size))
   
-  log_info("Created %d batches from %d unique descriptions", length(batches), length(descriptions))
+  log_info(sprintf("Created %d batches from %d unique descriptions", length(batches), length(descriptions)))
   
   # Initialize progress bar
   pb <- progress_bar$new(
@@ -655,7 +687,7 @@ batch_fetch_videos <- function(descriptions, start_date, end_date, batch_size = 
             list(
               operation = "EQ",
               field_name = "keyword",
-              field_values = desc  # ✅ FIXED: Use desc directly
+              field_values = c(desc)  # ✅ CORRECTED: Use c(desc) not list(desc)
             )
           })
           
@@ -772,32 +804,416 @@ batch_fetch_videos <- function(descriptions, start_date, end_date, batch_size = 
   return(all_results)
 }
 
-# Main function to fetch all videos with matching descriptions
-fetch_all_videos <- function(recent_videos, start_date, end_date) {
+# Updated get_videos_by_description function with enhanced error handling
+get_videos_by_description <- function(desc, start_date, end_date) {
+  log_info(sprintf("Starting individual query for description: %s...", substr(desc, 1, 30)))
+  
+  # First page with safe API call
+  first_page_result <- safe_api_call(function() {
+    query() |>
+      query_and(
+        field_name = "keyword",
+        operation = "EQ",
+        field_values = c(desc)  # ✅ CORRECTED: Use c(desc) not list(desc)
+      ) |>
+      tt_search_api(
+        start_date = start_date,
+        end_date = end_date,
+        max_pages = 1
+      )
+  })
+  
+  # Log using video_id instead of description
+  if (is.data.frame(first_page_result) && nrow(first_page_result) > 0) {
+    sample_video_id <- first_page_result$video_id[1]
+    log_info(sprintf("Retrieved first page with %d results (sample video_id: %s)", 
+                    nrow(first_page_result), sample_video_id))
+  } else {
+    log_info("Retrieved first page with 0 results")
+    return(data.frame())
+  }
+  
+  # Try to get more pages with enhanced error handling
+  tryCatch({
+    full_results <- safe_api_call(function() {
+      query() |>
+        query_and(
+          field_name = "keyword",
+          operation = "EQ",
+          field_values = c(desc)  # ✅ CORRECTED: Use c(desc) not list(desc)
+        ) |>
+        tt_search_api(
+          start_date = start_date,
+          end_date = end_date,
+          max_pages = 3  # Conservative
+        )
+    })
+    
+    # If pagination succeeded, use the full results
+    if (is.data.frame(full_results) && nrow(full_results) > 0) {
+      log_info(sprintf("Successfully retrieved all pages with %d total results", 
+                      nrow(full_results)))
+      return(full_results)
+    }
+  }, error = function(e) {
+    if (grepl("400|invalid_params|Search Id.*invalid or expired", conditionMessage(e))) {
+      log_warn("Pagination failed with 400 error - keeping first page results")
+      global_error_list <<- c(global_error_list, list(list(
+        type = "pagination_error",
+        query_type = "description",
+        message = conditionMessage(e)
+      )))
+    } else if (grepl("daily_quota_limit_exceeded", conditionMessage(e))) {
+      log_error("Daily quota exceeded during pagination - keeping first page results")
+      global_error_list <<- c(global_error_list, list(list(
+        type = "daily_quota_pagination",
+        query_type = "description",
+        message = conditionMessage(e)
+      )))
+    } else {
+      log_error(sprintf("Unexpected error during pagination: %s", conditionMessage(e)))
+    }
+  })
+  
+  return(first_page_result)
+}
+
+# Function to get videos using traktok package with a single request per chunk approach
+get_recent_videos <- function(usernames, start_date, end_date, chunk_size = 20, max_pages = 3) {
+  if (!should_continue_processing()) {
+    log_warn("Skipping recent videos fetch due to quota limits")
+    return(list(data = data.frame(), summary = list(total_videos = 0, failed_chunks = 0, total_chunks = 0)))
+  }
+  
+  # Split usernames into smaller chunks
+  username_chunks <- split(usernames, ceiling(seq_along(usernames) / chunk_size))
+  total_chunks <- length(username_chunks)
+  
+  # Initialize results
+  all_results <- data.frame()
+  failure_count <- 0
+  
+  # Create progress bar
+  pb <- progress_bar$new(
+    format = "[:bar] :percent :etas",
+    total = total_chunks,
+    clear = FALSE
+  )
+  
+  # Process each chunk with enhanced error handling
+  for (i in seq_along(username_chunks)) {
+    if (!should_continue_processing()) {
+      log_warn("Stopping chunk processing due to quota limits")
+      break
+    }
+    
+    log_info(sprintf("Processing chunk %d of %d", i, total_chunks))
+    
+    # Get current chunk
+    chunk <- as.character(unlist(username_chunks[i]))
+    
+    tryCatch({
+      # Make request with safe API call
+      chunk_result <- safe_api_call(function() {
+        query() |>
+          query_and(
+            field_name = "username",
+            operation = "IN",
+            field_values = chunk  # This is already correct for username queries
+          ) |>
+          tt_search_api(
+            start_date = start_date,
+            end_date = end_date,
+            max_pages = max_pages,
+            verbose = TRUE,
+            fields = "all"
+          )
+      })
+      
+      # Log success
+      if (is.data.frame(chunk_result) && nrow(chunk_result) > 0) {
+        log_info(sprintf("Successfully retrieved %d videos from chunk %d", 
+                       nrow(chunk_result), i))
+        
+        # Add results to main dataframe
+        all_results <- bind_rows(all_results, chunk_result)
+      } else {
+        log_info(sprintf("No videos found for chunk %d", i))
+        failure_count <- failure_count + 1
+        global_error_list <<- c(global_error_list, list(list(
+          type = "empty_chunk",
+          chunk = i,
+          usernames = chunk
+        )))
+      }
+    }, error = function(e) {
+      if (grepl("daily_quota_limit_exceeded", conditionMessage(e))) {
+        log_error("Daily quota exceeded - stopping chunk processing")
+        failure_count <<- failure_count + 1
+        break
+      } else {
+        log_error(sprintf("Error in chunk %d: %s", i, conditionMessage(e)))
+        log_error(sprintf("Usernames in failed chunk: %s", paste(chunk, collapse = ", ")))
+        failure_count <<- failure_count + 1
+        global_error_list <<- c(global_error_list, list(list(
+          type = "chunk_error",
+          chunk = i,
+          message = conditionMessage(e),
+          usernames = chunk
+        )))
+      }
+    })
+    
+    # Update progress bar
+    pb$tick()
+    
+    # Add longer delay between chunks to respect rate limits
+    Sys.sleep(3)
+  }
+  
+  # Final summary
+  summary_msg <- sprintf("Collection completed:\n- Total videos: %d\n- Failed chunks: %d/%d",
+                       nrow(all_results), failure_count, total_chunks)
+  log_info(summary_msg)
+  
+  if (nrow(all_results) > 0) {
+    # Check if author_name exists, fallback to username for compatibility
+    user_column <- if("author_name" %in% colnames(all_results)) "author_name" else "username"
+    log_info(sprintf("Unique users in results: %d", length(unique(all_results[[user_column]]))))
+    log_info(sprintf("Date range: %s to %s", 
+                    min(as.Date(all_results$create_time)), 
+                    max(as.Date(all_results$create_time))))
+  }
+  
+  return(list(
+    data = all_results,
+    summary = list(
+      total_videos = nrow(all_results),
+      failed_chunks = failure_count,
+      total_chunks = total_chunks
+    )
+  ))
+}
+
+```
+
+```{r fetch_recent_videos_with_smart_reuse, include=FALSE, message=FALSE, eval=!params$load_from_snapshot}
+
+# Updated fetch_recent_videos function with smart reuse
+fetch_recent_videos_smart <- function() {
+  if (!params$load_from_snapshot) {
+    log_info("=== STARTING SMART VIDEO COLLECTION ===")
+    
+    # Check if we have smart reuse results
+    if (!exists("smart_reuse_result")) {
+      log_warn("Smart reuse not available, falling back to normal fetch")
+      return(fetch_recent_videos())
+    }
+    
+    # Initialize combined results with reusable videos
+    combined_results <- smart_reuse_result$reusable_videos
+    
+    # If we have accounts that need fresh fetching
+    if (length(smart_reuse_result$accounts_to_fetch) > 0) {
+      log_info(sprintf("Fetching fresh data for %d accounts", 
+                      length(smart_reuse_result$accounts_to_fetch)))
+      
+      # Fetch fresh videos for accounts not covered by yesterday's data
+      fresh_videos_result <- get_recent_videos(
+        usernames = smart_reuse_result$accounts_to_fetch,
+        start_date = smart_reuse_result$fetch_date_range$start,
+        end_date = smart_reuse_result$fetch_date_range$end,
+        chunk_size = 20,
+        max_pages = 3
+      )
+      
+      fresh_videos <- fresh_videos_result$data
+      
+      # Ensure data type consistency before combining
+      if (nrow(fresh_videos) > 0) {
+        # Standardize both datasets to ensure compatibility
+        combined_results <- standardize_data_types(combined_results, "reused")
+        fresh_videos <- standardize_data_types(fresh_videos, "fresh")
+        
+        combined_results <- bind_rows(combined_results, fresh_videos)
+        log_info(sprintf("Combined %d reused + %d fresh = %d total recent videos", 
+                        nrow(smart_reuse_result$reusable_videos),
+                        nrow(fresh_videos),
+                        nrow(combined_results)))
+      } else {
+        log_info(sprintf("No fresh videos found, using %d reused videos", 
+                        nrow(combined_results)))
+      }
+    } else {
+      log_info(sprintf("Using only %d reused videos, no fresh fetch needed", 
+                      nrow(combined_results)))
+    }
+    
+    # Remove duplicates based on video_id
+    if (nrow(combined_results) > 0) {
+      initial_count <- nrow(combined_results)
+      combined_results <- combined_results %>% 
+        distinct(video_id, .keep_all = TRUE)
+      final_count <- nrow(combined_results)
+      
+      if (initial_count != final_count) {
+        log_info(sprintf("Removed %d duplicate videos", initial_count - final_count))
+      }
+      
+      # Log final user count with proper column detection
+      user_column <- if("author_name" %in% colnames(combined_results)) "author_name" else "username"
+      log_info(sprintf("Final unique users: %d", length(unique(combined_results[[user_column]]))))
+    }
+    
+    log_info(sprintf("=== SMART COLLECTION COMPLETED ==="))
+    log_info(sprintf("Total videos: %d", nrow(combined_results)))
+    log_info(sprintf("API calls saved: %d", smart_reuse_result$api_calls_saved))
+    
+    return(combined_results)
+  } else {
+    log_info("Loading from snapshot, skipping video collection")
+    return(NULL)
+  }
+}
+
+# Main fetch function (fallback)
+fetch_recent_videos <- function() {
+  if (!params$load_from_snapshot) {
+    log_info("Starting video collection")
+    recent_videos_result <- get_recent_videos(
+      usernames = coord_users,
+      start_date = startdate,
+      end_date = enddate,
+      chunk_size = 20,  # Conservative
+      max_pages = 3     # Conservative
+    )
+    recent_videos <- recent_videos_result$data
+    log_info(sprintf("Video collection completed with %d videos", nrow(recent_videos)))
+    return(recent_videos)
+  } else {
+    log_info("Loading from snapshot, skipping video collection")
+    return(NULL)
+  }
+}
+
+# Replace the original fetch call
+if (exists("coord_users")) {
+  recent_videos <- fetch_recent_videos_smart()
+}
+
+```
+
+```{r fetch_all_videos_smart, include=FALSE, message=FALSE, eval=!params$load_from_snapshot}
+
+# Enhanced fetch_all_videos function that leverages smart reuse
+fetch_all_videos_smart <- function(recent_videos, start_date, end_date) {
   if (!should_continue_processing()) {
     log_warn("Skipping all videos fetch due to quota limits")
     return(data.frame())
   }
   
+  # Start with yesterday's full data if available (for description matching)
+  base_videos <- data.frame()
+  
+  if (exists("smart_reuse_result") && nrow(smart_reuse_result$reusable_videos) > 0) {
+    # Load full yesterday's data for broader description matching
+    yesterday_paths <- get_yesterday_data_path()
+    if (file.exists(yesterday_paths$snapshot)) {
+      tryCatch({
+        yesterday_full_data <- readr::read_csv(yesterday_paths$snapshot, 
+                                              col_types = cols(
+                                                video_id = col_character(), 
+                                                effect_ids = col_character(),
+                                                music_id = col_character(), 
+                                                hashtag_names = col_character(),
+                                                create_time = col_character()  # Keep as character
+                                              ))
+        
+        # Ensure create_time is character format for consistency
+        yesterday_full_data <- yesterday_full_data %>%
+          mutate(create_time = as.character(create_time))
+        
+        # Standardize data types
+        yesterday_full_data <- standardize_data_types(yesterday_full_data, "yesterday_full")
+        
+        # Filter yesterday's data to current date range for all videos (not just recent_videos accounts)
+        yesterday_filtered <- yesterday_full_data %>%
+          filter(
+            as.Date(create_time) >= as.Date(start_date),
+            as.Date(create_time) <= as.Date(end_date)
+          )
+        
+        base_videos <- yesterday_filtered
+        log_info(sprintf("Starting with %d videos from yesterday's full dataset within date range", 
+                        nrow(base_videos)))
+      }, error = function(e) {
+        log_warn(sprintf("Could not load yesterday's full data: %s", e$message))
+      })
+    }
+  }
+  
   if (is.null(recent_videos) || nrow(recent_videos) == 0) {
     log_warn("No recent videos available for description queries")
+    
+    # If we have base videos from yesterday, process and return them
+    if (nrow(base_videos) > 0) {
+      log_info("Using only yesterday's data since no recent videos available")
+      final_results <- base_videos %>%
+        mutate(
+          region_code = toupper(region_code),
+          video_url = paste0("https://www.tiktok.com/@", author_name, "/video/", video_id)
+        ) %>%
+        filter(!is.na(video_description) & video_description != "") %>%
+        distinct()
+      
+      return(final_results)
+    }
+    
     return(data.frame())
   }
   
-  # Get unique descriptions that are long enough to be meaningful
+  # Get unique descriptions from recent videos for API queries
   unique_descriptions <- unique(recent_videos$video_description[nchar(recent_videos$video_description) >= 80])
   
-  # Log the total count without including any descriptions
-  log_info(sprintf("Found %d unique descriptions to query", length(unique_descriptions)))
+  # Filter descriptions that might already be covered by yesterday's data
+  if (nrow(base_videos) > 0) {
+    existing_descriptions <- unique(base_videos$video_description)
+    new_descriptions <- setdiff(unique_descriptions, existing_descriptions)
+    
+    log_info(sprintf("Description analysis: %d total, %d already covered, %d need fresh fetch", 
+                    length(unique_descriptions), 
+                    length(unique_descriptions) - length(new_descriptions),
+                    length(new_descriptions)))
+    
+    unique_descriptions <- new_descriptions
+  }
   
-  # Process descriptions in batches with conservative settings
-  all_results <- batch_fetch_videos(
-    unique_descriptions, 
-    start_date, 
-    end_date,
-    batch_size = 3,  # Very conservative
-    max_pages = 3    # Very conservative
-  )
+  log_info(sprintf("Querying %d unique descriptions via API", length(unique_descriptions)))
+  
+  # Process new descriptions in batches
+  api_results <- data.frame()
+  if (length(unique_descriptions) > 0) {
+    api_results <- batch_fetch_videos(
+      unique_descriptions, 
+      start_date, 
+      end_date,
+      batch_size = 3,
+      max_pages = 3
+    )
+    
+    # Ensure create_time consistency in API results
+    if (nrow(api_results) > 0) {
+      api_results <- standardize_data_types(api_results, "api_results")
+    }
+  }
+  
+  # Standardize base_videos if it exists
+  if (nrow(base_videos) > 0) {
+    base_videos <- standardize_data_types(base_videos, "base_videos")
+  }
+  
+  # Combine base videos (from yesterday) with new API results
+  all_results <- bind_rows(base_videos, api_results)
   
   # Process the combined data
   if (nrow(all_results) > 0) {
@@ -807,19 +1223,23 @@ fetch_all_videos <- function(recent_videos, start_date, end_date) {
         video_url = paste0("https://www.tiktok.com/@", author_name, "/video/", video_id)
       ) %>%
       filter(!is.na(video_description) & video_description != "") %>%
-      distinct()
+      distinct(video_id, .keep_all = TRUE)  # Remove duplicates by video_id
     
-    # Log summary
-    log_info(sprintf("Collection completed:"))
-    log_info(sprintf("Total videos collected: %d", nrow(final_results)))
-    log_info(sprintf("Unique users: %d", n_distinct(final_results$author_name)))
+    # Log summary with proper user column detection
+    log_info(sprintf("=== SMART ALL VIDEOS COLLECTION COMPLETED ==="))
+    log_info(sprintf("Base videos (reused): %d", nrow(base_videos)))
+    log_info(sprintf("Fresh API videos: %d", nrow(api_results)))
+    log_info(sprintf("Total unique videos: %d", nrow(final_results)))
+    
+    # Use the correct user column name
+    user_column <- if("author_name" %in% colnames(final_results)) "author_name" else "username"
+    log_info(sprintf("Unique users: %d", n_distinct(final_results[[user_column]])))
     log_info(sprintf("Unique descriptions: %d", n_distinct(final_results$video_description)))
     
-    # Create output directory if it doesn't exist
+    # Save results
     output_dir <- file.path(params$base_dir, "output")
     dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
     
-    # Save results
     output_file <- file.path(output_dir, "latest_snapshot.csv")
     daily_output_file <- file.path(daily_output_dir, "daily_snapshot.csv")
     write_csv(final_results, output_file)
@@ -833,296 +1253,147 @@ fetch_all_videos <- function(recent_videos, start_date, end_date) {
   }
 }
 
-# Execute if we have recent_videos
-if (exists("recent_videos") && is.data.frame(recent_videos) && nrow(recent_videos) > 0) {
-  log_info("Starting to fetch all videos with matching descriptions")
-  all_videos <- fetch_all_videos(recent_videos, startdate, enddate)
+# Replace the original all videos fetch
+if (exists("recent_videos") && (is.null(recent_videos) || is.data.frame(recent_videos))) {
+  log_info("Starting smart fetch for all videos with matching descriptions")
+  all_videos <- fetch_all_videos_smart(recent_videos, startdate, enddate)
   
   # Assign to global environment
   assign("all_videos", all_videos, envir = .GlobalEnv)
 } else {
-  log_warn("No recent_videos found or empty dataset")
+  log_warn("recent_videos not properly defined")
 }
 
 ```
 
 ```{r coordinated_detection, include=FALSE, message=FALSE}
 
-# FIXED: Enhanced coordination detection function with better data validation
-# FIXED: Enhanced coordination detection function with better data validation
+# Function to detect coordination patterns
 detect_coordination <- function(all_videos) {
+  # Define a helper for consistent empty/error returns
+  empty_coordination_result <- function(current_coord_users) {
+    list(
+      coord_graph = NULL,
+      summary_groups = data.frame(), 
+      summary_accounts = data.frame(), 
+      new_accounts = data.frame(),
+      updated_list = current_coord_users 
+    )
+  }
+
   tryCatch({
-    # Check if we have sufficient data
-    if (is.null(all_videos) || nrow(all_videos) == 0) {
-      log_warn("No videos available for coordination detection")
-      return(create_empty_coordination_result())
-    }
-    
-    if (!"video_description" %in% colnames(all_videos)) {
-      log_warn("Missing video_description column")
-      return(create_empty_coordination_result())
-    }
-    
-    # ENHANCED: More thorough data cleaning and validation
-    log_info("Starting data validation and cleaning")
-    
-    # Clean and filter the data
-    clean_videos <- all_videos %>%
-      # Remove rows with missing essential data
-      filter(
-        !is.na(video_description),
-        !is.na(author_name),
-        !is.na(video_id),
-        !is.na(create_time),
-        nchar(trimws(video_description)) > 0,
-        nchar(trimws(author_name)) > 0,
-        nchar(trimws(video_id)) > 0
-      ) %>%
-      # Clean text fields
-      mutate(
-        video_description = trimws(video_description),
-        author_name = trimws(author_name),
-        video_id = trimws(video_id)
-      ) %>%
-      # Ensure proper data types
-      mutate(
-        create_time = as.POSIXct(create_time),
-        video_id = as.character(video_id),
-        author_name = as.character(author_name),
-        video_description = as.character(video_description)
-      ) %>%
-      # Remove duplicates
-      distinct(video_id, .keep_all = TRUE)
-    
-    log_info(sprintf("Data cleaning: %d -> %d videos", nrow(all_videos), nrow(clean_videos)))
-    
-    # Check for minimum data requirements after cleaning
-    unique_descriptions <- length(unique(clean_videos$video_description))
-    unique_authors <- length(unique(clean_videos$author_name))
-    
-    log_info(sprintf("Data check: %d videos, %d unique descriptions, %d unique authors", 
-                    nrow(clean_videos), unique_descriptions, unique_authors))
-    
-    if (unique_descriptions < params$min_participation || unique_authors < params$min_participation) {
-      log_warn("Insufficient data for coordination detection after cleaning")
-      return(create_empty_coordination_result())
-    }
-    
-    # ENHANCED: Additional validation for duplicate content
-    content_frequency <- clean_videos %>%
-      group_by(video_description) %>%
-      summarise(
-        account_count = n_distinct(author_name),
-        total_posts = n(),
-        .groups = 'drop'
-      ) %>%
-      filter(account_count >= params$min_participation)
-    
-    if (nrow(content_frequency) == 0) {
-      log_warn("No content shared by minimum required accounts")
-      return(create_empty_coordination_result())
-    }
-    
-    log_info(sprintf("Found %d pieces of content shared by %d+ accounts", 
-                    nrow(content_frequency), params$min_participation))
-    
-    # Filter to only include videos with content that meets minimum participation
-    analysis_videos <- clean_videos %>%
-      filter(video_description %in% content_frequency$video_description)
-    
-    log_info(sprintf("Analysis dataset: %d videos from %d accounts", 
-                    nrow(analysis_videos), n_distinct(analysis_videos$author_name)))
-    
-    # FIXED: Prepare data with enhanced error handling
-    tryCatch({
+    if(nrow(all_videos) > 0 && 
+       "video_description" %in% colnames(all_videos) &&
+       "author_name" %in% colnames(all_videos) && # Added author_name check
+       "video_id" %in% colnames(all_videos) &&
+       "create_time" %in% colnames(all_videos)) {
+      
+      # Prepare data with correct field mappings
       prep_data <- CooRTweet::prep_data(
-        x = analysis_videos,
+        x = all_videos,
         object_id = "video_description",
-        account_id = "author_name",
-        content_id = "video_id",
-        timestamp_share = "create_time"
+        account_id = "author_name",      # Changed from username to author_name
+        content_id = "video_id",         # Already correct
+        timestamp_share = "create_time"   # Already correct
       )
       
       log_info("Data prepared for coordination detection")
       
-      # Validate prep_data structure
-      if (is.null(prep_data) || nrow(prep_data) == 0) {
-        log_warn("prep_data is empty or NULL")
-        return(create_empty_coordination_result())
-      }
-      
-      log_info(sprintf("Prepared data: %d rows", nrow(prep_data)))
-      
-    }, error = function(e) {
-      log_error(sprintf("Error in prep_data: %s", conditionMessage(e)))
-      return(create_empty_coordination_result())
-    })
-    
-    # FIXED: Detect coordinated groups with enhanced error handling
-    tryCatch({
+      # Detect coordinated groups
       result <- CooRTweet::detect_groups(
         x = prep_data,
         time_window = params$time_window,
         min_participation = params$min_participation,
-        remove_loops = TRUE
-      )
+        remove_loops = TRUE)
       
-      log_info("Coordination detection completed")
-      
-      # Validate result
-      if (is.null(result) || nrow(result) == 0) {
-        log_warn("No coordinated groups detected by detect_groups")
-        return(create_empty_coordination_result())
-      }
-      
-      log_info(sprintf("Detected coordination: %d relationships", nrow(result)))
-      
-    }, error = function(e) {
-      log_error(sprintf("Error in detect_groups: %s", conditionMessage(e)))
-      return(create_empty_coordination_result())
-    })
-    
-    # FIXED: Generate network with enhanced error handling
-    tryCatch({
       coord_graph <- CooRTweet::generate_coordinated_network(
         x = result, 
         edge_weight = params$edge_weight,
         objects = TRUE,
-        subgraph = 1
-      )
+        subgraph = 1)
       
-      if (is.null(coord_graph) || !igraph::is_igraph(coord_graph)) {
-        log_warn("Failed to generate coordination network")
-        return(create_empty_coordination_result())
+      log_info("Coordination network generated")
+      
+      # Calculate summary statistics if graph is valid
+      if(!is.null(coord_graph) && !is.null(result)) {
+        if(!("igraph" %in% class(coord_graph))) {
+          log_error("coord_graph is not of type igraph")
+          stop("coord_graph is not of type igraph. Please check the generate_coordinated_network output.")
+        }
+        
+        # Calculate summary statistics
+        summary_groups <- CooRTweet::group_stats(
+          coord_graph = coord_graph, 
+          weight_threshold = "full"
+        )
+        
+        summary_accounts <- CooRTweet::account_stats(
+          coord_graph = coord_graph, 
+          result = result, 
+          weight_threshold = "full"
+        )
+        
+        log_info("Successfully calculated summary statistics")
+        
+        # Get current list of coordinated accounts from summary_accounts
+        current_coordinated_accounts <- summary_accounts$account_id
+        log_info(sprintf("Found %d accounts showing coordination in current analysis", 
+                        length(current_coordinated_accounts)))
+        
+        # Get the starting list of known accounts
+        log_info(sprintf("Starting with %d known coordinated accounts", 
+                        length(coord_users)))
+        
+        # Identify truly new accounts (not in starting list)
+        new_account_ids <- data.frame(
+          account_id = setdiff(current_coordinated_accounts, coord_users)
+        )
+        
+        # Create updated list
+        updated_list <- unique(c(coord_users, new_account_ids$account_id))
+        
+        # Log the results
+        if(nrow(new_account_ids) > 0) {
+          log_info(sprintf("Found %d new coordinated accounts (not in starting list)", 
+                          nrow(new_account_ids)))
+          log_info(sprintf("Total unique accounts after update: %d", 
+                          length(updated_list)))
+        } else {
+          log_info("No new coordinated accounts found")
+        }
+        
+        # Save results
+        dir.create("output/coordination", showWarnings = FALSE, recursive = TRUE)
+        
+        write_csv(summary_groups, "output/coordination/summary_groups.csv")
+        write_csv(summary_accounts, "output/coordination/summary_accounts.csv")
+        write_csv(data.frame(account_id = updated_list), 
+                  "output/coordination/updated_account_list.csv")
+        
+        return(list(
+          coord_graph = coord_graph,
+          summary_groups = summary_groups,
+          summary_accounts = summary_accounts,
+          new_accounts = new_account_ids,
+          updated_list = updated_list
+        ))
+        
+      } else {
+        log_warn("coord_graph or result is NULL. Skipping summary statistics.")
+        return(empty_coordination_result(coord_users)) # Use helper
       }
-      
-      # Check if graph has nodes and edges
-      if (igraph::vcount(coord_graph) == 0) {
-        log_warn("Generated network has no nodes")
-        return(create_empty_coordination_result())
-      }
-      
-      log_info(sprintf("Network generated: %d nodes, %d edges", 
-                      igraph::vcount(coord_graph), igraph::ecount(coord_graph)))
-      
-    }, error = function(e) {
-      log_error(sprintf("Error in generate_coordinated_network: %s", conditionMessage(e)))
-      return(create_empty_coordination_result())
-    })
-    
-    # FIXED: Calculate summary statistics with enhanced error handling
-    tryCatch({
-      summary_groups <- CooRTweet::group_stats(
-        coord_graph = coord_graph, 
-        weight_threshold = "full"
-      )
-      
-      summary_accounts <- CooRTweet::account_stats(
-        coord_graph = coord_graph, 
-        result = result, 
-        weight_threshold = "full"
-      )
-      
-      # Validate summary data
-      if (is.null(summary_groups) || is.null(summary_accounts)) {
-        log_warn("Failed to generate summary statistics")
-        return(create_empty_coordination_result())
-      }
-      
-      if (nrow(summary_accounts) == 0) {
-        log_warn("No accounts in summary statistics")
-        return(create_empty_coordination_result())
-      }
-      
-      log_info("Successfully calculated summary statistics")
-      
-    }, error = function(e) {
-      log_error(sprintf("Error in summary statistics: %s", conditionMessage(e)))
-      return(create_empty_coordination_result())
-    })
-    
-    # Process results
-    current_coordinated_accounts <- summary_accounts$account_id
-    log_info(sprintf("Found %d accounts showing coordination in current analysis", 
-                    length(current_coordinated_accounts)))
-    
-    # Get the starting list of known accounts
-    log_info(sprintf("Starting with %d known coordinated accounts", 
-                    length(coord_users)))
-    
-    # Identify truly new accounts (not in starting list)
-    new_account_ids <- data.frame(
-      account_id = setdiff(current_coordinated_accounts, coord_users),
-      stringsAsFactors = FALSE
-    )
-    
-    # Create updated list
-    updated_list <- unique(c(coord_users, new_account_ids$account_id))
-    
-    # Log the results
-    if(nrow(new_account_ids) > 0) {
-      log_info(sprintf("Found %d new coordinated accounts (not in starting list)", 
-                      nrow(new_account_ids)))
-      log_info(sprintf("Total unique accounts after update: %d", 
-                      length(updated_list)))
     } else {
-      log_info("No new coordinated accounts found")
+      log_warn("No videos available or missing required columns for coordinated detection analysis")
+      return(empty_coordination_result(coord_users)) # Use helper
     }
-    
-    # Save results with error handling
-    tryCatch({
-      dir.create("output/coordination", showWarnings = FALSE, recursive = TRUE)
-      
-      write_csv(summary_groups, "output/coordination/summary_groups.csv")
-      write_csv(summary_accounts, "output/coordination/summary_accounts.csv")
-      write_csv(data.frame(account_id = updated_list), 
-                "output/coordination/updated_account_list.csv")
-      
-      log_info("Successfully saved coordination results")
-    }, error = function(e) {
-      log_warn(sprintf("Error saving coordination results: %s", conditionMessage(e)))
-    })
-    
-    return(list(
-      coord_graph = coord_graph,
-      summary_groups = summary_groups,
-      summary_accounts = summary_accounts,
-      new_accounts = new_account_ids,
-      updated_list = updated_list
-    ))
-    
   }, error = function(e) {
-    log_error(paste("Error in coordinated detection:", conditionMessage(e)))
+    log_error(paste("Error in coordinated detection:", e$message))
     global_error_list <<- c(global_error_list, list(list(
       type = "coordinated_detection",
-      message = conditionMessage(e)
+      message = e$message
     )))
-    return(create_empty_coordination_result())
+    return(empty_coordination_result(coord_users)) # Use helper
   })
-}
-
-# ENHANCED: Helper function to create empty coordination result
-create_empty_coordination_result <- function() {
-  return(list(
-    coord_graph = NULL,
-    summary_groups = data.frame(
-      object_id = character(),
-      num_accounts = numeric(),
-      stringsAsFactors = FALSE
-    ),
-    summary_accounts = data.frame(
-      account_id = character(),
-      avg_time_delta = numeric(),
-      avg_edge_symmetry_score = numeric(),
-      unique_shares_count = numeric(),
-      stringsAsFactors = FALSE
-    ), 
-    new_accounts = data.frame(
-      account_id = character(),
-      stringsAsFactors = FALSE
-    ),
-    updated_list = if(exists("coord_users")) coord_users else character()
-  ))
 }
 
 # Execute if we have all_videos
@@ -1136,7 +1407,14 @@ if (exists("all_videos") && is.data.frame(all_videos) && nrow(all_videos) > 0) {
   }
 } else {
   log_warn("No videos available for coordination analysis")
-  coordination_results <- create_empty_coordination_result()
+  # Ensure coordination_results is defined even if empty
+   coordination_results <- list(
+      coord_graph = NULL,
+      summary_groups = data.frame(),
+      summary_accounts = data.frame(),
+      new_accounts = data.frame(),
+      updated_list = if(exists("coord_users")) coord_users else character(0)
+    )
 }
 
 ```
@@ -1351,8 +1629,10 @@ update_account_logs <- function(coordination_results) {
   log_file_path <- file.path(daily_output_dir, "new_accounts_log.csv")
   
   # Save daily snapshot
-  if (exists("all_videos") && !is.null(all_videos)) {
+  if (exists("all_videos") && !is.null(all_videos) && is.data.frame(all_videos) && nrow(all_videos) > 0) {
     write_csv(all_videos, file.path(daily_output_dir, "daily_snapshot.csv"))
+  } else {
+    log_warn("all_videos is NULL, empty, or not a dataframe. Skipping daily_snapshot.csv save.")
   }
   
   tryCatch({
@@ -1374,8 +1654,8 @@ update_account_logs <- function(coordination_results) {
     # Prepare the new log entry with correct column names
     new_entry <- data.frame(
       Timestamp = as.Date(Sys.Date()),
-      New_Accounts_Count = nrow(coordination_results$new_accounts),
-      Total_Accounts = length(coordination_results$updated_list)
+      New_Accounts_Count = if(!is.null(coordination_results$new_accounts)) nrow(coordination_results$new_accounts) else 0,
+      Total_Accounts = if(!is.null(coordination_results$updated_list)) length(coordination_results$updated_list) else 0
     )
     
     # Append the new entry to the log file
@@ -1389,7 +1669,7 @@ update_account_logs <- function(coordination_results) {
                      new_entry$Total_Accounts))
     
     # Update the coordinated accounts list
-    if (length(coordination_results$updated_list) > 0) {
+    if (!is.null(coordination_results$updated_list) && length(coordination_results$updated_list) > 0) {
       # Save updated list in both the daily folder and the global folder
       write_csv(
         data.frame(x = coordination_results$updated_list),
@@ -1418,7 +1698,6 @@ update_account_logs <- function(coordination_results) {
     return(FALSE)
   })
 }
-
 
 # Execute if we have coordination results
 if (exists("coordination_results") && 
@@ -1518,6 +1797,7 @@ load_historical_data <- function() {
 
 # Load historical data
 historical_data <- load_historical_data()
+
 ```
 
 # Today Results
@@ -1546,38 +1826,42 @@ generate_summary <- function(
   )
   
   # Recent videos summary
-  if (is.data.frame(recent_videos) && nrow(recent_videos) > 0) {
+  if (exists("recent_videos") && is.data.frame(recent_videos) && nrow(recent_videos) > 0) {
     summary_parts$recent <- sprintf(
       "We successfully retrieved **%s recent videos**.",
       scales::comma(nrow(recent_videos))
     )
   } else {
-    summary_parts$recent <- "We were unable to retrieve any recent videos due to API issues."
+    summary_parts$recent <- "We were unable to retrieve any recent videos due to API issues or no new videos from monitored accounts."
   }
   
   # All videos summary
-  if (is.data.frame(all_videos) && nrow(all_videos) > 0) {
+  if (exists("all_videos") && is.data.frame(all_videos) && nrow(all_videos) > 0) {
     summary_parts$all <- sprintf(
       "Using available data, we accessed a total of **%s videos** posted on TikTok within the timeframe.",
       scales::comma(nrow(all_videos))
     )
   } else {
-    summary_parts$all <- "No videos were available for analysis."
+    summary_parts$all <- "No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions)."
   }
   
   # Coordination analysis summary
-  if (!is.null(coordination_results) && 
+  if (exists("coordination_results") && 
+      !is.null(coordination_results) && 
       !is.null(coordination_results$summary_accounts) && 
-      !is.null(coordination_results$coord_graph)) {
+      is.data.frame(coordination_results$summary_accounts) && # check it's a dataframe
+      nrow(coordination_results$summary_accounts) > 0 && # check it has rows
+      !is.null(coordination_results$coord_graph) &&
+      igraph::is_igraph(coordination_results$coord_graph)) { # check it's an igraph object
     
     summary_parts$coordination <- sprintf(
       "Our analysis for coordinated detection in these videos identified **%s accounts** spread across **%s components**, and it also uncovered **%s new accounts** exhibiting coordinated behavior.",
       scales::comma(nrow(coordination_results$summary_accounts)),
       scales::comma(igraph::components(coordination_results$coord_graph)$no),
-      scales::comma(nrow(coordination_results$new_accounts))
+      scales::comma(if(!is.null(coordination_results$new_accounts)) nrow(coordination_results$new_accounts) else 0)
     )
   } else {
-    summary_parts$coordination <- "We were unable to perform coordinated detection analysis due to insufficient data."
+    summary_parts$coordination <- "We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected."
   }
   
   # Generate error summary if there are errors
@@ -1671,8 +1955,9 @@ if (exists("coord_users") && exists("startdate") && exists("enddate")) {
 ```
 
 ```{r historical_trends, include=TRUE, echo=FALSE, fig.cap="Historical trends of coordinated accounts"}
-# Plot historical trends only if we have data
-if (nrow(historical_data$logs) > 0) {
+
+# Plot historical trends
+if (exists("historical_data") && !is.null(historical_data$logs) && nrow(historical_data$logs) > 0) {
   ggplot(historical_data$logs, aes(x = Timestamp)) +
     geom_line(aes(y = Total_Accounts, color = "Total Accounts")) +
     geom_line(aes(y = New_Accounts_Count, color = "New Accounts")) +
@@ -1685,8 +1970,9 @@ if (nrow(historical_data$logs) > 0) {
     theme_minimal() +
     scale_color_manual(values = c("Total Accounts" = "blue", "New Accounts" = "red"))
 } else {
-  cat("No historical data available for trend visualization.")
+  cat("No historical log data available to plot trends.")
 }
+
 ```
 
 ## Interactive Graph Visualization
@@ -1878,6 +2164,7 @@ network_viz <- local({
 
 # Save the network_viz object to make it available across chunks
 assign("network_viz", network_viz, envir = .GlobalEnv)
+
 ```
 
 ```{r display_visualization, include=TRUE, echo=FALSE}
@@ -1889,11 +2176,13 @@ if (!is.null(network_viz)) {
 } else {
   cat("No network visualization available for today's analysis.")
 }
+
 ```
 
 ## Detailed Tables
 
 ```{r setup_tables, include=FALSE, eval=TRUE}
+
 # Helper function to create TikTok profile URL
 create_url_link <- function(username, type = "profile") {
   if (type == "profile") {
@@ -1926,143 +2215,176 @@ create_datatable_base <- function(data, pageLength = 10, fontSize = "9px",
   )
 }
 
-# Function to create empty placeholder table
-create_empty_table <- function(message = "No data available") {
-  empty_data <- data.frame(
-    Status = message,
-    stringsAsFactors = FALSE
-  )
-  return(create_datatable_base(empty_data))
-}
-
 # 1. Coordinated Posts Table
 create_posts_table <- function(summary_groups, all_videos, coord_graph) {
-  tryCatch({
-    # Get the list of coordinated accounts from the graph
-    coordinated_accounts <- V(coord_graph)$name
-    
-    # Get component membership for coordinated accounts
-    comp <- components(coord_graph)
-    account_components <- data.frame(
-      author_name = coordinated_accounts,
-      network = comp$membership
+  empty_df_structure <- data.frame(
+      `Post URL` = character(), Network = integer(), Author = character(),
+      Timestamp = as.POSIXct(character()), `Number of Accounts` = integer(),
+      Views = integer(), Likes = integer(), Comments = integer(), Shares = integer(),
+      Description = character(), stringsAsFactors = FALSE
     )
-    
-    # Create posts table, filtering for coordinated accounts only
-    posts_df <- summary_groups %>%
-      left_join(
-        select(all_videos, 
-          video_description, video_url, author_name, create_time,
-          view_count, like_count, comment_count, share_count
-        ),
-        by = c("object_id" = "video_description")
-      ) %>%
-      # Only keep posts from coordinated accounts
-      filter(author_name %in% coordinated_accounts) %>%
-      # Join with component information
-      left_join(account_components, by = "author_name") %>%
-      mutate(
-        video_link = map_chr(video_url, ~create_url_link(.x, "video")),
-        Description = paste0(substr(object_id, 1, 150), "...")
-      ) %>%
-      select(
-        `Post URL` = video_link,
-        Network = network,
-        Author = author_name,
-        Timestamp = create_time,
-        `Number of Accounts` = num_accounts,
-        Views = view_count,
-        Likes = like_count,
-        Comments = comment_count,
-        Shares = share_count,
-        Description = object_id
-      ) %>%
-      distinct()
 
-    return(create_datatable_base(posts_df, orderCol = 4))
-  }, error = function(e) {
-    log_warn(sprintf("Error creating posts table: %s", e$message))
-    return(create_empty_table("No coordinated posts data available"))
-  })
+  if (is.null(coord_graph) || !igraph::is_igraph(coord_graph) || igraph::gorder(coord_graph) == 0 ||
+      is.null(summary_groups) || nrow(summary_groups) == 0 ||
+      is.null(all_videos) || nrow(all_videos) == 0) {
+    log_warn("Insufficient data for Coordinated Posts Table. Returning empty table.")
+    return(create_datatable_base(empty_df_structure[0,], orderCol = 4))
+  }
+
+  # Get the list of coordinated accounts from the graph
+  coordinated_accounts <- V(coord_graph)$name
+  
+  # Get component membership for coordinated accounts
+  comp <- components(coord_graph)
+  account_components <- data.frame(
+    author_name = coordinated_accounts,
+    network = comp$membership,
+    stringsAsFactors = FALSE
+  )
+  
+  # Create posts table, filtering for coordinated accounts only
+  posts_df <- summary_groups %>%
+    left_join(
+      select(all_videos, 
+        video_description, video_url, author_name, create_time,
+        view_count, like_count, comment_count, share_count
+      ),
+      by = c("object_id" = "video_description")
+    ) %>%
+    # Only keep posts from coordinated accounts
+    filter(author_name %in% coordinated_accounts) %>%
+    # Join with component information
+    left_join(account_components, by = "author_name") %>%
+    mutate(
+      video_link = map_chr(video_url, ~create_url_link(.x, "video")),
+      Description = paste0(substr(object_id, 1, 150), "...")
+    ) %>%
+    select(
+      `Post URL` = video_link,
+      Network = network,
+      Author = author_name,
+      Timestamp = create_time,
+      `Number of Accounts` = num_accounts,
+      Views = view_count,
+      Likes = like_count,
+      Comments = comment_count,
+      Shares = share_count,
+      Description = object_id # Keep full description for data, display shortened
+    ) %>%
+    distinct()
+
+  return(create_datatable_base(posts_df, orderCol = 4))
 }
 
 # 2. Coordinated Accounts Table
 create_accounts_table <- function(summary_accounts, coord_graph, all_videos) {
-  tryCatch({
-    # Get network metrics
-    network_metrics <- list(
-      degree = degree(coord_graph),
-      strength = strength(coord_graph),
-      betweenness = betweenness(coord_graph, normalized = TRUE)
+  empty_df_structure <- data.frame(
+      Account = character(), Network = integer(), `Unique Shares` = integer(),
+      `Avg Time Between Shares (sec)` = numeric(), `Edge Symmetry Score` = numeric(),
+      Degree = integer(), Strength = numeric(), Betweenness = numeric(),
+      `Avg Views` = numeric(), `Avg Likes` = numeric(),
+      `Avg Comments` = numeric(), `Avg Shares` = numeric(),
+      stringsAsFactors = FALSE
     )
-    
-    metrics_df <- data.frame(
-      account_id = names(network_metrics$degree),
-      degree = as.numeric(network_metrics$degree),
-      strength = as.numeric(network_metrics$strength),
-      betweenness = as.numeric(network_metrics$betweenness)
+
+  if (is.null(summary_accounts) || nrow(summary_accounts) == 0 || 
+      is.null(coord_graph) || !igraph::is_igraph(coord_graph) || igraph::gorder(coord_graph) == 0) {
+    log_warn("Insufficient data for Coordinated Accounts Table. Returning empty table.")
+    return(create_datatable_base(empty_df_structure[0,], pageLength = 25, orderCol = 6))
+  }
+
+  # Get network metrics
+  network_metrics <- list(
+    degree = igraph::degree(coord_graph),
+    strength = igraph::strength(coord_graph),
+    betweenness = igraph::betweenness(coord_graph, normalized = TRUE)
+  )
+  
+  metrics_df <- data.frame(
+    account_id = names(network_metrics$degree),
+    degree = as.numeric(network_metrics$degree),
+    strength = as.numeric(network_metrics$strength),
+    betweenness = as.numeric(network_metrics$betweenness),
+    stringsAsFactors = FALSE 
+  )
+  
+  # Get engagement metrics
+  engagement_metrics <- data.frame(author_name=character(), avg_views=numeric(), avg_likes=numeric(), avg_comments=numeric(), avg_shares=numeric(), stringsAsFactors = FALSE)
+  if (!is.null(all_videos) && nrow(all_videos) > 0 && 
+      all(c("author_name", "view_count", "like_count", "comment_count", "share_count") %in% colnames(all_videos))) {
+      engagement_metrics <- all_videos %>%
+        group_by(author_name) %>%
+        summarize(
+          avg_views = mean(view_count, na.rm = TRUE),
+          avg_likes = mean(like_count, na.rm = TRUE),
+          avg_comments = mean(comment_count, na.rm = TRUE),
+          avg_shares = mean(share_count, na.rm = TRUE),
+          .groups = 'drop'
+        )
+  } else {
+      log_warn("all_videos is empty or missing columns for engagement metrics in create_accounts_table.")
+  }
+  
+  accounts_df <- summary_accounts %>%
+    mutate(
+      account_link = map_chr(account_id, ~create_url_link(.x, "profile")),
+      network = igraph::components(coord_graph)$membership[match(account_id, V(coord_graph)$name)]
+    ) %>%
+    left_join(metrics_df, by = "account_id") %>%
+    left_join(engagement_metrics, by = c("account_id" = "author_name")) %>% 
+    mutate(across(where(is.numeric), ~ifelse(is.na(.x), 0, round(.x, 3)))) %>% 
+    select(
+      Account = account_link,
+      Network = network,
+      `Unique Shares` = unique_shares_count,
+      `Avg Time Between Shares (sec)` = avg_time_delta,
+      `Edge Symmetry Score` = avg_edge_symmetry_score,
+      Degree = degree,
+      Strength = strength,
+      Betweenness = betweenness,
+      `Avg Views` = avg_views,
+      `Avg Likes` = avg_likes,
+      `Avg Comments` = avg_comments,
+      `Avg Shares` = avg_shares
     )
-    
-    # Get engagement metrics
-    engagement_metrics <- all_videos %>%
-      group_by(author_name) %>%
-      summarize(
-        avg_views = mean(view_count, na.rm = TRUE),
-        avg_likes = mean(like_count, na.rm = TRUE),
-        avg_comments = mean(comment_count, na.rm = TRUE),
-        avg_shares = mean(share_count, na.rm = TRUE),
-        .groups = 'drop'
-      )
-    
-    accounts_df <- summary_accounts %>%
-      mutate(
-        account_link = map_chr(account_id, ~create_url_link(.x, "profile")),
-        network = components(coord_graph)$membership[match(account_id, V(coord_graph)$name)]
-      ) %>%
-      left_join(metrics_df, by = "account_id") %>%
-      left_join(engagement_metrics, by = c("account_id" = "author_name")) %>%
-      mutate(across(where(is.numeric), ~round(.x, 3))) %>%
-      select(
-        Account = account_link,
-        Network = network,
-        `Unique Shares` = unique_shares_count,
-        `Avg Time Between Shares (sec)` = avg_time_delta,
-        `Edge Symmetry Score` = avg_edge_symmetry_score,
-        Degree = degree,
-        Strength = strength,
-        Betweenness = betweenness,
-        `Avg Views` = avg_views,
-        `Avg Likes` = avg_likes,
-        `Avg Comments` = avg_comments,
-        `Avg Shares` = avg_shares
-      )
-    
-    return(create_datatable_base(accounts_df, pageLength = 25, orderCol = 6))
-  }, error = function(e) {
-    log_warn(sprintf("Error creating accounts table: %s", e$message))
-    return(create_empty_table("No coordinated accounts data available"))
-  })
+  
+  return(create_datatable_base(accounts_df, pageLength = 25, orderCol = 6))
 }
 
 # 3. Coordinated Clusters Table
 create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
-  tryCatch({
-    comp <- components(coord_graph)
+   empty_df_structure <- data.frame(
+      Network = integer(), `Number of Accounts` = integer(),
+      `Network Density` = numeric(), `Network Diameter` = numeric(),
+      `Clustering Coefficient` = numeric(), `Avg Views` = numeric(),
+      `Avg Likes` = numeric(), `Avg Comments` = numeric(), `Avg Shares` = numeric(),
+      `Member Accounts` = character(), stringsAsFactors = FALSE
+    )
     
-    # Calculate cluster metrics
-    cluster_metrics <- map_dfr(1:comp$no, function(i) {
-      subg <- induced_subgraph(coord_graph, which(comp$membership == i))
-      tibble(
-        network = i,
-        size = sum(comp$membership == i),
-        density = edge_density(subg),
-        diameter = if(vcount(subg) < 2) 0 else diameter(subg),
-        transitivity = transitivity(subg, type = "global"),
-        accounts = paste(V(coord_graph)$name[comp$membership == i], collapse = ", ")
-      )
-    })
-    
-    # Get engagement metrics by component
+  if (is.null(coord_graph) || !igraph::is_igraph(coord_graph) || igraph::gorder(coord_graph) == 0) {
+    log_warn("Insufficient data for Coordinated Clusters Table. Returning empty table.")
+    return(create_datatable_base(empty_df_structure[0,], fontSize = "12px"))
+  }
+
+  comp <- components(coord_graph)
+  
+  # Calculate cluster metrics
+  cluster_metrics <- map_dfr(1:comp$no, function(i) {
+    subg <- induced_subgraph(coord_graph, which(comp$membership == i))
+    tibble(
+      network = i,
+      size = sum(comp$membership == i),
+      density = edge_density(subg),
+      diameter = if(vcount(subg) < 2) 0 else diameter(subg),
+      transitivity = transitivity(subg, type = "global"),
+      accounts = paste(V(coord_graph)$name[comp$membership == i], collapse = ", ")
+    )
+  })
+  
+  # Get engagement metrics by component
+  engagement_metrics <- data.frame(network = integer(), avg_views=numeric(), avg_likes=numeric(), avg_comments=numeric(), avg_shares=numeric(), stringsAsFactors = FALSE)
+  if (!is.null(all_videos) && nrow(all_videos) > 0 && 
+      all(c("author_name", "view_count", "like_count", "comment_count", "share_count") %in% colnames(all_videos))) {
     engagement_metrics <- all_videos %>%
       mutate(
         network = comp$membership[match(author_name, V(coord_graph)$name)]
@@ -2076,151 +2398,105 @@ create_clusters_table <- function(coord_graph, summary_accounts, all_videos) {
         avg_shares = mean(share_count, na.rm = TRUE),
         .groups = 'drop'
       )
-    
-    clusters_df <- cluster_metrics %>%
-      left_join(engagement_metrics, by = "network") %>%
-      mutate(across(where(is.numeric), ~round(.x, 3))) %>%
-      select(
-        Network = network,
-        `Number of Accounts` = size,
-        `Network Density` = density,
-        `Network Diameter` = diameter,
-        `Clustering Coefficient` = transitivity,
-        `Avg Views` = avg_views,
-        `Avg Likes` = avg_likes,
-        `Avg Comments` = avg_comments,
-        `Avg Shares` = avg_shares,
-        `Member Accounts` = accounts
-      )
-    
-    return(create_datatable_base(clusters_df, fontSize = "12px") %>%
-      formatStyle(
-        columns = 2:9,
-        className = 'dt-right'
-      ) %>%
-      formatStyle(
-        'Network',
-        width = '300px'
-      ))
-  }, error = function(e) {
-    log_warn(sprintf("Error creating clusters table: %s", e$message))
-    return(create_empty_table("No coordinated clusters data available"))
-  })
+  } else {
+    log_warn("all_videos is empty or missing columns for engagement metrics in create_clusters_table.")
+  }
+  
+  clusters_df <- cluster_metrics %>%
+    left_join(engagement_metrics, by = "network") %>%
+    mutate(across(where(is.numeric), ~ifelse(is.na(.x), 0, round(.x, 3)))) %>%
+    select(
+      Network = network,
+      `Number of Accounts` = size,
+      `Network Density` = density,
+      `Network Diameter` = diameter,
+      `Clustering Coefficient` = transitivity,
+      `Avg Views` = avg_views,
+      `Avg Likes` = avg_likes,
+      `Avg Comments` = avg_comments,
+      `Avg Shares` = avg_shares,
+      `Member Accounts` = accounts
+    )
+  
+  return(create_datatable_base(clusters_df, fontSize = "12px") %>%
+    formatStyle(
+      columns = 2:9,
+      className = 'dt-right'
+    ) %>%
+    formatStyle(
+      'Network',
+      width = '300px'
+    ))
 }
 
-# FIXED: Create all tables with proper error handling
-tryCatch({
-  if (exists("coordination_results") && 
-      !is.null(coordination_results) && 
-      !is.null(coordination_results$coord_graph) &&
-      !is.null(coordination_results$summary_accounts) &&
-      !is.null(coordination_results$summary_groups) &&
-      exists("all_videos") && 
-      is.data.frame(all_videos) && 
-      nrow(all_videos) > 0) {
-    
-    log_info("Creating coordination analysis tables")
-    
-    accounts_table <- create_accounts_table(
-      coordination_results$summary_accounts, 
-      coordination_results$coord_graph,
-      all_videos
-    )
-    
-    clusters_table <- create_clusters_table(
-      coordination_results$coord_graph, 
-      coordination_results$summary_accounts,
-      all_videos
-    )
-    
-    posts_table <- create_posts_table(
-      coordination_results$summary_groups, 
-      all_videos,
-      coordination_results$coord_graph
-    )
-    
-    log_info("Successfully created all coordination tables")
-    
-  } else {
-    # Create empty tables when no coordination data is available
-    log_warn("No coordination results available - creating empty tables")
-    
-    accounts_table <- create_empty_table("No coordination analysis was performed due to insufficient data")
-    clusters_table <- create_empty_table("No coordination networks were detected") 
-    posts_table <- create_empty_table("No coordinated posts were identified")
-  }
-}, error = function(e) {
-  log_error(sprintf("Error in table creation: %s", e$message))
+# Create all tables
+if (exists("coordination_results") && !is.null(coordination_results) &&
+    exists("all_videos") && !is.null(all_videos)) {
   
-  # Fallback: create empty tables
-  accounts_table <- create_empty_table("Error occurred during table creation")
-  clusters_table <- create_empty_table("Error occurred during table creation")
-  posts_table <- create_empty_table("Error occurred during table creation")
-})
+  accounts_table <- create_accounts_table(
+    coordination_results$summary_accounts, 
+    coordination_results$coord_graph,
+    all_videos
+  )
+  
+  clusters_table <- create_clusters_table(
+    coordination_results$coord_graph, 
+    coordination_results$summary_accounts, # Though not directly used, implies coord_graph validity
+    all_videos
+  )
+  
+  posts_table <- create_posts_table(
+    coordination_results$summary_groups, 
+    all_videos,
+    coordination_results$coord_graph
+  )
+} else {
+  log_warn("coordination_results or all_videos not available. Tables will be empty.")
+}
 
-# Ensure tables exist in global environment
-if (!exists("accounts_table")) {
-  accounts_table <- create_empty_table("Table creation failed")
+# Fallback initialization if tables were not created
+empty_df_msg <- data.frame(Message = "No data available for this table.")
+if (!exists("accounts_table")) { 
+  accounts_table <- create_datatable_base(empty_df_msg, pageLength = 25, orderCol = NULL)
 }
 if (!exists("clusters_table")) {
-  clusters_table <- create_empty_table("Table creation failed")  
+  clusters_table <- create_datatable_base(empty_df_msg, fontSize = "12px", orderCol = NULL)
 }
 if (!exists("posts_table")) {
-  posts_table <- create_empty_table("Table creation failed")
+  posts_table <- create_datatable_base(empty_df_msg, orderCol = NULL)
 }
+
 ```
 
-```{r display_tables_fixed, echo=FALSE, results='asis'}
-# Enhanced table display with error handling
-cat("## Coordination Analysis Results\n\n")
-
-# Check if we have meaningful coordination results
-has_coordination_data <- exists("coordination_results") && 
-                        !is.null(coordination_results) &&
-                        !is.null(coordination_results$coord_graph) &&
-                        exists("all_videos") &&
-                        is.data.frame(all_videos) &&
-                        nrow(all_videos) > 0
-
-if (has_coordination_data) {
-  cat("✅ **Coordination analysis completed successfully**\n\n")
-  cat(sprintf("- **Networks detected:** %d\n", components(coordination_results$coord_graph)$no))
-  cat(sprintf("- **Coordinated accounts:** %d\n", nrow(coordination_results$summary_accounts)))
-  cat(sprintf("- **New accounts found:** %d\n\n", nrow(coordination_results$new_accounts)))
-} else {
-  cat("⚠️ **No coordination patterns detected**\n\n")
-  cat("The analysis was unable to identify coordinated behavior patterns due to:\n")
-  cat("- Insufficient video data collected\n")
-  cat("- API quota limitations\n") 
-  cat("- Data quality issues\n\n")
-  cat("*Empty tables are shown below for reference.*\n\n")
-}
+```{r display_tables, echo=FALSE, results='asis'}
+# Display tables with headers
+cat("\n")  # Ensure proper spacing
 ```
 
 ### Coordinated Accounts
-```{r display_accounts_fixed, echo=FALSE}
+```{r display_accounts, echo=FALSE}
 if (exists("accounts_table")) {
   accounts_table
 } else {
-  cat("Accounts table not available")
+  cat("Accounts table could not be generated.")
 }
 ```
 
-### Coordinated Networks/Clusters  
-```{r display_clusters_fixed, echo=FALSE}
+### Coordinated Networks/Clusters
+```{r display_clusters, echo=FALSE}
 if (exists("clusters_table")) {
   clusters_table
 } else {
-  cat("Clusters table not available")
+  cat("Clusters table could not be generated.")
 }
 ```
 
 ### Coordinated Posts
-```{r display_posts_fixed, echo=FALSE}  
+```{r display_posts, echo=FALSE}
 if (exists("posts_table")) {
   posts_table
 } else {
-  cat("Posts table not available")
+  cat("Posts table could not be generated.")
 }
 ```
 
@@ -2234,29 +2510,28 @@ prepare_download_files <- function() {
   # Change to temp dir for flat zip structure
   setwd(temp_dir)
   
-  # Save tables as CSV only if they exist and have data
-  tryCatch({
-    if (exists("accounts_table") && !is.null(accounts_table$x$data)) {
-      write.csv(accounts_table$x$data, "coordinated_accounts.csv", row.names = FALSE)
-    }
-    if (exists("clusters_table") && !is.null(clusters_table$x$data)) {
-      write.csv(clusters_table$x$data, "network_clusters.csv", row.names = FALSE)
-    }
-    if (exists("posts_table") && !is.null(posts_table$x$data)) {
-      write.csv(posts_table$x$data, "coordinated_posts.csv", row.names = FALSE)
-    }
-  }, error = function(e) {
-    log_warn(sprintf("Error saving CSV files: %s", e$message))
-  })
+  # Files to zip
+  files_to_zip <- c()
   
-  # Export network graph
-  tryCatch({
-    if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
-      igraph::write_graph(coordination_results$coord_graph, "coordination_network.graphml", format = "graphml")
-    }
-  }, error = function(e) {
-    log_warn(sprintf("Error saving network graph: %s", e$message))
-  })
+  # Save tables as CSV if they exist and are datatable objects with data
+  if (exists("accounts_table") && inherits(accounts_table, "datatables") && nrow(accounts_table$x$data) > 0) {
+    write.csv(accounts_table$x$data, "coordinated_accounts.csv", row.names = FALSE)
+    files_to_zip <- c(files_to_zip, "coordinated_accounts.csv")
+  }
+  if (exists("clusters_table") && inherits(clusters_table, "datatables") && nrow(clusters_table$x$data) > 0) {
+    write.csv(clusters_table$x$data, "network_clusters.csv", row.names = FALSE)
+    files_to_zip <- c(files_to_zip, "network_clusters.csv")
+  }
+  if (exists("posts_table") && inherits(posts_table, "datatables") && nrow(posts_table$x$data) > 0) {
+    write.csv(posts_table$x$data, "coordinated_posts.csv", row.names = FALSE)
+    files_to_zip <- c(files_to_zip, "coordinated_posts.csv")
+  }
+  
+  # Export network graph if it exists
+  if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
+    igraph::write_graph(coordination_results$coord_graph, "coordination_network.graphml", format = "graphml")
+    files_to_zip <- c(files_to_zip, "coordination_network.graphml")
+  }
   
   # Create README with dynamic parameters
   readme_template <- '# TikTok Coordination Analysis Results Guide
@@ -2357,20 +2632,12 @@ Giglietto, F., Marino, G., Mincigrucci, R., & Stanziano, A. (2023). A Workflow t
   
   # Save README file
   writeLines(readme_content, "README.md")
+  files_to_zip <- c(files_to_zip, "README.md")
   
   # Create zip file with date
-  current_date <- format(Sys.Date(), "%Y-%m-%d")
-  daily_zip_name <- sprintf("coordination_results_%s.zip", current_date)
+  current_date_fmt <- format(Sys.Date(), "%Y-%m-%d") # Renamed for clarity
+  daily_zip_name <- sprintf("coordination_results_%s.zip", current_date_fmt)
   zip_file <- file.path(daily_output_dir, daily_zip_name)
-  
-  # Explicitly list only the files we want to include
-  files_to_zip <- c(
-    "README.md",
-    "coordinated_accounts.csv",
-    "network_clusters.csv",
-    "coordinated_posts.csv",
-    "coordination_network.graphml"
-  )
   
   # Only include files that actually exist
   existing_files <- files_to_zip[file.exists(files_to_zip)]
@@ -2386,34 +2653,30 @@ Giglietto, F., Marino, G., Mincigrucci, R., & Stanziano, A. (2023). A Workflow t
   ))
 }
 
-# Create the zip file only if we have coordination results
-if (has_coordination_data) {
-  zip_result <- prepare_download_files()
+# Create the zip file
+zip_result <- prepare_download_files()
+
+# Create download button HTML
+if (!is.null(zip_result$file)) {
+  download_url <- file.path("daily", format(Sys.Date(), "%Y-%m-%d"), zip_result$filename)
+  download_html <- sprintf('
+    <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+      <h3>Download Results</h3>
+      <p>Download a comprehensive package of today\'s coordination analysis results, including:</p>
+      <ul style="margin-bottom: 15px;">
+        <li>Coordinated accounts table (CSV format)</li>
+        <li>Network clusters analysis (CSV format)</li>
+        <li>Coordinated posts data (CSV format)</li>
+        <li>Network graph (GraphML format)</li>
+        <li>README file with detailed field descriptions</li>
+      </ul>
+      <a href="%s" download class="btn btn-primary" style="display: inline-block; padding: 8px 16px; background-color: #00926c; color: white; text-decoration: none; border-radius: 4px; border: none; font-family: \'Comfortaa\', sans-serif;">
+        Download Results Package
+      </a>
+    </div>
+  ', download_url)
   
-  # Create download button HTML
-  if (!is.null(zip_result$file)) {
-    download_url <- file.path("daily", format(Sys.Date(), "%Y-%m-%d"), zip_result$filename)
-    download_html <- sprintf('
-      <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-        <h3>Download Results</h3>
-        <p>Download a comprehensive package of today\'s coordination analysis results, including:</p>
-        <ul style="margin-bottom: 15px;">
-          <li>Coordinated accounts table (CSV format)</li>
-          <li>Network clusters analysis (CSV format)</li>
-          <li>Coordinated posts data (CSV format)</li>
-          <li>Network graph (GraphML format)</li>
-          <li>README file with detailed field descriptions</li>
-        </ul>
-        <a href="%s" download class="btn btn-primary" style="display: inline-block; padding: 8px 16px; background-color: #00926c; color: white; text-decoration: none; border-radius: 4px; border: none; font-family: \'Comfortaa\', sans-serif;">
-          Download Results Package
-        </a>
-      </div>
-    ', download_url)
-    
-    htmltools::HTML(download_html)
-  }
-} else {
-  cat("No coordination results available for download.")
+  htmltools::HTML(download_html)
 }
 
 ```

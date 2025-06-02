@@ -1,1 +1,29 @@
-We attempted to retrieve videos from **3,870 monitored accounts**, during the period from May 25, 2025 to June 01, 2025. We were unable to retrieve any recent videos due to API issues. Using available data, we accessed a total of **2,718 videos** posted on TikTok within the timeframe. We were unable to perform coordinated detection analysis due to insufficient data.
+We attempted to retrieve videos from **3,870 monitored accounts**, during the period from May 26, 2025 to June 02, 2025. We successfully retrieved **2,796 recent videos**. No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions). We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected. 
+
+ ::: {.callout-warning}
+
+Warning: 69 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+
+:::
+
+
+<details>
+<summary>Error Details</summary>
+
+
+**Total errors encountered:** 69
+
+### Errors by type:
+
+
+         chunk_error daily_quota_exceeded          empty_chunk 
+                   1                    1                   67 
+
+### Sample Errors:
+
+character(0)
+character(0)
+character(0)
+character(0)
+character(0)
+</details>
