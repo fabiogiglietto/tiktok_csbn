@@ -1105,163 +1105,294 @@ if (exists("coord_users")) {
 
 ```{r fetch_all_videos_smart, include=FALSE, message=FALSE, eval=!params$load_from_snapshot}
 
+
 # Enhanced fetch_all_videos function that leverages smart reuse
-fetch_all_videos_smart <- function(recent_videos, start_date, end_date) {
+# Enhanced fetch_all_videos function that leverages smart reuse and incremental fetching
+fetch_all_videos_smart <- function(recent_videos, overall_start_date, overall_end_date) { # Renamed params for clarity
   if (!should_continue_processing()) {
     log_warn("Skipping all videos fetch due to quota limits")
     return(data.frame())
   }
-  
-  # Start with yesterday's full data if available (for description matching)
-  base_videos <- data.frame()
-  
-  if (exists("smart_reuse_result") && nrow(smart_reuse_result$reusable_videos) > 0) {
-    # Load full yesterday's data for broader description matching
-    yesterday_paths <- get_yesterday_data_path()
-    if (file.exists(yesterday_paths$snapshot)) {
-      tryCatch({
-        yesterday_full_data <- readr::read_csv(yesterday_paths$snapshot, 
-                                              col_types = cols(
-                                                video_id = col_character(), 
-                                                effect_ids = col_character(),
-                                                music_id = col_character(), 
-                                                hashtag_names = col_character(),
-                                                create_time = col_character()  # Keep as character
-                                              ))
-        
-        # Ensure create_time is character format for consistency
+
+  # 1. Load Yesterday's Data (Cache)
+  base_videos <- data.frame() # Initialize as empty
+  yesterday_paths <- get_yesterday_data_path() # Assumes this function exists
+
+  if (file.exists(yesterday_paths$snapshot)) {
+    tryCatch({
+      # Define expected columns and their types for robustness
+      # Add ALL columns you expect in your snapshot, otherwise they might be dropped or mis-typed
+      expected_col_types <- cols(
+        video_id = col_character(),
+        create_time = col_character(), # Will be converted to POSIXct/Date later
+        video_description = col_character(),
+        author_id = col_character(), # Or author_unique_id
+        author_name = col_character(), # Display name
+        username = col_character(), # Often the unique @username
+        region_code = col_character(),
+        video_duration = col_double(),
+        height = col_double(),
+        width = col_double(),
+        effect_ids = col_character(), # Often lists, converted to string by standardize
+        music_id = col_character(),   # Often lists, converted to string by standardize
+        hashtag_names = col_character(), # Often lists, converted to string by standardize
+        playlist_id = col_character(),
+        voice_to_text = col_character(),
+        view_count = col_double(), # Use double for flexibility with large numbers or NAs
+        like_count = col_double(),
+        comment_count = col_double(),
+        share_count = col_double(),
+        video_title = col_character(), # If you have this
+        # Add any other columns present in your snapshot
+        .default = col_character() # Fallback for any unspecified columns
+      )
+
+      yesterday_full_data <- readr::read_csv(yesterday_paths$snapshot, col_types = expected_col_types)
+      
+      # Ensure create_time is character format for consistency before standardization
+      if ("create_time" %in% colnames(yesterday_full_data)) {
         yesterday_full_data <- yesterday_full_data %>%
           mutate(create_time = as.character(create_time))
-        
-        # Standardize data types
-        yesterday_full_data <- standardize_data_types(yesterday_full_data, "yesterday_full")
-        
-        # Filter yesterday's data to current date range for all videos (not just recent_videos accounts)
-        yesterday_filtered <- yesterday_full_data %>%
+      }
+
+      yesterday_full_data <- standardize_data_types(yesterday_full_data, "yesterday_full_snapshot") # standardize
+
+      # Filter yesterday's data to the current OVERALL date range
+      if (nrow(yesterday_full_data) > 0 && "create_time" %in% colnames(yesterday_full_data)) {
+        base_videos <- yesterday_full_data %>%
           filter(
-            as.Date(create_time) >= as.Date(start_date),
-            as.Date(create_time) <= as.Date(end_date)
+            as.Date(create_time) >= as.Date(overall_start_date),
+            as.Date(create_time) <= as.Date(overall_end_date)
           )
-        
-        base_videos <- yesterday_filtered
-        log_info(sprintf("Starting with %d videos from yesterday's full dataset within date range", 
-                        nrow(base_videos)))
-      }, error = function(e) {
-        log_warn(sprintf("Could not load yesterday's full data: %s", e$message))
-      })
-    }
+      } else {
+        base_videos <- data.frame() # Ensure it's an empty df if no relevant data
+      }
+      log_info(sprintf("Loaded %d videos from yesterday's snapshot (within overall date range) as base_videos", nrow(base_videos)))
+    }, error = function(e) {
+      log_warn(sprintf("Could not load or process yesterday's full data: %s. Starting with empty base_videos.", e$message))
+      base_videos <- data.frame() # Ensure it's an empty df on error
+    })
+  } else {
+    log_info("No yesterday's snapshot found. Starting with an empty base_videos.")
+    base_videos <- data.frame()
   }
-  
+
+  # 2. Identify Target Descriptions from recent_videos
   if (is.null(recent_videos) || nrow(recent_videos) == 0) {
-    log_warn("No recent videos available for description queries")
-    
-    # If we have base videos from yesterday, process and return them
+    log_warn("No recent_videos available to identify target descriptions.")
     if (nrow(base_videos) > 0) {
-      log_info("Using only yesterday's data since no recent videos available")
+      log_info("Processing and returning only base_videos as recent_videos is empty/null.")
+      # Ensure 'author_name' and 'video_id' exist before creating video_url
       final_results <- base_videos %>%
         mutate(
-          region_code = toupper(region_code),
-          video_url = paste0("https://www.tiktok.com/@", author_name, "/video/", video_id)
+          region_code = if("region_code" %in% colnames(.)) toupper(region_code) else NA_character_,
+          video_url = if("author_name" %in% colnames(.) && "video_id" %in% colnames(.)) paste0("https://www.tiktok.com/@", author_name, "/video/", video_id) else NA_character_
         ) %>%
-        filter(!is.na(video_description) & video_description != "") %>%
-        distinct()
-      
+        filter(if("video_description" %in% colnames(.)) !is.na(video_description) & video_description != "" else TRUE) %>%
+        distinct(video_id, .keep_all = TRUE)
       return(final_results)
     }
-    
     return(data.frame())
   }
-  
-  # Get unique descriptions from recent videos for API queries
-  unique_descriptions <- unique(recent_videos$video_description[nchar(recent_videos$video_description) >= 80])
-  
-  # Filter descriptions that might already be covered by yesterday's data
-  if (nrow(base_videos) > 0) {
-    existing_descriptions <- unique(base_videos$video_description)
-    new_descriptions <- setdiff(unique_descriptions, existing_descriptions)
-    
-    log_info(sprintf("Description analysis: %d total, %d already covered, %d need fresh fetch", 
-                    length(unique_descriptions), 
-                    length(unique_descriptions) - length(new_descriptions),
-                    length(new_descriptions)))
-    
-    unique_descriptions <- new_descriptions
-  }
-  
-  log_info(sprintf("Querying %d unique descriptions via API", length(unique_descriptions)))
-  
-  # Process new descriptions in batches
-  api_results <- data.frame()
-  if (length(unique_descriptions) > 0) {
-    api_results <- batch_fetch_videos(
-      unique_descriptions, 
-      start_date, 
-      end_date,
-      batch_size = 3,
-      max_pages = 3
-    )
-    
-    # Ensure create_time consistency in API results
-    if (nrow(api_results) > 0) {
-      api_results <- standardize_data_types(api_results, "api_results")
+
+  target_descriptions <- recent_videos %>%
+    filter(!is.na(video_description) & nchar(video_description) >= 80) %>%
+    pull(video_description) %>%
+    unique()
+
+  if (length(target_descriptions) == 0) {
+    log_info("No target descriptions found in recent_videos meeting criteria.")
+    if (nrow(base_videos) > 0) {
+      log_info("Processing and returning only base_videos as no target_descriptions identified.")
+      final_results <- base_videos %>%
+        mutate(
+          region_code = if("region_code" %in% colnames(.)) toupper(region_code) else NA_character_,
+          video_url = if("author_name" %in% colnames(.) && "video_id" %in% colnames(.)) paste0("https://www.tiktok.com/@", author_name, "/video/", video_id) else NA_character_
+        ) %>%
+        filter(if("video_description" %in% colnames(.)) !is.na(video_description) & video_description != "" else TRUE) %>%
+        distinct(video_id, .keep_all = TRUE)
+      return(final_results)
     }
+    return(data.frame())
   }
-  
-  # Standardize base_videos if it exists
-  if (nrow(base_videos) > 0) {
-    base_videos <- standardize_data_types(base_videos, "base_videos")
+  log_info(sprintf("Identified %d unique target descriptions from recent_videos.", length(target_descriptions)))
+
+  # 3. Determine API Query Parameters for Each Target Description (Incremental Logic)
+  descriptions_to_query_api <- list() # list of lists: list(description = "...", query_start_date = Date_object)
+
+  for (desc_val in target_descriptions) {
+    if (!should_continue_processing()) break
+
+    # Videos from cache for this specific description
+    cached_videos_for_this_desc <- data.frame()
+    if (nrow(base_videos) > 0 && "video_description" %in% colnames(base_videos) && "create_time" %in% colnames(base_videos)) {
+      cached_videos_for_this_desc <- base_videos %>%
+        filter(video_description == desc_val & !is.na(create_time))
+    }
+
+    api_query_start_date_for_this_desc <- as.Date(overall_start_date) # Default
+
+    if (nrow(cached_videos_for_this_desc) > 0) {
+      max_cached_create_time_posix <- cached_videos_for_this_desc %>%
+        mutate(create_time_dt = lubridate::as_datetime(create_time)) %>% # robust parsing
+        filter(!is.na(create_time_dt)) %>%
+        pull(create_time_dt) %>%
+        max(na.rm = TRUE)
+
+      if (is.finite(max_cached_create_time_posix)) {
+        # Query from the day AFTER the last cached video for this description
+        next_day_to_query <- as.Date(max_cached_create_time_posix) + lubridate::days(1)
+        # Ensure we don't go earlier than the overall_start_date for the current run
+        api_query_start_date_for_this_desc <- max(next_day_to_query, as.Date(overall_start_date))
+        log_info(sprintf("Desc: '%.30s...': Max cached date %s. New query start for API: %s",
+                       desc_val, format(as.Date(max_cached_create_time_posix), "%Y-%m-%d"), 
+                       format(api_query_start_date_for_this_desc, "%Y-%m-%d")))
+      } else {
+         log_info(sprintf("Desc: '%.30s...': No valid max_cached_create_time. Defaulting query start to overall_start_date: %s",
+                       desc_val, format(api_query_start_date_for_this_desc, "%Y-%m-%d")))
+      }
+    } else {
+      log_info(sprintf("Desc: '%.30s...': Not found in cache. Querying from overall_start_date: %s",
+                     desc_val, format(api_query_start_date_for_this_desc, "%Y-%m-%d")))
+    }
+
+    # Only add to API query list if the calculated start date is not after the overall end date
+    if (api_query_start_date_for_this_desc <= as.Date(overall_end_date)) {
+      descriptions_to_query_api[[length(descriptions_to_query_api) + 1]] <- list(
+        description = desc_val,
+        query_start_date = api_query_start_date_for_this_desc # Stored as Date object
+      )
+    } else {
+       log_info(sprintf("Desc: '%.30s...': Calculated API query start date %s is after overall_end_date %s. Skipping API call.",
+                       desc_val, format(api_query_start_date_for_this_desc, "%Y-%m-%d"), 
+                       format(as.Date(overall_end_date), "%Y-%m-%d")))
+    }
+  } # End loop over target_descriptions
+
+  # 4. Perform API Calls for Descriptions Needing Updates
+  newly_fetched_videos_list <- list()
+  if (length(descriptions_to_query_api) > 0) {
+    log_info(sprintf("Need to query API for %d description/date-range pairs.", length(descriptions_to_query_api)))
+    
+    # OPTION 1: Iterate and call get_videos_by_description (simpler, potentially slower)
+    # OPTION 2: Modify batch_fetch_videos to handle list of (desc, start_date)
+    # For now, using Option 1 for direct replacement.
+
+    pb_desc <- progress::progress_bar$new(
+      format = "Fetching incremental descriptions [:bar] :percent :eta",
+      total = length(descriptions_to_query_api), clear = FALSE, width = 60
+    )
+
+    for (query_item in descriptions_to_query_api) {
+      pb_desc$tick()
+      if (!should_continue_processing()) {
+        log_warn("Stopping incremental description fetch due to quota limits.")
+        break
+      }
+      
+      current_api_query_start_date <- query_item$query_start_date
+      current_api_query_end_date <- as.Date(overall_end_date)
+
+      log_info(sprintf("API Call for Desc: '%.30s...', API Start: %s, API End: %s",
+                     query_item$description, 
+                     format(current_api_query_start_date, "%Y-%m-%d"), 
+                     format(current_api_query_end_date, "%Y-%m-%d")))
+      
+      tryCatch({
+          # get_videos_by_description expects Date objects or YYYY-MM-DD strings
+          videos_from_api_call <- get_videos_by_description(
+                              query_item$description,
+                              start_date = current_api_query_start_date, 
+                              end_date = current_api_query_end_date 
+                          )
+          if (is.data.frame(videos_from_api_call) && nrow(videos_from_api_call) > 0) {
+              newly_fetched_videos_list[[length(newly_fetched_videos_list) + 1]] <- standardize_data_types(videos_from_api_call, "api_incremental_desc")
+          }
+      }, error = function(e) {
+          log_error(sprintf("Error fetching for desc '%.30s...': %s", query_item$description, e$message))
+          # update_quota_status is handled within safe_api_call (used by get_videos_by_description)
+      })
+      Sys.sleep(1.5) # Slightly longer delay between individual description API calls
+    } # End loop over descriptions_to_query_api
+  } else {
+    log_info("No new API calls needed for descriptions based on incremental logic.")
   }
+
+  all_newly_fetched_videos_df <- data.frame()
+  if (length(newly_fetched_videos_list) > 0) {
+    all_newly_fetched_videos_df <- dplyr::bind_rows(newly_fetched_videos_list)
+    log_info(sprintf("Fetched a total of %d new videos via API for descriptions.", nrow(all_newly_fetched_videos_df)))
+  }
+
+  # 5. Combine Cached Videos with Newly Fetched Videos
+  # Ensure base_videos is standardized if it's not empty and hasn't been yet.
+  # standardize_data_types was already called on base_videos if it was loaded.
   
-  # Combine base videos (from yesterday) with new API results
-  all_results <- bind_rows(base_videos, api_results)
-  
-  # Process the combined data
-  if (nrow(all_results) > 0) {
-    final_results <- all_results %>%
+  combined_videos <- dplyr::bind_rows(base_videos, all_newly_fetched_videos_df)
+
+  # 6. Final Processing, Deduplication, and Saving
+  if (nrow(combined_videos) > 0) {
+    final_results <- combined_videos %>%
+      # Ensure create_time is character for final CSV, or handle NAs if it became POSIXct
+      mutate(create_time = as.character(create_time)) %>% 
       mutate(
-        region_code = toupper(region_code),
-        video_url = paste0("https://www.tiktok.com/@", author_name, "/video/", video_id)
+        region_code = if("region_code" %in% colnames(.)) toupper(region_code) else NA_character_,
+        video_url = if("author_name" %in% colnames(.) && "video_id" %in% colnames(.)) {
+          paste0("https://www.tiktok.com/@", author_name, "/video/", video_id)
+        } else {
+          NA_character_
+        }
       ) %>%
-      filter(!is.na(video_description) & video_description != "") %>%
-      distinct(video_id, .keep_all = TRUE)  # Remove duplicates by video_id
+      # Filter out rows where video_description might be NA or empty, if this column is critical
+      filter(if("video_description" %in% colnames(.)) (!is.na(video_description) & video_description != "") else TRUE) %>%
+      # Crucial deduplication by video_id, keeping all columns from the first occurrence
+      distinct(video_id, .keep_all = TRUE)
+
+    log_info(sprintf("=== INCREMENTAL 'ALL VIDEOS' COLLECTION COMPLETED ==="))
+    log_info(sprintf("Base videos (reused from cache, within overall date range): %d", nrow(base_videos)))
+    log_info(sprintf("Fresh API videos (incrementally fetched for descriptions): %d", nrow(all_newly_fetched_videos_df)))
+    log_info(sprintf("Total unique videos after combination and deduplication: %d", nrow(final_results)))
+
+    user_column_name <- if("author_name" %in% colnames(final_results)) "author_name" else if("username" %in% colnames(final_results)) "username" else "video_id" # Fallback
+    if (user_column_name != "video_id" || !"author_name" %in% colnames(final_results)) { # Check if a reasonable user column exists
+        log_info(sprintf("Unique users (using '%s'): %d", user_column_name, n_distinct(final_results[[user_column_name]])))
+    }
+    if ("video_description" %in% colnames(final_results)) {
+        log_info(sprintf("Unique descriptions in final set: %d", n_distinct(final_results$video_description)))
+    }
     
-    # Log summary with proper user column detection
-    log_info(sprintf("=== SMART ALL VIDEOS COLLECTION COMPLETED ==="))
-    log_info(sprintf("Base videos (reused): %d", nrow(base_videos)))
-    log_info(sprintf("Fresh API videos: %d", nrow(api_results)))
-    log_info(sprintf("Total unique videos: %d", nrow(final_results)))
+    # Save results (ensure params$base_dir and daily_output_dir are accessible)
+    output_dir_main <- file.path(params$base_dir, "output")
+    dir.create(output_dir_main, showWarnings = FALSE, recursive = TRUE)
+
+    latest_snapshot_file <- file.path(output_dir_main, "latest_snapshot.csv")
+    # daily_output_dir should be defined globally from create_daily_output_dir()
+    daily_snapshot_file_path <- file.path(daily_output_dir, "daily_snapshot.csv") 
     
-    # Use the correct user column name
-    user_column <- if("author_name" %in% colnames(final_results)) "author_name" else "username"
-    log_info(sprintf("Unique users: %d", n_distinct(final_results[[user_column]])))
-    log_info(sprintf("Unique descriptions: %d", n_distinct(final_results$video_description)))
-    
-    # Save results
-    output_dir <- file.path(params$base_dir, "output")
-    dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
-    
-    output_file <- file.path(output_dir, "latest_snapshot.csv")
-    daily_output_file <- file.path(daily_output_dir, "daily_snapshot.csv")
-    write_csv(final_results, output_file)
-    write_csv(final_results, daily_output_file)
-    log_info(sprintf("Results saved to %s", output_file))
+    readr::write_csv(final_results, latest_snapshot_file)
+    readr::write_csv(final_results, daily_snapshot_file_path)
+    log_info(sprintf("Results saved to %s and %s", latest_snapshot_file, daily_snapshot_file_path))
     
     return(final_results)
   } else {
-    log_warn("No results found")
+    log_warn("No videos found/remained after incremental fetch and combination process.")
     return(data.frame())
   }
 }
 
-# Replace the original all videos fetch
+# Replace the original all videos fetch call (this part remains the same)
 if (exists("recent_videos") && (is.null(recent_videos) || is.data.frame(recent_videos))) {
-  log_info("Starting smart fetch for all videos with matching descriptions")
+  log_info("Starting smart fetch for all videos with matching descriptions (incremental logic)")
+  # Parameters are recent_videos, overall_start_date (global startdate), overall_end_date (global enddate)
   all_videos <- fetch_all_videos_smart(recent_videos, startdate, enddate)
   
   # Assign to global environment
   assign("all_videos", all_videos, envir = .GlobalEnv)
 } else {
-  log_warn("recent_videos not properly defined")
+  log_warn("recent_videos not properly defined, skipping 'all_videos' fetch.")
+  # Define all_videos as empty if not fetched to avoid errors downstream
+  all_videos <- data.frame() 
+  assign("all_videos", all_videos, envir = .GlobalEnv)
 }
 
 ```
