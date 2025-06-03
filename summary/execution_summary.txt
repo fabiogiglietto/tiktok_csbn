@@ -1,4 +1,4 @@
-We attempted to retrieve videos from **3,870 monitored accounts**, during the period from May 26, 2025 to June 02, 2025. We were unable to retrieve any recent videos due to API issues or no new videos from monitored accounts. Using available data, we accessed a total of **2,718 videos** posted on TikTok within the timeframe. We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected. 
+We attempted to retrieve videos from **4,023 monitored accounts**, during the period from May 27, 2025 to June 03, 2025. We successfully retrieved **3,879 recent videos**. Using available data, we accessed a total of **5,531 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **190 accounts** spread across **25 components**, and it also uncovered **153 new accounts** exhibiting coordinated behavior. 
 
  ::: {.callout-warning}
 
@@ -16,10 +16,13 @@ Warning: 1 errors were encountered during execution. Results may be incomplete. 
 ### Errors by type:
 
 
-coordinated_detection 
-                    1 
+daily_quota_exceeded 
+                   1 
 
 ### Sample Errors:
 
-- **Type:** coordinated_detection, **Message:** Column 1 of j's result for the first group is NULL. We rely on the column types of the first result to decide the type expected for the remaining groups (and require consistency). NULL columns are acceptable for later groups (and those are replaced with NA of appropriate type and recycled) but not for the first. Please use a typed empty vector instead, such as integer() or numeric().
+- **Type:** daily_quota_exceeded, **Message:** HTTP 429 Too Many Requests.
+• status: daily_quota_limit_exceeded
+• message: The API daily quota limit exceeded. Please try again later
+• log_id: 202506030705587707EDB3BD913C07DE81
 </details>
