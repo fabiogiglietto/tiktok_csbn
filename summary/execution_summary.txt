@@ -1,1 +1,35 @@
-We attempted to retrieve videos from **4,117 monitored accounts**, during the period from May 28, 2025 to June 04, 2025. We successfully retrieved **3,845 recent videos**. Using available data, we accessed a total of **6,349 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **247 accounts** spread across **31 components**, and it also uncovered **94 new accounts** exhibiting coordinated behavior.
+We attempted to retrieve videos from **4,211 monitored accounts**, during the period from May 29, 2025 to June 05, 2025. We successfully retrieved **6,636 recent videos**. Using available data, we accessed a total of **7,109 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **364 accounts** spread across **31 components**, and it also uncovered **94 new accounts** exhibiting coordinated behavior. 
+
+ ::: {.callout-warning}
+
+Warning: 169 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+
+:::
+
+
+<details>
+<summary>Error Details</summary>
+
+
+**Total errors encountered:** 169
+
+### Errors by type:
+
+
+         chunk_error daily_quota_exceeded          empty_chunk 
+                 133                    1                   35 
+
+### Sample Errors:
+
+character(0)
+- **Type:** chunk_error, **Message:** HTTP 401 Unauthorized.
+• status: access_token_invalid
+• message: The access token is invalid or not found in the request.
+• log_id: 202506050201370AF2D61A038F561057D1
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 202506050216020DD6A696C114C31219EA
+character(0)
+character(0)
+</details>
