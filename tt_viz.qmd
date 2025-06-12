@@ -2596,6 +2596,7 @@ if (exists("historical_data") && !is.null(historical_data$logs) && nrow(historic
 ## Interactive Graph Visualization
 
 ```{r generate_network_function, include=FALSE, message=FALSE}
+log_info("=== DEFINING NETWORK VISUALIZATION FUNCTION ===")
 
 generate_network_visualization <- function(coordination_results,
                                         height = "800px",
@@ -2604,30 +2605,38 @@ generate_network_visualization <- function(coordination_results,
                                         node_size_base = 10,
                                         edge_width_multiplier = 2) {
   
+  log_info("Starting network visualization function")
+  
   if (!requireNamespace("htmltools", quietly = TRUE)) {
     stop("Package 'htmltools' is required")
   }
   
   tryCatch({
     if (is.null(coordination_results) || is.null(coordination_results$coord_graph)) {
-      warning("No valid coordination graph available for visualization")
+      log_warn("No valid coordination graph available for visualization")
       return(NULL)
     }
     
     # Create output directory
     viz_dir <- file.path(daily_output_dir, "network")
     dir.create(viz_dir, showWarnings = FALSE, recursive = TRUE)
+    log_info(sprintf("Created visualization directory: %s", viz_dir))
     
     # Get the graph
     graph <- coordination_results$coord_graph
     if (!igraph::is_igraph(graph)) {
+      log_error("Invalid graph object provided")
       stop("Invalid graph object provided")
     }
     
+    log_info(sprintf("Processing graph with %d nodes and %d edges", 
+                     igraph::gorder(graph), igraph::gsize(graph)))
+    
     # Convert to visNetwork format
     data <- visNetwork::toVisNetworkData(graph)
+    log_info("Converted graph to visNetwork format")
     
-    # Calculate component membership
+    # Calculate component membership first
     comp <- igraph::components(graph)$membership
     data$nodes$component <- comp
     
@@ -2649,6 +2658,7 @@ generate_network_visualization <- function(coordination_results,
     
     # Add cluster labels if available
     if(exists("cluster_labels") && is.data.frame(get("cluster_labels")) && nrow(get("cluster_labels")) > 0) {
+      log_info("Adding cluster labels to visualization")
       label_lookup <- get("cluster_labels") %>%
         dplyr::mutate(
           component_id = as.numeric(component),
@@ -2674,7 +2684,9 @@ generate_network_visualization <- function(coordination_results,
         data$nodes$value
       )
     } else {
+      log_info("No cluster labels available, using default node grouping")
       data$nodes$group <- sprintf("Network %d", comp)
+      data$nodes$size <- data$nodes$value * node_size_multiplier + node_size_base
     }
     
     # Edge properties
@@ -2684,6 +2696,8 @@ generate_network_visualization <- function(coordination_results,
         color = "#94A3B8",
         physics = TRUE
       )
+    
+    log_info("Creating visNetwork visualization")
     
     # Network visualization
     network <- visNetwork::visNetwork(
@@ -2758,44 +2772,93 @@ generate_network_visualization <- function(coordination_results,
     html_file <- file.path(viz_dir, "coordination_network.html")
     visNetwork::visSave(network, file = html_file, background = "white")
     
-    message(sprintf(
-      "Network visualization complete. Network has %d nodes and %d edges",
-      igraph::gorder(graph),
-      igraph::gsize(graph)
-    ))
+    log_info(sprintf("Network visualization complete. Saved to: %s", html_file))
+    log_info(sprintf("Network has %d nodes and %d edges", 
+                     igraph::gorder(graph), igraph::gsize(graph)))
     
     return(network)
     
   }, error = function(e) {
-    warning(sprintf("Error generating network visualization: %s", conditionMessage(e)))
+    log_error(sprintf("Error generating network visualization: %s", conditionMessage(e)))
     return(NULL)
   })
 }
 
+log_info("Network visualization function defined successfully")
 ```
 
-```{r generate_visualization, include=FALSE, message=FALSE}
-# Generate the visualization and store it in the global environment
-network_viz <- local({
-  tryCatch({
-    if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
-      generate_network_visualization(coordination_results,                                  
-                                     node_size_multiplier = 1.1,
-                                     node_size_base = 5,
-                                     edge_width_multiplier = 1.1)
+``````{r generate_visualization, include=FALSE, message=FALSE}
+log_info("=== GENERATING NETWORK VISUALIZATION ===")
+
+# Debug coordination results
+if (exists("coordination_results")) {
+  log_info("✅ coordination_results exists")
+  if (!is.null(coordination_results)) {
+    log_info("✅ coordination_results is not NULL")
+    if (!is.null(coordination_results$coord_graph)) {
+      log_info("✅ coord_graph exists")
+      if (igraph::is_igraph(coordination_results$coord_graph)) {
+        log_info(sprintf("✅ Valid igraph with %d nodes and %d edges", 
+                        igraph::gorder(coordination_results$coord_graph),
+                        igraph::gsize(coordination_results$coord_graph)))
+      } else {
+        log_error("❌ coord_graph is not a valid igraph")
+      }
     } else {
-      warning("No coordination results available for network visualization")
-      NULL
+      log_error("❌ coord_graph is NULL")
     }
-  }, error = function(e) {
-    warning(paste("Failed to generate network visualization:", e$message))
+  } else {
+    log_error("❌ coordination_results is NULL")
+  }
+} else {
+  log_error("❌ coordination_results does not exist")
+}
+
+# Generate the visualization
+network_viz <- tryCatch({
+  if (exists("coordination_results") && !is.null(coordination_results$coord_graph)) {
+    log_info("Calling generate_network_visualization function...")
+    
+    viz <- generate_network_visualization(
+      coordination_results,                                  
+      node_size_multiplier = 1.1,
+      node_size_base = 5,
+      edge_width_multiplier = 1.1
+    )
+    
+    if (!is.null(viz)) {
+      log_info("✅ Network visualization generated successfully")
+    } else {
+      log_warn("❌ Network visualization returned NULL")
+    }
+    
+    viz
+  } else {
+    log_warn("❌ No coordination results available for network visualization")
     NULL
-  })
+  }
+}, error = function(e) {
+  log_error(sprintf("❌ Failed to generate network visualization: %s", e$message))
+  log_error(sprintf("Error class: %s", class(e)[1]))
+  log_error(sprintf("Error call: %s", deparse(e$call)))
+  NULL
 })
 
 # Save the network_viz object to make it available across chunks
 assign("network_viz", network_viz, envir = .GlobalEnv)
 
+# Final status check
+if (exists("network_viz")) {
+  if (!is.null(network_viz)) {
+    log_info("✅ network_viz object created and stored successfully")
+  } else {
+    log_warn("❌ network_viz is NULL after generation attempt")
+  }
+} else {
+  log_error("❌ network_viz object was not created")
+}
+
+log_info("=== NETWORK VISUALIZATION GENERATION COMPLETED ===")
 ```
 
 ```{r display_visualization, include=TRUE, echo=FALSE}
