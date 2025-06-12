@@ -2041,6 +2041,7 @@ get_openai_credentials <- function(custom_key = NULL, custom_org = NULL) {
 }
 
 # Function to generate cluster labels using OpenAI API
+# Function to generate cluster labels using OpenAI API
 generate_cluster_labels <- function(coordination_results, all_videos) {
   # Get credentials using the custom key if provided
   credentials <- get_openai_credentials(params$openai_key, params$openai_org)
@@ -2092,13 +2093,17 @@ generate_cluster_labels <- function(coordination_results, all_videos) {
   # Function to get label from OpenAI
   get_cluster_label <- function(content, retries = 3) {
     system_prompt <- "You are a researcher analyzing coordinated behavior on TikTok. 
-Your task is to generate a concise (maximum 10 words), descriptive label in English that 
+Your task is to generate a concise (maximum 8 words), descriptive label in English that 
 captures the main theme or characteristic of the content shared by a cluster of TikTok accounts.
 Focus on the primary topic, political alignment (if evident), or content style that unifies these accounts.
-The label should be factual and neutral in tone."
+The label should be factual and neutral in tone.
+
+IMPORTANT: You must ALWAYS include the prevalent language as a two-letter country code in parentheses at the end of your label.
+For example: 'Political Commentary (EN)', 'Entertainment Content (ES)', 'News Discussion (FR)', etc.
+Use standard ISO 3166-1 alpha-2 country codes (EN for English, ES for Spanish, FR for French, DE for German, IT for Italian, PT for Portuguese, AR for Arabic, etc.)."
     
     user_prompt <- sprintf("Analyze the following content from a cluster of TikTok accounts and 
-generate a concise label that describes their shared characteristics:
+generate a concise label that describes their shared characteristics. Remember to include the prevalent language as a two-letter code in parentheses:
 
 %s
 
@@ -2120,14 +2125,22 @@ Label:", content)
               list(role = "user", content = user_prompt)
             ),
             temperature = 0,
-            max_tokens = 50
+            max_tokens = 60
           ),
           encode = "json"
         )
         
         if (httr::status_code(response) == 200) {
           content <- httr::content(response)
-          return(content$choices[[1]]$message$content)
+          label <- content$choices[[1]]$message$content
+          
+          # Ensure the label has language code - add fallback if missing
+          if (!grepl("\\([A-Z]{2}\\)\\s*$", label)) {
+            log_warn(sprintf("Label missing language code, adding (EN): %s", label))
+            label <- paste0(label, " (EN)")
+          }
+          
+          return(label)
         } else {
           status_code <- httr::status_code(response)
           log_warn(sprintf("API request attempt %d failed (status: %d)", 
@@ -2140,7 +2153,7 @@ Label:", content)
       if (attempt < retries) Sys.sleep(2^attempt)
     }
     
-    return("Failed to generate label")
+    return("Failed to generate label (EN)")
   }
   
   # Get number of components
@@ -2614,21 +2627,25 @@ generate_network_visualization <- function(coordination_results,
     # Convert to visNetwork format
     data <- visNetwork::toVisNetworkData(graph)
     
-    # Node properties
-    data$nodes$label <- data$nodes$id
-    data$nodes$value <- igraph::degree(graph)
-    data$nodes$title <- sprintf(
-      "<div class='network-tooltip'><strong>@%s</strong><br>Connections: %d</div>",
-      data$nodes$id,
-      data$nodes$value
-    )
-    data$nodes$shadow <- TRUE
-    data$nodes$shape <- "dot"
-    data$nodes$url <- paste0("https://tiktok.com/@", data$nodes$id)
-    
     # Calculate component membership
     comp <- igraph::components(graph)$membership
     data$nodes$component <- comp
+    
+    # Node properties
+    data$nodes$label <- data$nodes$id
+    data$nodes$value <- igraph::degree(graph)
+    
+    # Enhanced tooltip with cluster/network ID
+    data$nodes$title <- sprintf(
+      "<div class='network-tooltip'><strong>@%s</strong><br>Network: %d<br>Connections: %d</div>",
+      data$nodes$id,
+      data$nodes$component,
+      data$nodes$value
+    )
+    
+    data$nodes$shadow <- TRUE
+    data$nodes$shape <- "dot"
+    data$nodes$url <- paste0("https://tiktok.com/@", data$nodes$id)
     
     # Add cluster labels if available
     if(exists("cluster_labels") && is.data.frame(get("cluster_labels")) && nrow(get("cluster_labels")) > 0) {
@@ -2637,7 +2654,7 @@ generate_network_visualization <- function(coordination_results,
           component_id = as.numeric(component),
           group_label = sprintf("Network %d - %s", component_id, label)
         ) %>%
-        dplyr::select(component_id, group_label)
+        dplyr::select(component_id, group_label, label)
       
       data$nodes <- data$nodes %>%
         dplyr::left_join(label_lookup, by = c("component" = "component_id")) %>%
@@ -2647,6 +2664,15 @@ generate_network_visualization <- function(coordination_results,
           shadow = TRUE,
           group = dplyr::coalesce(group_label, sprintf("Network %d", component))
         )
+      
+      # Enhanced tooltip with cluster label when available
+      data$nodes$title <- sprintf(
+        "<div class='network-tooltip'><strong>@%s</strong><br>Network: %d<br>%s<br>Connections: %d</div>",
+        data$nodes$id,
+        data$nodes$component,
+        ifelse(is.na(data$nodes$label), "", paste0("Label: ", data$nodes$label)),
+        data$nodes$value
+      )
     } else {
       data$nodes$group <- sprintf("Network %d", comp)
     }
