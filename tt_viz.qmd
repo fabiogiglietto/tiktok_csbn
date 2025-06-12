@@ -2041,7 +2041,6 @@ get_openai_credentials <- function(custom_key = NULL, custom_org = NULL) {
 }
 
 # Function to generate cluster labels using OpenAI API
-# Function to generate cluster labels using OpenAI API
 generate_cluster_labels <- function(coordination_results, all_videos) {
   # Get credentials using the custom key if provided
   credentials <- get_openai_credentials(params$openai_key, params$openai_org)
@@ -2052,7 +2051,6 @@ generate_cluster_labels <- function(coordination_results, all_videos) {
     return(NULL)
   }
   
-  credentials <- get_openai_credentials(params$openai_key, params$openai_org)
   log_info(sprintf("Using API key: %s...", substr(credentials$api_key, 1, 5)))
   log_info(sprintf("Using org ID: %s", credentials$org_id))
   log_info(sprintf("Model: %s", params$ai_model))
@@ -2065,6 +2063,8 @@ generate_cluster_labels <- function(coordination_results, all_videos) {
       components(coordination_results$coord_graph)$membership == cluster_id
     ]
     
+    log_info(sprintf("Cluster %d has %d accounts", cluster_id, length(cluster_accounts)))
+    
     # Get videos from these accounts
     cluster_videos <- all_videos %>%
       filter(author_name %in% cluster_accounts) %>%
@@ -2073,6 +2073,13 @@ generate_cluster_labels <- function(coordination_results, all_videos) {
       ) %>%
       arrange(desc(total_engagement)) %>%
       head(max_videos)
+    
+    log_info(sprintf("Found %d videos for cluster %d", nrow(cluster_videos), cluster_id))
+    
+    if (nrow(cluster_videos) == 0) {
+      log_warn(sprintf("No videos found for cluster %d", cluster_id))
+      return("No content available for this cluster.")
+    }
     
     # Combine descriptions and voice transcripts
     content_parts <- sapply(1:nrow(cluster_videos), function(i) {
@@ -2087,11 +2094,13 @@ generate_cluster_labels <- function(coordination_results, all_videos) {
       paste(parts, collapse = " | ")
     })
     
-    paste(content_parts, collapse = "\n\n")
+    content <- paste(content_parts, collapse = "\n\n")
+    log_info(sprintf("Generated content for cluster %d: %d characters", cluster_id, nchar(content)))
+    return(content)
   }
   
   # Function to get label from OpenAI
-  get_cluster_label <- function(content, retries = 3) {
+  get_cluster_label <- function(content, cluster_id, retries = 3) {
     system_prompt <- "You are a researcher analyzing coordinated behavior on TikTok. 
 Your task is to generate a concise (maximum 8 words), descriptive label in English that 
 captures the main theme or characteristic of the content shared by a cluster of TikTok accounts.
@@ -2109,8 +2118,14 @@ generate a concise label that describes their shared characteristics. Remember t
 
 Label:", content)
     
+    # Fix the model name
+    model_name <- if (params$ai_model == "chatgpt-4o-latest") "gpt-4o" else params$ai_model
+    log_info(sprintf("Using corrected model name: %s for cluster %d", model_name, cluster_id))
+    
     for (attempt in 1:retries) {
       tryCatch({
+        log_info(sprintf("API attempt %d for cluster %d", attempt, cluster_id))
+        
         response <- httr::POST(
           url = "https://api.openai.com/v1/chat/completions",
           httr::add_headers(
@@ -2119,7 +2134,7 @@ Label:", content)
             "OpenAI-Organization" = credentials$org_id
           ),
           body = list(
-            model = params$ai_model,
+            model = model_name,  # Use corrected model name
             messages = list(
               list(role = "system", content = system_prompt),
               list(role = "user", content = user_prompt)
@@ -2130,9 +2145,12 @@ Label:", content)
           encode = "json"
         )
         
-        if (httr::status_code(response) == 200) {
-          content <- httr::content(response)
-          label <- content$choices[[1]]$message$content
+        status_code <- httr::status_code(response)
+        log_info(sprintf("API response status for cluster %d: %d", cluster_id, status_code))
+        
+        if (status_code == 200) {
+          content_response <- httr::content(response)
+          label <- content_response$choices[[1]]$message$content
           
           # Ensure the label has language code - add fallback if missing
           if (!grepl("\\([A-Z]{2}\\)\\s*$", label)) {
@@ -2140,24 +2158,37 @@ Label:", content)
             label <- paste0(label, " (EN)")
           }
           
+          log_info(sprintf("Successfully generated label for cluster %d: '%s'", cluster_id, label))
           return(label)
         } else {
-          status_code <- httr::status_code(response)
-          log_warn(sprintf("API request attempt %d failed (status: %d)", 
-                         attempt, status_code))
+          error_content <- httr::content(response)
+          log_error(sprintf("API request for cluster %d failed (status: %d): %s", 
+                           cluster_id, status_code, 
+                           if(is.list(error_content) && !is.null(error_content$error)) error_content$error$message else "Unknown error"))
         }
       }, error = function(e) {
-        log_warn(sprintf("Attempt %d failed: %s", attempt, conditionMessage(e)))
+        log_error(sprintf("Attempt %d for cluster %d failed: %s", attempt, cluster_id, conditionMessage(e)))
       })
       
-      if (attempt < retries) Sys.sleep(2^attempt)
+      if (attempt < retries) {
+        wait_time <- 2^attempt
+        log_info(sprintf("Waiting %d seconds before retry for cluster %d", wait_time, cluster_id))
+        Sys.sleep(wait_time)
+      }
     }
     
+    log_error(sprintf("All attempts failed for cluster %d, returning fallback label", cluster_id))
     return("Failed to generate label (EN)")
   }
   
   # Get number of components
   num_components <- components(coordination_results$coord_graph)$no
+  log_info(sprintf("Number of components detected: %d", num_components))
+  
+  if (num_components == 0) {
+    log_warn("No components found in coordination graph")
+    return(data.frame(component = integer(), label = character(), stringsAsFactors = FALSE))
+  }
   
   # Initialize progress bar
   pb <- progress_bar$new(
@@ -2172,12 +2203,16 @@ Label:", content)
     stringsAsFactors = FALSE
   )
   
+  log_info(sprintf("Starting to process %d components", num_components))
+  
   for (i in 1:num_components) {
+    log_info(sprintf("Processing component %d of %d", i, num_components))
+    
     # Get content for this cluster
     content <- get_cluster_content(i)
     
     # Get label
-    label <- get_cluster_label(content)
+    label <- get_cluster_label(content, i)
     
     # Add to results
     labels <- rbind(labels, data.frame(
@@ -2186,6 +2221,8 @@ Label:", content)
       stringsAsFactors = FALSE
     ))
     
+    log_info(sprintf("Labels dataframe now has %d rows after processing component %d", nrow(labels), i))
+    
     # Update progress bar
     pb$tick()
     
@@ -2193,8 +2230,11 @@ Label:", content)
     Sys.sleep(0.5)
   }
   
+  log_info(sprintf("Completed processing all components. Final labels dataframe has %d rows", nrow(labels)))
+  
   # Save labels to file
   write_csv(labels, file.path(daily_output_dir, "cluster_labels.csv"))
+  log_info("Saved cluster labels to file")
   
   return(labels)
 }
@@ -2656,35 +2696,57 @@ generate_network_visualization <- function(coordination_results,
     data$nodes$shape <- "dot"
     data$nodes$url <- paste0("https://tiktok.com/@", data$nodes$id)
     
-    # Add cluster labels if available
-    if(exists("cluster_labels") && is.data.frame(get("cluster_labels")) && nrow(get("cluster_labels")) > 0) {
+    # Add cluster labels if available AND has data
+    if(exists("cluster_labels") && 
+       is.data.frame(get("cluster_labels")) && 
+       nrow(get("cluster_labels")) > 0) {
+      
       log_info("Adding cluster labels to visualization")
-      label_lookup <- get("cluster_labels") %>%
-        dplyr::mutate(
-          component_id = as.numeric(component),
-          group_label = sprintf("Network %d - %s", component_id, label)
-        ) %>%
-        dplyr::select(component_id, group_label, label)
       
-      data$nodes <- data$nodes %>%
-        dplyr::left_join(label_lookup, by = c("component" = "component_id")) %>%
-        dplyr::mutate(
-          size = value * node_size_multiplier + node_size_base,
-          shape = "dot",
-          shadow = TRUE,
-          group = dplyr::coalesce(group_label, sprintf("Network %d", component))
-        )
+      tryCatch({
+        label_lookup <- get("cluster_labels") %>%
+          dplyr::mutate(
+            component_id = as.numeric(component),
+            group_label = sprintf("Network %d - %s", component_id, label)
+          ) %>%
+          dplyr::select(component_id, group_label, label)
+        
+        # Only proceed if label_lookup has data
+        if (nrow(label_lookup) > 0) {
+          data$nodes <- data$nodes %>%
+            dplyr::left_join(label_lookup, by = c("component" = "component_id")) %>%
+            dplyr::mutate(
+              size = value * node_size_multiplier + node_size_base,
+              shape = "dot",
+              shadow = TRUE,
+              group = dplyr::coalesce(group_label, sprintf("Network %d", component))
+            )
+          
+          # Enhanced tooltip with cluster label when available
+          data$nodes$title <- sprintf(
+            "<div class='network-tooltip'><strong>@%s</strong><br>Network: %d<br>%s<br>Connections: %d</div>",
+            data$nodes$id,
+            data$nodes$component,
+            ifelse(is.na(data$nodes$label), "", paste0("Label: ", data$nodes$label)),
+            data$nodes$value
+          )
+          
+          log_info("Successfully added cluster labels to nodes")
+        } else {
+          log_warn("cluster_labels exists but is empty, using default grouping")
+          # Fall back to default grouping
+          data$nodes$group <- sprintf("Network %d", comp)
+          data$nodes$size <- data$nodes$value * node_size_multiplier + node_size_base
+        }
+      }, error = function(e) {
+        log_warn(sprintf("Error adding cluster labels: %s. Using default grouping.", e$message))
+        # Fall back to default grouping
+        data$nodes$group <- sprintf("Network %d", comp)
+        data$nodes$size <- data$nodes$value * node_size_multiplier + node_size_base
+      })
       
-      # Enhanced tooltip with cluster label when available
-      data$nodes$title <- sprintf(
-        "<div class='network-tooltip'><strong>@%s</strong><br>Network: %d<br>%s<br>Connections: %d</div>",
-        data$nodes$id,
-        data$nodes$component,
-        ifelse(is.na(data$nodes$label), "", paste0("Label: ", data$nodes$label)),
-        data$nodes$value
-      )
     } else {
-      log_info("No cluster labels available, using default node grouping")
+      log_info("No cluster labels available or empty, using default node grouping")
       data$nodes$group <- sprintf("Network %d", comp)
       data$nodes$size <- data$nodes$value * node_size_multiplier + node_size_base
     }
