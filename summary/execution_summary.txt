@@ -1,1 +1,41 @@
-We attempted to retrieve videos from **5,872 monitored accounts**, during the period from July 18, 2025 to July 25, 2025. We successfully retrieved **3,001 recent videos**. Using available data, we accessed a total of **9,952 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **324 accounts** spread across **87 components**, and it also uncovered **37 new accounts** exhibiting coordinated behavior.
+We attempted to retrieve videos from **5,912 monitored accounts**, during the period from July 19, 2025 to July 26, 2025. We successfully retrieved **9,533 recent videos**. Using available data, we accessed a total of **9,265 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **411 accounts** spread across **105 components**, and it also uncovered **40 new accounts** exhibiting coordinated behavior. 
+
+ ::: {.callout-warning}
+
+Warning: 200 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+
+:::
+
+
+<details>
+<summary>Error Details</summary>
+
+
+**Total errors encountered:** 200
+
+### Errors by type:
+
+
+         chunk_error daily_quota_exceeded          empty_chunk 
+                 172                    1                   27 
+
+### Sample Errors:
+
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 202507260426353C4DC8C9F56C96365D19
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 2025072602172916F0EFBC00A43834A803
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 20250726014014BD9D10B29BD1B92E2068
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 20250726011829583A07FB10F91F2C4AAA
+character(0)
+</details>
