@@ -1,1 +1,44 @@
-We attempted to retrieve videos from **7,214 monitored accounts**, during the period from August 01, 2025 to August 08, 2025. We successfully retrieved **7,318 recent videos**. Using available data, we accessed a total of **24,216 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **942 accounts** spread across **231 components**, and it also uncovered **184 new accounts** exhibiting coordinated behavior.
+We attempted to retrieve videos from **7,346 monitored accounts**, during the period from August 02, 2025 to August 09, 2025. We successfully retrieved **20,176 recent videos**. Using available data, we accessed a total of **19,909 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **1,043 accounts** spread across **224 components**, and it also uncovered **132 new accounts** exhibiting coordinated behavior. 
+
+ ::: {.callout-warning}
+
+Warning: 206 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+
+:::
+
+
+<details>
+<summary>Error Details</summary>
+
+
+**Total errors encountered:** 206
+
+### Errors by type:
+
+
+         chunk_error daily_quota_exceeded          empty_chunk 
+                 174                    1                   31 
+
+### Sample Errors:
+
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 2025080900412667EFCED02659C51210E4
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 20250809035538F5DC90FD3E43331A733F
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 20250809010232A8ED307F1B45100E59CA
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 202508090233571845C77156141F172FEA
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 202508090132561B99E3B5219C6F1067EA
+</details>
