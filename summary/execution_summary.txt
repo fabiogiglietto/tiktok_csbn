@@ -1,1 +1,35 @@
-We attempted to retrieve videos from **7,616 monitored accounts**, during the period from August 03, 2025 to August 10, 2025. We successfully retrieved **7,920 recent videos**. Using available data, we accessed a total of **26,355 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **1,073 accounts** spread across **267 components**, and it also uncovered **270 new accounts** exhibiting coordinated behavior.
+We attempted to retrieve videos from **7,616 monitored accounts**, during the period from August 04, 2025 to August 11, 2025. We successfully retrieved **23,449 recent videos**. No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions). We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected. 
+
+ ::: {.callout-warning}
+
+Warning: 270 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+
+:::
+
+
+<details>
+<summary>Error Details</summary>
+
+
+**Total errors encountered:** 270
+
+### Errors by type:
+
+
+         chunk_error daily_quota_exceeded          empty_chunk 
+                 182                    1                   87 
+
+### Sample Errors:
+
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 20250811032134267573B2FEB744968B9B
+character(0)
+- **Type:** daily_quota_exceeded, **Message:** HTTP 429 Too Many Requests.
+• status: daily_quota_limit_exceeded
+• message: The API daily quota limit exceeded. Please try again later
+• log_id: 20250811052818D765222038F064B0B00F
+character(0)
+character(0)
+</details>
