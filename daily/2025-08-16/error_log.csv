@@ -1,0 +1,5 @@
+timestamp,type,message
+2025-08-16,daily_quota_exceeded,"HTTP 429 Too Many Requests.
+• status: daily_quota_limit_exceeded
+• message: The API daily quota limit exceeded. Please try again later
+• log_id: 202508160041093F979E2DCA695B1211B3"
