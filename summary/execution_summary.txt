@@ -1,8 +1,8 @@
-We attempted to retrieve videos from **8,009 monitored accounts**, during the period from August 09, 2025 to August 16, 2025. We successfully retrieved **6,278 recent videos**. Using available data, we accessed a total of **16,204 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **497 accounts** spread across **133 components**, and it also uncovered **145 new accounts** exhibiting coordinated behavior. 
+We attempted to retrieve videos from **8,009 monitored accounts**, during the period from August 10, 2025 to August 17, 2025. We successfully retrieved **14,788 recent videos**. No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions). We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected. 
 
  ::: {.callout-warning}
 
-Warning: 1 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+Warning: 211 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
 
 :::
 
@@ -11,18 +11,31 @@ Warning: 1 errors were encountered during execution. Results may be incomplete. 
 <summary>Error Details</summary>
 
 
-**Total errors encountered:** 1
+**Total errors encountered:** 211
 
 ### Errors by type:
 
 
-daily_quota_exceeded 
-                   1 
+         chunk_error daily_quota_exceeded          empty_chunk 
+                 179                    1                   31 
 
 ### Sample Errors:
 
-- **Type:** daily_quota_exceeded, **Message:** HTTP 429 Too Many Requests.
-• status: daily_quota_limit_exceeded
-• message: The API daily quota limit exceeded. Please try again later
-• log_id: 202508160041093F979E2DCA695B1211B3
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 20250817022434C925C2E3CA339559DF65
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 20250817043958A5BB0C6EDC59DF5600DF
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 20250817000805DD24BDE8DE05135362E0
+character(0)
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 20250817043813804E7F3944D9FA68C97E
 </details>
