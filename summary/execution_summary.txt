@@ -1,8 +1,8 @@
-We attempted to retrieve videos from **8,305 monitored accounts**, during the period from August 14, 2025 to August 21, 2025. We successfully retrieved **12,064 recent videos**. No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions). We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected. 
+We attempted to retrieve videos from **8,425 monitored accounts**, during the period from August 15, 2025 to August 22, 2025. We successfully retrieved **3,725 recent videos**. Using available data, we accessed a total of **12,106 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **333 accounts** spread across **83 components**, and it also uncovered **120 new accounts** exhibiting coordinated behavior. 
 
  ::: {.callout-warning}
 
-Warning: 223 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+Warning: 2 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
 
 :::
 
@@ -11,34 +11,22 @@ Warning: 223 errors were encountered during execution. Results may be incomplete
 <summary>Error Details</summary>
 
 
-**Total errors encountered:** 223
+**Total errors encountered:** 2
 
 ### Errors by type:
 
 
-         chunk_error daily_quota_exceeded          empty_chunk 
-                 182                    1                   40 
+pagination_error 
+               2 
 
 ### Sample Errors:
 
-- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
-• status: internal_error
-• message: Something is wrong. Please try again later.
-• log_id: 20250821033304C6043294CB935C34CE9D
-- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
-• status: internal_error
-• message: Something is wrong. Please try again later.
-• log_id: 202508210102442EF1B22B29DD8C25619B
-- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
-• status: internal_error
-• message: Something is wrong. Please try again later.
-• log_id: 20250821015636586DDF9CA37441277528
-- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
-• status: internal_error
-• message: Something is wrong. Please try again later.
-• log_id: 202508210203462E807DAF63CE4C26DDB1
-- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
-• status: internal_error
-• message: Something is wrong. Please try again later.
-• log_id: 20250821030959FD0FAD7E7CC27A2E17DB
+- **Type:** pagination_error, **Message:** HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7541194430271951886 is invalid or expired
+• log_id: 20250822000947C2DC4DA2AE43C6234B76
+- **Type:** pagination_error, **Message:** HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7541170077547238414 is invalid or expired
+• log_id: 20250822000122415ED5EF3202AB2B2007
 </details>
