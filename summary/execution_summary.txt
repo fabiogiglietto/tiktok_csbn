@@ -1,8 +1,8 @@
-We attempted to retrieve videos from **8,667 monitored accounts**, during the period from August 24, 2025 to August 31, 2025. We successfully retrieved **6,728 recent videos**. No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions). We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected. 
+We attempted to retrieve videos from **8,702 monitored accounts**, during the period from August 25, 2025 to September 01, 2025. We successfully retrieved **1,580 recent videos**. Using available data, we accessed a total of **6,676 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **102 accounts** spread across **31 components**, and it also uncovered **35 new accounts** exhibiting coordinated behavior. 
 
  ::: {.callout-warning}
 
-Warning: 238 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+Warning: 1 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
 
 :::
 
@@ -11,25 +11,18 @@ Warning: 238 errors were encountered during execution. Results may be incomplete
 <summary>Error Details</summary>
 
 
-**Total errors encountered:** 238
+**Total errors encountered:** 1
 
 ### Errors by type:
 
 
-         chunk_error daily_quota_exceeded          empty_chunk 
-                 180                    1                   57 
+pagination_error 
+               1 
 
 ### Sample Errors:
 
-character(0)
-- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
-• status: internal_error
-• message: Something is wrong. Please try again later.
-• log_id: 202508310247382A08F436A124A031F3BC
-character(0)
-- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
-• status: internal_error
-• message: Something is wrong. Please try again later.
-• log_id: 202508310458466071663B2602163C852C
-character(0)
+- **Type:** pagination_error, **Message:** HTTP 400 Bad Request.
+• status: invalid_params
+• message: Search Id 7544904346790663223 is invalid or expired
+• log_id: 20250901000458A931E6D593CC586D69C4
 </details>
