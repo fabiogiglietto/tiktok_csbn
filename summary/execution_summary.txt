@@ -1,8 +1,8 @@
-We attempted to retrieve videos from **8,726 monitored accounts**, during the period from August 28, 2025 to September 04, 2025. We successfully retrieved **4,575 recent videos**. No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions). We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected. 
+We attempted to retrieve videos from **8,726 monitored accounts**, during the period from September 04, 2025 to September 11, 2025. We successfully retrieved **515 recent videos**. No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions). We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected. 
 
  ::: {.callout-warning}
 
-Warning: 251 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+Warning: 217 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
 
 :::
 
@@ -11,34 +11,31 @@ Warning: 251 errors were encountered during execution. Results may be incomplete
 <summary>Error Details</summary>
 
 
-**Total errors encountered:** 251
+**Total errors encountered:** 217
 
 ### Errors by type:
 
 
          chunk_error daily_quota_exceeded          empty_chunk 
-                 186                    1                   64 
+                 184                    1                   32 
 
 ### Sample Errors:
 
 - **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
 • status: internal_error
 • message: Something is wrong. Please try again later.
-• log_id: 202509040510390CEF94E2E50B28065E4C
+• log_id: 202509111646242AF9B1DAFF52F8118A08
 - **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
 • status: internal_error
 • message: Something is wrong. Please try again later.
-• log_id: 20250904000248D3C2D57F3B0DEB2890FC
+• log_id: 2025091119203825771E6F0CAEF817BA83
+- **Type:** daily_quota_exceeded, **Message:** HTTP 429 Too Many Requests.
+• status: daily_quota_limit_exceeded
+• message: The API daily quota limit exceeded. Please try again later
+• log_id: 202509112213524E52CE8C998100221392
 - **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
 • status: internal_error
 • message: Something is wrong. Please try again later.
-• log_id: 2025090402310436A0CD2131B9832FA96A
-- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
-• status: internal_error
-• message: Something is wrong. Please try again later.
-• log_id: 20250904010927672F67A74B8A7D2D68B3
-- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
-• status: internal_error
-• message: Something is wrong. Please try again later.
-• log_id: 20250904035418A9874FDDBF20CE02FFA8
+• log_id: 20250911180203AE0F9E75E4471114C829
+character(0)
 </details>

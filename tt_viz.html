@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Fabio Giglietto">
-<meta name="dcterms.date" content="2025-09-04">
+<meta name="dcterms.date" content="2025-09-11">
 
 <title>TikTok Coordinated Detection Project</title>
 <style>
@@ -240,7 +240,7 @@ body {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">September 4, 2025</p>
+      <p class="date">September 11, 2025</p>
     </div>
   </div>
   
@@ -264,28 +264,27 @@ body {
 </section>
 <section id="today-results" class="level1" data-number="2">
 <h1 data-number="2"><span class="header-section-number">2</span> Today Results</h1>
-<p>Execution Summary: We attempted to retrieve videos from <strong>8,726 monitored accounts</strong>, during the period from August 28, 2025 to September 04, 2025. We successfully retrieved <strong>4,575 recent videos</strong>. No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions). We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected.</p>
+<p>Execution Summary: We attempted to retrieve videos from <strong>8,726 monitored accounts</strong>, during the period from September 04, 2025 to September 11, 2025. We successfully retrieved <strong>515 recent videos</strong>. No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions). We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected.</p>
 <p>::: {.callout-warning}</p>
-<p>Warning: 251 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.</p>
+<p>Warning: 217 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.</p>
 <p>:::</p>
 <details>
 <summary>
 Error Details
 </summary>
-<p><strong>Total errors encountered:</strong> 251</p>
+<p><strong>Total errors encountered:</strong> 217</p>
 <section id="errors-by-type" class="level3" data-number="2.0.1">
 <h3 data-number="2.0.1" class="anchored" data-anchor-id="errors-by-type"><span class="header-section-number">2.0.1</span> Errors by type:</h3>
 <pre><code>     chunk_error daily_quota_exceeded          empty_chunk 
-             186                    1                   64 </code></pre>
+             184                    1                   32 </code></pre>
 </section>
 <section id="sample-errors" class="level3" data-number="2.0.2">
 <h3 data-number="2.0.2" class="anchored" data-anchor-id="sample-errors"><span class="header-section-number">2.0.2</span> Sample Errors:</h3>
 <ul>
-<li><strong>Type:</strong> chunk_error, <strong>Message:</strong> HTTP 500 Internal Server Error. • status: internal_error • message: Something is wrong. Please try again later. • log_id: 202509040510390CEF94E2E50B28065E4C</li>
-<li><strong>Type:</strong> chunk_error, <strong>Message:</strong> HTTP 500 Internal Server Error. • status: internal_error • message: Something is wrong. Please try again later. • log_id: 20250904000248D3C2D57F3B0DEB2890FC</li>
-<li><strong>Type:</strong> chunk_error, <strong>Message:</strong> HTTP 500 Internal Server Error. • status: internal_error • message: Something is wrong. Please try again later. • log_id: 2025090402310436A0CD2131B9832FA96A</li>
-<li><strong>Type:</strong> chunk_error, <strong>Message:</strong> HTTP 500 Internal Server Error. • status: internal_error • message: Something is wrong. Please try again later. • log_id: 20250904010927672F67A74B8A7D2D68B3</li>
-<li><strong>Type:</strong> chunk_error, <strong>Message:</strong> HTTP 500 Internal Server Error. • status: internal_error • message: Something is wrong. Please try again later. • log_id: 20250904035418A9874FDDBF20CE02FFA8</li>
+<li><strong>Type:</strong> chunk_error, <strong>Message:</strong> HTTP 500 Internal Server Error. • status: internal_error • message: Something is wrong. Please try again later. • log_id: 202509111646242AF9B1DAFF52F8118A08</li>
+<li><strong>Type:</strong> chunk_error, <strong>Message:</strong> HTTP 500 Internal Server Error. • status: internal_error • message: Something is wrong. Please try again later. • log_id: 2025091119203825771E6F0CAEF817BA83</li>
+<li><strong>Type:</strong> daily_quota_exceeded, <strong>Message:</strong> HTTP 429 Too Many Requests. • status: daily_quota_limit_exceeded • message: The API daily quota limit exceeded. Please try again later • log_id: 202509112213524E52CE8C998100221392</li>
+<li><strong>Type:</strong> chunk_error, <strong>Message:</strong> HTTP 500 Internal Server Error. • status: internal_error • message: Something is wrong. Please try again later. • log_id: 20250911180203AE0F9E75E4471114C829 character(0)</li>
 </ul>
 </section></details>
 <div class="cell">
@@ -314,8 +313,8 @@ Error Details
 <div class="cell">
 <div class="cell-output-display">
 
-<div class="datatables html-widget html-fill-item" id="htmlwidget-ca8ebc419ae97358c4fb" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-ca8ebc419ae97358c4fb">{"x":{"filter":"none","vertical":false,"data":[[],[],[],[],[],[],[],[],[],[],[],[]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Account<\/th>\n      <th>Network<\/th>\n      <th>Unique.Shares<\/th>\n      <th>Avg.Time.Between.Shares..sec.<\/th>\n      <th>Edge.Symmetry.Score<\/th>\n      <th>Degree<\/th>\n      <th>Strength<\/th>\n      <th>Betweenness<\/th>\n      <th>Avg.Views<\/th>\n      <th>Avg.Likes<\/th>\n      <th>Avg.Comments<\/th>\n      <th>Avg.Shares<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":25,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","order":[[5,"desc"]],"columnDefs":[{"className":"dt-right","targets":[1,2,3,4,5,6,7,8,9,10,11]},{"name":"Account","targets":0},{"name":"Network","targets":1},{"name":"Unique.Shares","targets":2},{"name":"Avg.Time.Between.Shares..sec.","targets":3},{"name":"Edge.Symmetry.Score","targets":4},{"name":"Degree","targets":5},{"name":"Strength","targets":6},{"name":"Betweenness","targets":7},{"name":"Avg.Views","targets":8},{"name":"Avg.Likes","targets":9},{"name":"Avg.Comments","targets":10},{"name":"Avg.Shares","targets":11}],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-375bc95e968775e19bba" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-375bc95e968775e19bba">{"x":{"filter":"none","vertical":false,"data":[[],[],[],[],[],[],[],[],[],[],[],[]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Account<\/th>\n      <th>Network<\/th>\n      <th>Unique.Shares<\/th>\n      <th>Avg.Time.Between.Shares..sec.<\/th>\n      <th>Edge.Symmetry.Score<\/th>\n      <th>Degree<\/th>\n      <th>Strength<\/th>\n      <th>Betweenness<\/th>\n      <th>Avg.Views<\/th>\n      <th>Avg.Likes<\/th>\n      <th>Avg.Comments<\/th>\n      <th>Avg.Shares<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":25,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","order":[[5,"desc"]],"columnDefs":[{"className":"dt-right","targets":[1,2,3,4,5,6,7,8,9,10,11]},{"name":"Account","targets":0},{"name":"Network","targets":1},{"name":"Unique.Shares","targets":2},{"name":"Avg.Time.Between.Shares..sec.","targets":3},{"name":"Edge.Symmetry.Score","targets":4},{"name":"Degree","targets":5},{"name":"Strength","targets":6},{"name":"Betweenness","targets":7},{"name":"Avg.Views","targets":8},{"name":"Avg.Likes","targets":9},{"name":"Avg.Comments","targets":10},{"name":"Avg.Shares","targets":11}],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
 </div>
 </div>
 </section>
@@ -324,8 +323,8 @@ Error Details
 <div class="cell">
 <div class="cell-output-display">
 
-<div class="datatables html-widget html-fill-item" id="htmlwidget-b69bc1a6ffa79a322583" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-b69bc1a6ffa79a322583">{"x":{"filter":"none","vertical":false,"data":[[],[],[],[],[],[],[],[],[],[]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Network<\/th>\n      <th>Number.of.Accounts<\/th>\n      <th>Network.Density<\/th>\n      <th>Network.Diameter<\/th>\n      <th>Clustering.Coefficient<\/th>\n      <th>Avg.Views<\/th>\n      <th>Avg.Likes<\/th>\n      <th>Avg.Comments<\/th>\n      <th>Avg.Shares<\/th>\n      <th>Member.Accounts<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '12px'}); }","columnDefs":[{"className":"dt-right","targets":[0,1,2,3,4,5,6,7,8]},{"name":"Network","targets":0},{"name":"Number.of.Accounts","targets":1},{"name":"Network.Density","targets":2},{"name":"Network.Diameter","targets":3},{"name":"Clustering.Coefficient","targets":4},{"name":"Avg.Views","targets":5},{"name":"Avg.Likes","targets":6},{"name":"Avg.Comments","targets":7},{"name":"Avg.Shares","targets":8},{"name":"Member.Accounts","targets":9}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-273e5a6e68e58bfbd075" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-273e5a6e68e58bfbd075">{"x":{"filter":"none","vertical":false,"data":[[],[],[],[],[],[],[],[],[],[]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Network<\/th>\n      <th>Number.of.Accounts<\/th>\n      <th>Network.Density<\/th>\n      <th>Network.Diameter<\/th>\n      <th>Clustering.Coefficient<\/th>\n      <th>Avg.Views<\/th>\n      <th>Avg.Likes<\/th>\n      <th>Avg.Comments<\/th>\n      <th>Avg.Shares<\/th>\n      <th>Member.Accounts<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '12px'}); }","columnDefs":[{"className":"dt-right","targets":[0,1,2,3,4,5,6,7,8]},{"name":"Network","targets":0},{"name":"Number.of.Accounts","targets":1},{"name":"Network.Density","targets":2},{"name":"Network.Diameter","targets":3},{"name":"Clustering.Coefficient","targets":4},{"name":"Avg.Views","targets":5},{"name":"Avg.Likes","targets":6},{"name":"Avg.Comments","targets":7},{"name":"Avg.Shares","targets":8},{"name":"Member.Accounts","targets":9}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
 </div>
 </div>
 </section>
@@ -334,8 +333,8 @@ Error Details
 <div class="cell">
 <div class="cell-output-display">
 
-<div class="datatables html-widget html-fill-item" id="htmlwidget-ea3052da98e33a0eb68a" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-ea3052da98e33a0eb68a">{"x":{"filter":"none","vertical":false,"data":[[],[],[],[],[],[],[],[],[],[]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Post.URL<\/th>\n      <th>Network<\/th>\n      <th>Author<\/th>\n      <th>Timestamp<\/th>\n      <th>Number.of.Accounts<\/th>\n      <th>Views<\/th>\n      <th>Likes<\/th>\n      <th>Comments<\/th>\n      <th>Shares<\/th>\n      <th>Description<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","order":[[3,"desc"]],"columnDefs":[{"className":"dt-right","targets":[1,4,5,6,7,8]},{"name":"Post.URL","targets":0},{"name":"Network","targets":1},{"name":"Author","targets":2},{"name":"Timestamp","targets":3},{"name":"Number.of.Accounts","targets":4},{"name":"Views","targets":5},{"name":"Likes","targets":6},{"name":"Comments","targets":7},{"name":"Shares","targets":8},{"name":"Description","targets":9}],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-af924adbd612fdc97394" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-af924adbd612fdc97394">{"x":{"filter":"none","vertical":false,"data":[[],[],[],[],[],[],[],[],[],[]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Post.URL<\/th>\n      <th>Network<\/th>\n      <th>Author<\/th>\n      <th>Timestamp<\/th>\n      <th>Number.of.Accounts<\/th>\n      <th>Views<\/th>\n      <th>Likes<\/th>\n      <th>Comments<\/th>\n      <th>Shares<\/th>\n      <th>Description<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","order":[[3,"desc"]],"columnDefs":[{"className":"dt-right","targets":[1,4,5,6,7,8]},{"name":"Post.URL","targets":0},{"name":"Network","targets":1},{"name":"Author","targets":2},{"name":"Timestamp","targets":3},{"name":"Number.of.Accounts","targets":4},{"name":"Views","targets":5},{"name":"Likes","targets":6},{"name":"Comments","targets":7},{"name":"Shares","targets":8},{"name":"Description","targets":9}],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
 </div>
 </div>
 <div class="cell">
@@ -352,7 +351,7 @@ Error Details
         <li>Network graph (GraphML format)</li>
         <li>README file with detailed field descriptions</li>
       </ul>
-      <a href="daily/2025-09-04/coordination_results_2025-09-04.zip" download="" class="btn btn-primary" style="display: inline-block; padding: 8px 16px; background-color: #00926c; color: white; text-decoration: none; border-radius: 4px; border: none; font-family: 'Comfortaa', sans-serif;">
+      <a href="daily/2025-09-11/coordination_results_2025-09-11.zip" download="" class="btn btn-primary" style="display: inline-block; padding: 8px 16px; background-color: #00926c; color: white; text-decoration: none; border-radius: 4px; border: none; font-family: 'Comfortaa', sans-serif;">
         Download Results Package
       </a>
     </div>
@@ -412,7 +411,7 @@ other attached packages:
 loaded via a namespace (and not attached):
  [1] gtable_0.3.4        bslib_0.6.1         xfun_0.42          
  [4] httr2_1.1.0         htmlwidgets_1.6.4   tzdb_0.4.0         
- [7] vctrs_0.6.5         tools_4.3.3         crosstalk_1.2.1    
+ [7] crosstalk_1.2.1     vctrs_0.6.5         tools_4.3.3        
 [10] generics_0.1.3      curl_6.2.1          parallel_4.3.3     
 [13] pkgconfig_2.0.3     data.table_1.16.4   tidytable_0.11.2   
 [16] lifecycle_1.0.4     compiler_4.3.3      farver_2.1.1       
@@ -427,7 +426,7 @@ loaded via a namespace (and not attached):
 [43] rmarkdown_2.25      bit_4.0.5           askpass_1.2.1      
 [46] hms_1.1.3           evaluate_0.23       knitr_1.45         
 [49] rlang_1.1.5         Rcpp_1.0.14         glue_1.8.0         
-[52] vroom_1.6.5         R6_2.6.1           </code></pre>
+[52] rstudioapi_0.15.0   vroom_1.6.5         R6_2.6.1           </code></pre>
 </div>
 </div>
 </section>
