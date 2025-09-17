@@ -1,1 +1,38 @@
-We attempted to retrieve videos from **8,756 monitored accounts**, during the period from September 09, 2025 to September 16, 2025. We successfully retrieved **475 recent videos**. Using available data, we accessed a total of **1,346 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **55 accounts** spread across **15 components**, and it also uncovered **22 new accounts** exhibiting coordinated behavior.
+We attempted to retrieve videos from **8,756 monitored accounts**, during the period from September 10, 2025 to September 17, 2025. We successfully retrieved **1,122 recent videos**. No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions). We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected. 
+
+ ::: {.callout-warning}
+
+Warning: 233 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+
+:::
+
+
+<details>
+<summary>Error Details</summary>
+
+
+**Total errors encountered:** 233
+
+### Errors by type:
+
+
+         chunk_error daily_quota_exceeded          empty_chunk 
+                 187                    1                   45 
+
+### Sample Errors:
+
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 202509170025491F9A9B1C22455482BEF3
+character(0)
+character(0)
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 20250917011707D7F02F021734C69A4F66
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 202509170022179AC8A06B3CF7558FD671
+</details>
