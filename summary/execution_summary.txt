@@ -1,8 +1,8 @@
-We attempted to retrieve videos from **9,231 monitored accounts**, during the period from October 16, 2025 to October 23, 2025. We successfully retrieved **798 recent videos**. No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions). We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected. 
+We attempted to retrieve videos from **9,231 monitored accounts**, during the period from October 16, 2025 to October 23, 2025. We successfully retrieved **174 recent videos**. Using available data, we accessed a total of **718 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **55 accounts** spread across **17 components**, and it also uncovered **0 new accounts** exhibiting coordinated behavior. 
 
  ::: {.callout-warning}
 
-Warning: 243 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+Warning: 1 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
 
 :::
 
@@ -11,31 +11,18 @@ Warning: 243 errors were encountered during execution. Results may be incomplete
 <summary>Error Details</summary>
 
 
-**Total errors encountered:** 243
+**Total errors encountered:** 1
 
 ### Errors by type:
 
 
-         chunk_error daily_quota_exceeded          empty_chunk 
-                 187                    1                   55 
+daily_quota_exceeded 
+                   1 
 
 ### Sample Errors:
 
-- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
-• status: internal_error
-• message: Something is wrong. Please try again later.
-• log_id: 20251023040741DD0B0C6D50C1A338C449
-- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
-• status: internal_error
-• message: Something is wrong. Please try again later.
-• log_id: 2025102304092758BC62D183591E3FD0FB
-- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
-• status: internal_error
-• message: Something is wrong. Please try again later.
-• log_id: 20251023035523904CA6E8C37431394133
-character(0)
-- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
-• status: internal_error
-• message: Something is wrong. Please try again later.
-• log_id: 20251023022435CD14DAEC2372FE2E6A16
+- **Type:** daily_quota_exceeded, **Message:** HTTP 429 Too Many Requests.
+• status: daily_quota_limit_exceeded
+• message: The API daily quota limit exceeded. Please try again later
+• log_id: 202510230934040CE495775B115601564D
 </details>
