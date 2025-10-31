@@ -1,1 +1,41 @@
-We attempted to retrieve videos from **9,509 monitored accounts**, during the period from October 23, 2025 to October 30, 2025. We successfully retrieved **612 recent videos**. Using available data, we accessed a total of **3,011 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **174 accounts** spread across **55 components**, and it also uncovered **133 new accounts** exhibiting coordinated behavior.
+We attempted to retrieve videos from **9,509 monitored accounts**, during the period from October 24, 2025 to October 31, 2025. We successfully retrieved **2,970 recent videos**. No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions). We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected. 
+
+ ::: {.callout-warning}
+
+Warning: 222 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+
+:::
+
+
+<details>
+<summary>Error Details</summary>
+
+
+**Total errors encountered:** 222
+
+### Errors by type:
+
+
+         chunk_error daily_quota_exceeded          empty_chunk 
+                 189                    1                   32 
+
+### Sample Errors:
+
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 202510310254362B4E1545A0679C313DF5
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 20251031004136EDF63DBF8B43251C1632
+character(0)
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 202510310310377AB242D635FB9F30D7EF
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 20251031033335472D38614E635F32E058
+</details>
