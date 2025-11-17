@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Fabio Giglietto">
-<meta name="dcterms.date" content="2025-11-16">
+<meta name="dcterms.date" content="2025-11-17">
 
 <title>TikTok Coordinated Detection Project</title>
 <style>
@@ -37,6 +37,9 @@ ul.task-list li input[type="checkbox"] {
 <link href="tt_viz_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
 
 <script src="tt_viz_files/libs/htmlwidgets-1.6.4/htmlwidgets.js"></script>
+<link href="tt_viz_files/libs/vis-9.1.0/vis-network.min.css" rel="stylesheet">
+<script src="tt_viz_files/libs/vis-9.1.0/vis-network.min.js"></script>
+<script src="tt_viz_files/libs/visNetwork-binding-2.1.2/visNetwork.js"></script>
 <link href="tt_viz_files/libs/datatables-css-0.0.0/datatables-crosstalk.css" rel="stylesheet">
 <script src="tt_viz_files/libs/datatables-binding-0.33/datatables.js"></script>
 <script src="tt_viz_files/libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
@@ -203,8 +206,6 @@ body {
   <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction"><span class="toc-section-number">1</span>  Introduction</a></li>
   <li><a href="#today-results" id="toc-today-results" class="nav-link" data-scroll-target="#today-results"><span class="toc-section-number">2</span>  Today Results</a>
   <ul class="collapse">
-  <li><a href="#errors-by-type" id="toc-errors-by-type" class="nav-link" data-scroll-target="#errors-by-type"><span class="toc-section-number">2.0.1</span>  Errors by type:</a></li>
-  <li><a href="#sample-errors" id="toc-sample-errors" class="nav-link" data-scroll-target="#sample-errors"><span class="toc-section-number">2.0.2</span>  Sample Errors:</a></li>
   <li><a href="#interactive-graph-visualization" id="toc-interactive-graph-visualization" class="nav-link" data-scroll-target="#interactive-graph-visualization"><span class="toc-section-number">2.1</span>  Interactive Graph Visualization</a></li>
   <li><a href="#detailed-tables" id="toc-detailed-tables" class="nav-link" data-scroll-target="#detailed-tables"><span class="toc-section-number">2.2</span>  Detailed Tables</a>
   <ul class="collapse">
@@ -240,7 +241,7 @@ body {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">November 16, 2025</p>
+      <p class="date">November 17, 2025</p>
     </div>
   </div>
   
@@ -264,30 +265,7 @@ body {
 </section>
 <section id="today-results" class="level1" data-number="2">
 <h1 data-number="2"><span class="header-section-number">2</span> Today Results</h1>
-<p>Execution Summary: We attempted to retrieve videos from <strong>9,732 monitored accounts</strong>, during the period from November 09, 2025 to November 16, 2025. We successfully retrieved <strong>624 recent videos</strong>. No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions). We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected.</p>
-<p>::: {.callout-warning}</p>
-<p>Warning: 227 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.</p>
-<p>:::</p>
-<details>
-<summary>
-Error Details
-</summary>
-<p><strong>Total errors encountered:</strong> 227</p>
-<section id="errors-by-type" class="level3" data-number="2.0.1">
-<h3 data-number="2.0.1" class="anchored" data-anchor-id="errors-by-type"><span class="header-section-number">2.0.1</span> Errors by type:</h3>
-<pre><code>     chunk_error daily_quota_exceeded          empty_chunk 
-             192                    1                   34 </code></pre>
-</section>
-<section id="sample-errors" class="level3" data-number="2.0.2">
-<h3 data-number="2.0.2" class="anchored" data-anchor-id="sample-errors"><span class="header-section-number">2.0.2</span> Sample Errors:</h3>
-<ul>
-<li><strong>Type:</strong> chunk_error, <strong>Message:</strong> HTTP 500 Internal Server Error. • status: internal_error • message: Something is wrong. Please try again later. • log_id: 2025111602341730F840A4E06A2771766B</li>
-<li><strong>Type:</strong> chunk_error, <strong>Message:</strong> HTTP 500 Internal Server Error. • status: internal_error • message: Something is wrong. Please try again later. • log_id: 20251116031652CFB2FBF01DDAAB720281</li>
-<li><strong>Type:</strong> chunk_error, <strong>Message:</strong> HTTP 500 Internal Server Error. • status: internal_error • message: Something is wrong. Please try again later. • log_id: 20251116004314FC3B963292908D67B4BB</li>
-<li><strong>Type:</strong> chunk_error, <strong>Message:</strong> HTTP 500 Internal Server Error. • status: internal_error • message: Something is wrong. Please try again later. • log_id: 20251116013756F10323765D060E7759F7</li>
-<li><strong>Type:</strong> chunk_error, <strong>Message:</strong> HTTP 500 Internal Server Error. • status: internal_error • message: Something is wrong. Please try again later. • log_id: 20251116024317F34F2B56D8A0BF703BAA</li>
-</ul>
-</section></details>
+<p>Execution Summary: We attempted to retrieve videos from <strong>9,732 monitored accounts</strong>, during the period from November 10, 2025 to November 17, 2025. We successfully retrieved <strong>137 recent videos</strong>. Using available data, we accessed a total of <strong>468 videos</strong> posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified <strong>2 accounts</strong> spread across <strong>1 components</strong>, and it also uncovered <strong>0 new accounts</strong> exhibiting coordinated behavior.</p>
 <div class="cell">
 <div class="cell-output-display">
 <div class="quarto-figure quarto-figure-center">
@@ -298,12 +276,15 @@ Error Details
 </div>
 </div>
 </div>
-</section>
 <section id="interactive-graph-visualization" class="level2" data-number="2.1">
 <h2 data-number="2.1" class="anchored" data-anchor-id="interactive-graph-visualization"><span class="header-section-number">2.1</span> Interactive Graph Visualization</h2>
 <div class="cell">
-<div class="cell-output cell-output-stdout">
-<pre><code>No network visualization available for today's analysis.</code></pre>
+<div id="fig-network" class="quarto-figure quarto-figure-center anchored">
+<figure class="figure">
+<div id="htmlwidget-2c750b8df6f27da79c42" style="width:100%;height:800px;" class="visNetwork html-widget"></div>
+<script type="application/json" data-for="htmlwidget-2c750b8df6f27da79c42">{"x":{"nodes":{"id":["oeplbsknc6","basilberthaeq0301"],"label.x":["oeplbsknc6","basilberthaeq0301"],"component":[1,1],"value":[1,1],"title":["<div class='network-tooltip'><strong>@oeplbsknc6<\/strong><br>Network: 1<br>Connections: 1<\/div>","<div class='network-tooltip'><strong>@basilberthaeq0301<\/strong><br>Network: 1<br>Connections: 1<\/div>"],"shadow":[true,true],"shape":["dot","dot"],"url":["https://tiktok.com/@oeplbsknc6","https://tiktok.com/@basilberthaeq0301"],"group_label":["Network 1 - Local News and Events Coverage (ID)","Network 1 - Local News and Events Coverage (ID)"],"label.y":["Local News and Events Coverage (ID)","Local News and Events Coverage (ID)"],"size":[6.1,6.1],"group":["Network 1 - Local News and Events Coverage (ID)","Network 1 - Local News and Events Coverage (ID)"],"label":["oeplbsknc6","basilberthaeq0301"]},"edges":{"from":["oeplbsknc6"],"to":["basilberthaeq0301"],"weight":[13],"avg_time_delta":[47.84615384615385],"n_content_id":[7],"n_content_id_y":[7],"edge_symmetry_score":[1],"object_ids":["KondisiterkinimusholaPONPESAIKhozinySidoarjoambruksaatsalatashar.#jtvjember#evakuasi#sidoarjo#fyp"],"weight_threshold":[1],"width":[14.3],"color":["#94A3B8"],"physics":[true]},"nodesToDataframe":true,"edgesToDataframe":true,"options":{"width":"100%","height":"100%","nodes":{"shape":"dot","color":{"background":"var(--vera-green)","border":"var(--vera-dark)","highlight":{"background":"var(--vera-green)","border":"var(--vera-dark)"},"hover":{"background":"var(--vera-green)","border":"var(--vera-dark)"}},"font":{"color":"var(--vera-dark)"},"shadow":true},"manipulation":{"enabled":false},"layout":{"randomSeed":123},"interaction":{"hover":true,"keyboard":true,"navigationButtons":true,"zoomSpeed":1},"physics":{"stabilization":{"enabled":true,"iterations":100}},"edges":{"color":{"color":"#94A3B8","highlight":"var(--vera-green)","hover":"var(--vera-green)"},"smooth":{"enabled":true,"type":"dynamic"}}},"groups":["Network 1 - Local News and Events Coverage (ID)"],"width":"100%","height":"800px","idselection":{"enabled":false,"style":"width: 150px; height: 26px","useLabels":true,"main":"Select by id"},"byselection":{"enabled":true,"style":"width: 150px; height: 26px","multiple":false,"hideColor":"rgba(200,200,200,0.5)","highlight":false,"variable":"group","main":"Select Network","values":["Network 1 - Local News and Events Coverage (ID)"]},"main":null,"submain":null,"footer":null,"background":"rgba(0, 0, 0, 0)","highlight":{"enabled":true,"hoverNearest":true,"degree":1,"algorithm":"all","hideColor":"rgba(200,200,200,0.5)","labelOnly":true},"collapse":{"enabled":false,"fit":false,"resetHighlight":true,"clusterOptions":null,"keepCoord":true,"labelSuffix":"(cluster)"},"tooltipStay":300,"tooltipStyle":"position: fixed;visibility:hidden;padding: 5px;white-space: nowrap;font-family: verdana;font-size:14px;font-color:#000000;background-color: #f5f4ed;-moz-border-radius: 3px;-webkit-border-radius: 3px;border-radius: 3px;border: 1px solid #808074;box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.2);","events":{"click":"function(params) {\n          if (params.nodes.length > 0) {\n            var nodeId = params.nodes[0];\n            var nodeData = this.body.data.nodes.get(nodeId);\n            if (nodeData.url) {\n              window.open(nodeData.url, '_blank');\n            }\n          }\n        }"}},"evals":["events.click"],"jsHooks":[]}</script>
+<p></p><figcaption class="figure-caption">Figure&nbsp;1: Interactive visualization of coordinated accounts detected today. Click on a node to visit the respective TikTok account.</figcaption><p></p>
+</figure>
 </div>
 </div>
 </section>
@@ -314,8 +295,8 @@ Error Details
 <div class="cell">
 <div class="cell-output-display">
 
-<div class="datatables html-widget html-fill-item" id="htmlwidget-91b07461f4b56cb2417a" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-91b07461f4b56cb2417a">{"x":{"filter":"none","vertical":false,"data":[[],[],[],[],[],[],[],[],[],[],[],[]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Account<\/th>\n      <th>Network<\/th>\n      <th>Unique.Shares<\/th>\n      <th>Avg.Time.Between.Shares..sec.<\/th>\n      <th>Edge.Symmetry.Score<\/th>\n      <th>Degree<\/th>\n      <th>Strength<\/th>\n      <th>Betweenness<\/th>\n      <th>Avg.Views<\/th>\n      <th>Avg.Likes<\/th>\n      <th>Avg.Comments<\/th>\n      <th>Avg.Shares<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":25,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","order":[[5,"desc"]],"columnDefs":[{"className":"dt-right","targets":[1,2,3,4,5,6,7,8,9,10,11]},{"name":"Account","targets":0},{"name":"Network","targets":1},{"name":"Unique.Shares","targets":2},{"name":"Avg.Time.Between.Shares..sec.","targets":3},{"name":"Edge.Symmetry.Score","targets":4},{"name":"Degree","targets":5},{"name":"Strength","targets":6},{"name":"Betweenness","targets":7},{"name":"Avg.Views","targets":8},{"name":"Avg.Likes","targets":9},{"name":"Avg.Comments","targets":10},{"name":"Avg.Shares","targets":11}],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-69c33996b81a9acd7d73" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-69c33996b81a9acd7d73">{"x":{"filter":"none","vertical":false,"data":[["<a href=\"https://tiktok.com/@basilberthaeq0301\" target=\"_blank\">@basilberthaeq0301<\/a>","<a href=\"https://tiktok.com/@oeplbsknc6\" target=\"_blank\">@oeplbsknc6<\/a>"],[1,1],[4,4],[47.846,47.846],[1,1],[1,1],[13,13],[0,0],[836.5,4830.8],[24.75,43.8],[0.5,0.4],[3,1]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Account<\/th>\n      <th>Network<\/th>\n      <th>Unique Shares<\/th>\n      <th>Avg Time Between Shares (sec)<\/th>\n      <th>Edge Symmetry Score<\/th>\n      <th>Degree<\/th>\n      <th>Strength<\/th>\n      <th>Betweenness<\/th>\n      <th>Avg Views<\/th>\n      <th>Avg Likes<\/th>\n      <th>Avg Comments<\/th>\n      <th>Avg Shares<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":25,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","order":[[5,"desc"]],"columnDefs":[{"className":"dt-right","targets":[1,2,3,4,5,6,7,8,9,10,11]},{"name":"Account","targets":0},{"name":"Network","targets":1},{"name":"Unique Shares","targets":2},{"name":"Avg Time Between Shares (sec)","targets":3},{"name":"Edge Symmetry Score","targets":4},{"name":"Degree","targets":5},{"name":"Strength","targets":6},{"name":"Betweenness","targets":7},{"name":"Avg Views","targets":8},{"name":"Avg Likes","targets":9},{"name":"Avg Comments","targets":10},{"name":"Avg Shares","targets":11}],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
 </div>
 </div>
 </section>
@@ -324,8 +305,8 @@ Error Details
 <div class="cell">
 <div class="cell-output-display">
 
-<div class="datatables html-widget html-fill-item" id="htmlwidget-9ea99e8800ade8f35e64" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-9ea99e8800ade8f35e64">{"x":{"filter":"none","vertical":false,"data":[[],[],[],[],[],[],[],[],[],[]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Network<\/th>\n      <th>Number.of.Accounts<\/th>\n      <th>Network.Density<\/th>\n      <th>Network.Diameter<\/th>\n      <th>Clustering.Coefficient<\/th>\n      <th>Avg.Views<\/th>\n      <th>Avg.Likes<\/th>\n      <th>Avg.Comments<\/th>\n      <th>Avg.Shares<\/th>\n      <th>Member.Accounts<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '12px'}); }","columnDefs":[{"className":"dt-right","targets":[0,1,2,3,4,5,6,7,8]},{"name":"Network","targets":0},{"name":"Number.of.Accounts","targets":1},{"name":"Network.Density","targets":2},{"name":"Network.Diameter","targets":3},{"name":"Clustering.Coefficient","targets":4},{"name":"Avg.Views","targets":5},{"name":"Avg.Likes","targets":6},{"name":"Avg.Comments","targets":7},{"name":"Avg.Shares","targets":8},{"name":"Member.Accounts","targets":9}],"order":[],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-90e5d62b549ea9ab22af" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-90e5d62b549ea9ab22af">{"x":{"filter":"none","vertical":false,"data":[[1],[2],[1],[13],[0],[3055.556],[35.333],[0.444],[1.889],["oeplbsknc6, basilberthaeq0301"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Network<\/th>\n      <th>Number of Accounts<\/th>\n      <th>Network Density<\/th>\n      <th>Network Diameter<\/th>\n      <th>Clustering Coefficient<\/th>\n      <th>Avg Views<\/th>\n      <th>Avg Likes<\/th>\n      <th>Avg Comments<\/th>\n      <th>Avg Shares<\/th>\n      <th>Member Accounts<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '12px'}); }","columnDefs":[{"className":"dt-right","targets":[0,1,2,3,4,5,6,7,8]},{"name":"Network","targets":0},{"name":"Number of Accounts","targets":1},{"name":"Network Density","targets":2},{"name":"Network Diameter","targets":3},{"name":"Clustering Coefficient","targets":4},{"name":"Avg Views","targets":5},{"name":"Avg Likes","targets":6},{"name":"Avg Comments","targets":7},{"name":"Avg Shares","targets":8},{"name":"Member Accounts","targets":9}],"order":[],"autoWidth":false,"orderClasses":false,"rowCallback":"function(row, data, displayNum, displayIndex, dataIndex) {\nvar value=data[1]; $(this.api().cell(row, 1).node()).css({'class-name':'dt-right'});\nvar value=data[2]; $(this.api().cell(row, 2).node()).css({'class-name':'dt-right'});\nvar value=data[3]; $(this.api().cell(row, 3).node()).css({'class-name':'dt-right'});\nvar value=data[4]; $(this.api().cell(row, 4).node()).css({'class-name':'dt-right'});\nvar value=data[5]; $(this.api().cell(row, 5).node()).css({'class-name':'dt-right'});\nvar value=data[6]; $(this.api().cell(row, 6).node()).css({'class-name':'dt-right'});\nvar value=data[7]; $(this.api().cell(row, 7).node()).css({'class-name':'dt-right'});\nvar value=data[8]; $(this.api().cell(row, 8).node()).css({'class-name':'dt-right'});\nvar value=data[0]; $(this.api().cell(row, 0).node()).css({'width':'300px'});\n}"}},"evals":["options.initComplete","options.rowCallback"],"jsHooks":[]}</script>
 </div>
 </div>
 </section>
@@ -334,8 +315,8 @@ Error Details
 <div class="cell">
 <div class="cell-output-display">
 
-<div class="datatables html-widget html-fill-item" id="htmlwidget-1a021775ac2e81162267" style="width:100%;height:auto;"></div>
-<script type="application/json" data-for="htmlwidget-1a021775ac2e81162267">{"x":{"filter":"none","vertical":false,"data":[[],[],[],[],[],[],[],[],[],[]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Post.URL<\/th>\n      <th>Network<\/th>\n      <th>Author<\/th>\n      <th>Timestamp<\/th>\n      <th>Number.of.Accounts<\/th>\n      <th>Views<\/th>\n      <th>Likes<\/th>\n      <th>Comments<\/th>\n      <th>Shares<\/th>\n      <th>Description<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","order":[[3,"desc"]],"columnDefs":[{"className":"dt-right","targets":[1,4,5,6,7,8]},{"name":"Post.URL","targets":0},{"name":"Network","targets":1},{"name":"Author","targets":2},{"name":"Timestamp","targets":3},{"name":"Number.of.Accounts","targets":4},{"name":"Views","targets":5},{"name":"Likes","targets":6},{"name":"Comments","targets":7},{"name":"Shares","targets":8},{"name":"Description","targets":9}],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
+<div class="datatables html-widget html-fill-item" id="htmlwidget-e7f6d343c5f2d194cb7e" style="width:100%;height:auto;"></div>
+<script type="application/json" data-for="htmlwidget-e7f6d343c5f2d194cb7e">{"x":{"filter":"none","vertical":false,"data":[["<a href=\"https://www.tiktok.com/@oeplbsknc6/video/7571352012902731038\" target=\"_blank\" class=\"btn btn-sm\" style=\"background-color: #00926c; color: white; text-decoration: none; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;\">View Post<\/a>","<a href=\"https://www.tiktok.com/@basilberthaeq0301/video/7570975946145025293\" target=\"_blank\" class=\"btn btn-sm\" style=\"background-color: #00926c; color: white; text-decoration: none; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;\">View Post<\/a>","<a href=\"https://www.tiktok.com/@oeplbsknc6/video/7570975934346562847\" target=\"_blank\" class=\"btn btn-sm\" style=\"background-color: #00926c; color: white; text-decoration: none; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;\">View Post<\/a>","<a href=\"https://www.tiktok.com/@basilberthaeq0301/video/7570975826682858766\" target=\"_blank\" class=\"btn btn-sm\" style=\"background-color: #00926c; color: white; text-decoration: none; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;\">View Post<\/a>","<a href=\"https://www.tiktok.com/@oeplbsknc6/video/7570975805203811614\" target=\"_blank\" class=\"btn btn-sm\" style=\"background-color: #00926c; color: white; text-decoration: none; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;\">View Post<\/a>","<a href=\"https://www.tiktok.com/@basilberthaeq0301/video/7570975623863160077\" target=\"_blank\" class=\"btn btn-sm\" style=\"background-color: #00926c; color: white; text-decoration: none; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;\">View Post<\/a>","<a href=\"https://www.tiktok.com/@oeplbsknc6/video/7570975616330255647\" target=\"_blank\" class=\"btn btn-sm\" style=\"background-color: #00926c; color: white; text-decoration: none; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;\">View Post<\/a>","<a href=\"https://www.tiktok.com/@basilberthaeq0301/video/7570975329712442638\" target=\"_blank\" class=\"btn btn-sm\" style=\"background-color: #00926c; color: white; text-decoration: none; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;\">View Post<\/a>","<a href=\"https://www.tiktok.com/@oeplbsknc6/video/7570975293121334558\" target=\"_blank\" class=\"btn btn-sm\" style=\"background-color: #00926c; color: white; text-decoration: none; padding: 2px 8px; border-radius: 4px; font-size: 0.8em;\">View Post<\/a>"],[1,1,1,1,1,1,1,1,1],["oeplbsknc6","basilberthaeq0301","oeplbsknc6","basilberthaeq0301","oeplbsknc6","basilberthaeq0301","oeplbsknc6","basilberthaeq0301","oeplbsknc6"],["2025-11-11 06:33:00","2025-11-10 06:14:22","2025-11-10 06:14:01","2025-11-10 06:13:49","2025-11-10 06:12:59","2025-11-10 06:12:52","2025-11-10 06:12:56","2025-11-10 06:11:54","2025-11-10 06:11:28"],[1,1,1,1,1,1,1,1,1],[1557,941,10628,357,4612,891,3728,1157,3629],[14,26,128,15,44,20,17,38,16],[0,1,1,1,1,0,0,0,0],[0,1,1,10,0,0,3,1,1],["KondisiterkinimusholaPONPESAIKhozinySidoarjoambruksaatsalatashar.#jtvjember#evakuasi#sidoarjo#fyp","KondisiterkinimusholaPONPESAIKhozinySidoarjoambruksaatsalatashar.#jtvjember#evakuasi#sidoarjo#fyp","KondisiterkinimusholaPONPESAIKhozinySidoarjoambruksaatsalatashar.#jtvjember#evakuasi#sidoarjo#fyp","KondisiterkinimusholaPONPESAIKhozinySidoarjoambruksaatsalatashar.#jtvjember#evakuasi#sidoarjo#fyp","KondisiterkinimusholaPONPESAIKhozinySidoarjoambruksaatsalatashar.#jtvjember#evakuasi#sidoarjo#fyp","KondisiterkinimusholaPONPESAIKhozinySidoarjoambruksaatsalatashar.#jtvjember#evakuasi#sidoarjo#fyp","KondisiterkinimusholaPONPESAIKhozinySidoarjoambruksaatsalatashar.#jtvjember#evakuasi#sidoarjo#fyp","KondisiterkinimusholaPONPESAIKhozinySidoarjoambruksaatsalatashar.#jtvjember#evakuasi#sidoarjo#fyp","KondisiterkinimusholaPONPESAIKhozinySidoarjoambruksaatsalatashar.#jtvjember#evakuasi#sidoarjo#fyp"]],"container":"<table class=\"display\">\n  <thead>\n    <tr>\n      <th>Post URL<\/th>\n      <th>Network<\/th>\n      <th>Author<\/th>\n      <th>Timestamp<\/th>\n      <th>Number of Accounts<\/th>\n      <th>Views<\/th>\n      <th>Likes<\/th>\n      <th>Comments<\/th>\n      <th>Shares<\/th>\n      <th>Description<\/th>\n    <\/tr>\n  <\/thead>\n<\/table>","options":{"pageLength":10,"scrollX":true,"initComplete":"function(settings, json) { $(this.api().table().container()).css({'font-size': '9px'}); }","order":[[3,"desc"]],"columnDefs":[{"className":"dt-right","targets":[1,4,5,6,7,8]},{"name":"Post URL","targets":0},{"name":"Network","targets":1},{"name":"Author","targets":2},{"name":"Timestamp","targets":3},{"name":"Number of Accounts","targets":4},{"name":"Views","targets":5},{"name":"Likes","targets":6},{"name":"Comments","targets":7},{"name":"Shares","targets":8},{"name":"Description","targets":9}],"autoWidth":false,"orderClasses":false}},"evals":["options.initComplete"],"jsHooks":[]}</script>
 </div>
 </div>
 <div class="cell">
@@ -352,7 +333,7 @@ Error Details
         <li>Network graph (GraphML format)</li>
         <li>README file with detailed field descriptions</li>
       </ul>
-      <a href="daily/2025-11-16/coordination_results_2025-11-16.zip" download="" class="btn btn-primary" style="display: inline-block; padding: 8px 16px; background-color: #00926c; color: white; text-decoration: none; border-radius: 4px; border: none; font-family: 'Comfortaa', sans-serif;">
+      <a href="daily/2025-11-17/coordination_results_2025-11-17.zip" download="" class="btn btn-primary" style="display: inline-block; padding: 8px 16px; background-color: #00926c; color: white; text-decoration: none; border-radius: 4px; border: none; font-family: 'Comfortaa', sans-serif;">
         Download Results Package
       </a>
     </div>
@@ -361,7 +342,7 @@ Error Details
 </div>
 </section>
 </section>
-
+</section>
 <section id="about" class="level1" data-number="3">
 <h1 data-number="3"><span class="header-section-number">3</span> About</h1>
 <table class="table">
