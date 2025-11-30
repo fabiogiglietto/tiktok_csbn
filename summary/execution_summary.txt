@@ -1,1 +1,44 @@
-We attempted to retrieve videos from **10,017 monitored accounts**, during the period from November 22, 2025 to November 29, 2025. We successfully retrieved **408 recent videos**. Using available data, we accessed a total of **3,484 videos** posted on TikTok within the timeframe. Our analysis for coordinated detection in these videos identified **113 accounts** spread across **41 components**, and it also uncovered **87 new accounts** exhibiting coordinated behavior.
+We attempted to retrieve videos from **10,017 monitored accounts**, during the period from November 23, 2025 to November 30, 2025. We successfully retrieved **3,153 recent videos**. No videos were available for analysis after the full fetch process (possibly due to API quota or no matching descriptions). We were unable to perform coordinated detection analysis due to insufficient data or no coordination detected. 
+
+ ::: {.callout-warning}
+
+Warning: 225 errors were encountered during execution. Results may be incomplete. Please check the error summary below for details.
+
+:::
+
+
+<details>
+<summary>Error Details</summary>
+
+
+**Total errors encountered:** 225
+
+### Errors by type:
+
+
+         chunk_error daily_quota_exceeded          empty_chunk 
+                 195                    1                   29 
+
+### Sample Errors:
+
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 20251130032644A41D16D553B6097DC5E7
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 2025113000343077A616EEBE8BAA72954B
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 202511300532443225EBB53C945385B3A8
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 20251130004835BFBB101A43BCE773C6E4
+- **Type:** chunk_error, **Message:** HTTP 500 Internal Server Error.
+• status: internal_error
+• message: Something is wrong. Please try again later.
+• log_id: 2025113004163758A72356C94C8281449F
+</details>
